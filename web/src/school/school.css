@@ -349,3 +349,9 @@
   .s-recent { grid-area: recent; }
   .s-past { grid-area: past; }
 }
+
+/* Live demo note under the school name */
+.s-bar__note {
+  color: var(--slate);
+  font-size: var(--text-sm);
+}

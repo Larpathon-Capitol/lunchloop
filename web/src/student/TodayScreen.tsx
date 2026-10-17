@@ -1,6 +1,6 @@
 // Home: streak and XP, the spin and vote, and the school waste meter. That's it.
 import { motion, useReducedMotion } from 'framer-motion'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { api, ApiError, type Spin, type SpinOption, type VoteResult } from '../shared/api'
 import { copy } from '../shared/copy'
@@ -8,6 +8,7 @@ import { fmtDay } from '../shared/format'
 import { sound } from '../shared/sound'
 import { ErrorNotice, Loading } from '../shared/ui/Notice'
 import { SimulatedTag } from '../shared/ui/SimulatedTag'
+import { useGameBase } from '../shared/studentSchool'
 import { useApi } from '../shared/useApi'
 import { burstFrom } from './confetti'
 import { FoodGlyph } from './FoodGlyph'
@@ -119,6 +120,15 @@ export function TodayScreen() {
       {shows(meterError) && <ErrorNotice error={meterError!} onRetry={reloadMeter} />}
       {meter.state === 'ready' && <WasteMeter meter={meter.data} />}
     </div>
+  )
+}
+
+function CalledItLink({ children }: { children: ReactNode }) {
+  const { base, search } = useGameBase()
+  return (
+    <Link to={`${base}/called-it${search}`} className="btn btn--quiet panel__cta">
+      {children}
+    </Link>
   )
 }
 
@@ -240,9 +250,7 @@ function SpinPanel({ spin, device, catalog, addToCatalog, showFood, stored, next
         </h2>
         <p className="panel__lead">{t.done.body(slot, day)}</p>
         {error && <p className="panel__note">{error}</p>}
-        <Link to="/student/called-it" className="btn btn--quiet panel__cta">
-          {nextLabel}
-        </Link>
+        <CalledItLink>{nextLabel}</CalledItLink>
       </section>
     )
   }
@@ -386,9 +394,7 @@ function VotedPanel({ spin, result, chosen, storedXp, fresh, nextLabel }: VotedP
         })}
       </ul>
       <p className="panel__note num">{t.voted.total(total)}</p>
-      <Link to="/student/called-it" className="btn btn--quiet panel__cta">
-        {nextLabel}
-      </Link>
+      <CalledItLink>{nextLabel}</CalledItLink>
     </motion.section>
   )
 }

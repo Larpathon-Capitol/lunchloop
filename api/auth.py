@@ -7,6 +7,7 @@ import json
 import os
 import secrets
 import time
+import logging
 
 
 ITERATIONS = 200_000
@@ -36,7 +37,11 @@ def verify_password(password, encoded):
 def configured_passwords():
     result = {}
     for entry in os.getenv("LUNCHLOOP_SCHOOL_PASSWORDS", "").split(","):
+        entry = entry.strip()
+        if not entry:
+            continue
         if "=" not in entry:
+            logging.warning("Ignoring malformed school password entry")
             continue
         school, encoded = (part.strip() for part in entry.split("=", 1))
         try:
@@ -46,6 +51,11 @@ def configured_passwords():
             bytes.fromhex(digest)
         except (ValueError, TypeError):
             valid = False
+        if not valid:
+            logging.warning(
+                "Ignoring malformed or weak school password entry for %s",
+                school or "unknown school",
+            )
         if school and valid:
             result[school] = encoded
     return result

@@ -1,4 +1,5 @@
 // All user-facing words live here (and in the files it pulls in), so wording stays consistent.
+import { hub } from './copy/hub'
 import { kitchen } from './copy/kitchen'
 import { school } from './copy/school'
 import { student } from './copy/student'
@@ -10,6 +11,8 @@ export const copy = {
     simulatedHelp: 'Every number here comes from a made-up school, not a real cafeteria.',
     navSchool: 'School',
     navStudent: 'Student',
+    navBackstage: 'Behind the scenes',
+    liveLabel: 'Live demo',
     navLabel: 'Main sections',
     skipToMain: 'Skip to main content',
     sound: 'Sound',
@@ -18,6 +21,10 @@ export const copy = {
     titleHome: 'LunchLoop',
     titleSchool: 'School | LunchLoop',
     titleStudent: 'Student | LunchLoop',
+    titleLive: 'Live demo | LunchLoop',
+    titleLiveAdmin: 'Live demo panel | LunchLoop',
+    titleHub: 'Hub | LunchLoop',
+    titleBackstage: 'Behind the scenes | LunchLoop',
   },
   home: {
     titleLines: ['Vote on lunch.', 'The kitchen cooks it.'],
@@ -36,6 +43,7 @@ export const copy = {
     retry: 'Try again',
   },
   loading: 'Loading…',
+  hub,
   kitchen,
   student,
   school,

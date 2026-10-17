@@ -4,6 +4,7 @@ import type { AdminSummary } from '../shared/api'
 import { copy } from '../shared/copy'
 import { fmtDay, fmtInt } from '../shared/format'
 import { useReducedMotion } from '../shared/motion'
+import { DEMO_SCHOOL, LIVE_SCHOOL } from '../shared/studentSchool'
 import { ErrorNotice, Loading } from '../shared/ui/Notice'
 import { SimulatedTag } from '../shared/ui/SimulatedTag'
 import type { SchoolSession } from './session'
@@ -37,8 +38,10 @@ function LiveCount({ value, format = fmtInt }: { value: number; format?: (n: num
 }
 
 function studentLink(schoolId: string) {
-  const query = schoolId === 'demo' ? '' : `?school=${encodeURIComponent(schoolId)}`
-  return `${window.location.origin}${import.meta.env.BASE_URL}student${query}`
+  const base = `${window.location.origin}${import.meta.env.BASE_URL}`
+  if (schoolId === LIVE_SCHOOL) return `${base}live`
+  const query = schoolId === DEMO_SCHOOL ? '' : `?school=${encodeURIComponent(schoolId)}`
+  return `${base}student${query}`
 }
 
 function CopyLink({ schoolId }: { schoolId: string }) {

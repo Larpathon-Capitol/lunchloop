@@ -9,6 +9,7 @@ import { CalledItScreen } from './CalledItScreen'
 import { FoodSheet } from './FoodSheet'
 import { screenSpring, instant } from './springs'
 import { StudentProvider } from './state'
+import { useGameBase } from '../shared/studentSchool'
 import { TodayScreen } from './TodayScreen'
 import './student.css'
 
@@ -16,7 +17,7 @@ const t = copy.student.tabs
 
 const TABS = [
   {
-    to: '/student',
+    to: '',
     label: t.today,
     icon: (
       <>
@@ -26,7 +27,7 @@ const TABS = [
     ),
   },
   {
-    to: '/student/called-it',
+    to: '/called-it',
     label: t.calledIt,
     icon: (
       <>
@@ -37,7 +38,7 @@ const TABS = [
     ),
   },
   {
-    to: '/student/badges',
+    to: '/badges',
     label: t.badges,
     icon: (
       <>
@@ -89,13 +90,14 @@ function Screens() {
 
 function TabBar() {
   const reduce = useReducedMotion()
+  const { base, search } = useGameBase()
   return (
     <nav className="tabbar" aria-label={t.label}>
       <LayoutGroup id="student-tabs">
         <ul className="tabbar__list">
           {TABS.map((tab) => (
             <li key={tab.to}>
-              <NavLink to={tab.to} end className="tabbar__link">
+              <NavLink to={`${base}${tab.to}${search}`} end className="tabbar__link">
                 {({ isActive }) => (
                   <>
                     {isActive && (

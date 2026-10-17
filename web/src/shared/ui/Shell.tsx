@@ -32,16 +32,32 @@ export function Shell() {
   const muted = useMuted()
   const reduce = !!useReducedMotion()
   const { pathname } = useLocation()
+  const [, seg1 = '', seg2 = ''] = pathname.split('/')
   // One key per top-level view, so the Student view's own sub-routes never remount.
-  const view = pathname.split('/')[1] || 'home'
+  const view = seg1 || 'home'
+  const liveAdmin = view === 'live' && seg2 === 'admin'
+  // The student game, in the simulated school or the live one.
+  const inGame = (view === 'student' || view === 'live') && !liveAdmin
+  // Peers on /live (and anywhere they tap from there) get a header with nowhere to wander to.
+  const liveGame = inGame && view === 'live'
+  // /student and /live get separate keys, so switching between them starts the game fresh in the other school.
+  const viewKey = liveAdmin ? 'live-admin' : liveGame ? 'game-live' : inGame ? 'game' : view
   const mainRef = useRef<HTMLElement>(null)
   const firstRender = useRef(true)
   const skipEnter = firstRender.current
   firstRender.current = false
 
   useEffect(() => {
-    document.title = view === 'school' ? copy.app.titleSchool : view === 'student' ? copy.app.titleStudent : copy.app.titleHome
-  }, [view])
+    const titles: Record<string, string> = {
+      school: copy.app.titleSchool,
+      game: copy.app.titleStudent,
+      'game-live': copy.app.titleLive,
+      'live-admin': copy.app.titleLiveAdmin,
+      hub: copy.app.titleHub,
+      'behind-the-scenes': copy.app.titleBackstage,
+    }
+    document.title = titles[viewKey] ?? copy.app.titleHome
+  }, [viewKey, liveGame])
 
   return (
     <>
@@ -57,14 +73,26 @@ export function Shell() {
       </a>
       <header className="shell__bar">
         <div className="shell__inner">
-          <Link to="/" className="shell__brand">
-            <Logo />
-            <span className="shell__brand-name">{copy.app.name}</span>
-          </Link>
-          <nav className="shell__nav" aria-label={copy.app.navLabel}>
-            <NavItem to="/student" label={copy.app.navStudent} reduce={reduce} />
-            <NavItem to="/school" label={copy.app.navSchool} reduce={reduce} />
-          </nav>
+          {liveGame ? (
+            <span className="shell__brand shell__brand--static">
+              <Logo />
+              <span className="shell__brand-name">{copy.app.name}</span>
+            </span>
+          ) : (
+            <Link to="/" className="shell__brand">
+              <Logo />
+              <span className="shell__brand-name">{copy.app.name}</span>
+            </Link>
+          )}
+          {liveGame ? (
+            <p className="shell__live">{copy.app.liveLabel}</p>
+          ) : (
+            <nav className="shell__nav" aria-label={copy.app.navLabel}>
+              <NavItem to="/student" label={copy.app.navStudent} reduce={reduce} />
+              <NavItem to="/school" label={copy.app.navSchool} reduce={reduce} />
+              <NavItem to="/behind-the-scenes" label={copy.app.navBackstage} reduce={reduce} />
+            </nav>
+          )}
           <button
             className="shell__mute"
             onClick={() => setMuted(!muted)}
@@ -81,7 +109,7 @@ export function Shell() {
       </header>
       {/* Opacity only: a transform here would trap position:fixed sheets inside the Student view. */}
       <motion.main
-        key={view}
+        key={viewKey}
         id="main"
         ref={mainRef}
         tabIndex={-1}

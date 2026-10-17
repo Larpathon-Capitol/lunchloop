@@ -3,6 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { api, ApiError, type Allergen, type Component, type Me, type PrepList, type SpinOption, type VoteResult } from '../shared/api'
 import { deviceId } from '../shared/device'
+import { activeStudentSchool } from '../shared/studentSchool'
 
 export interface FoodInfo {
   item_id: string
@@ -27,7 +28,7 @@ export interface StoredVote {
   gained: number | null
 }
 
-const voteKey = (date: string) => `lunchloop.vote.${date}`
+const voteKey = (date: string) => `lunchloop.vote.${activeStudentSchool()}.${date}`
 
 /** Reads today's stored vote. Storage can be blocked (private modes), so this never throws. */
 export function readStoredVote(date: string, device: string): StoredVote | null {

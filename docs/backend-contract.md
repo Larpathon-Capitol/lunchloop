@@ -148,7 +148,7 @@ Student routes (`spin`, `vote`, `guess`, `me`) take an optional `school` (query 
 | method and path | request | response |
 | --- | --- | --- |
 | GET /api/schools | | `{"schools": [{"school_id", "name", "demo_password": str or null}], "simulated": true}` (`demo_password` is set only when the school uses the public demo password) |
-| POST /api/admin/login | `{"school_id", "password"}` | `{"token", "school": {"school_id", "name"}, "expires_at", "simulated": true}`; 401 `{"error": "wrong school or password"}`; 429 when blocked |
+| POST /api/admin/login | `{"school_id", "password"}` | `{"token", "school": {"school_id", "name"}, "expires_at" (ISO UTC time), "simulated": true}`; 401 `{"error": "wrong school or password"}`; 429 when blocked |
 | GET /api/admin/summary | header `Authorization: Bearer <token>` | see below; 401 when the token is missing, wrong or expired |
 
 `/api/admin/summary` response, for the token's school and the demo clock's today:
@@ -196,5 +196,5 @@ Events: the server keeps the newest 300 in memory (lost on restart). `kind` is o
 
 - The interactive docs (`/docs`, `/redoc`, `/openapi.json`) are off unless env `LUNCHLOOP_DOCS=1`.
 - Request bodies over 16 KB get 413.
-- Each client IP may make 600 requests a minute, and 60 votes plus guesses in 10 minutes (a whole class can share one school Wi-Fi address). Over the limit: 429 `{"error": "slow down a little"}`.
+- Each client IP may make 3,000 requests a minute, and 300 votes plus guesses in 10 minutes (a whole class can share one school Wi-Fi address). Over the limit: 429 `{"error": "slow down a little"}`.
 - Every response carries `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer` and `X-Frame-Options: DENY`; admin responses also carry `Cache-Control: no-store`.

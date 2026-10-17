@@ -132,6 +132,7 @@ export interface Schools {
 export interface AdminLogin {
   token: string
   school: { school_id: string; name: string }
+  /** ISO UTC time. */
   expires_at: string
   simulated: true
 }
@@ -160,6 +161,51 @@ export interface AdminSummary {
 export interface Health {
   ok: true
   today: string
+  simulated: true
+}
+
+export type EventKind =
+  | 'spin' | 'vote' | 'guess' | 'staff_sign_in' | 'staff_sign_in_failed'
+  | 'prep' | 'savings' | 'simulate' | 'meter' | 'rate_limited'
+
+export interface ServerEvent {
+  id: number
+  at: string
+  kind: EventKind
+  school_id: string | null
+  /** Anonymous 6-character tag for one device, or null. */
+  player: string | null
+  summary: string
+  detail: Record<string, unknown>
+  ms: number | null
+}
+
+export interface Events {
+  events: ServerEvent[]
+  latest_id: number
+  simulated: true
+}
+
+export interface ForecastTrace {
+  item_id: string
+  name: string
+  date: string
+  weekday: string
+  ratio: number
+  history: { date: string; attendance: number; taken: number; rate: number }[]
+  mean_rate: number
+  attendance: number
+  attendance_history: { date: string; attendance: number }[]
+  predicted: number
+  misses: number[]
+  sigma: number
+  sigma_fallback: boolean
+  service_level: number
+  z: number
+  buffer: number
+  floor: number
+  prep: number
+  reason: string
   simulated: true
 }
 
@@ -224,4 +270,7 @@ export const api = {
   schools: () => request<Schools>('/schools'),
   adminLogin: (school_id: string, password: string) => request<AdminLogin>('/admin/login', post({ school_id, password })),
   adminSummary: (token: string) => request<AdminSummary>('/admin/summary', bearer(token)),
+  events: (after = 0, limit?: number) => request<Events>(`/events${query({ after, limit })}`),
+  traceForecast: (item_id: string, date?: string, ratio?: number) =>
+    request<ForecastTrace>(`/trace/forecast${query({ item_id, date, ratio })}`),
 }

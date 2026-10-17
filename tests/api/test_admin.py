@@ -13,6 +13,7 @@ import json
 import shutil
 import sqlite3
 import time
+from datetime import datetime
 from pathlib import Path
 
 import pytest
@@ -136,7 +137,8 @@ def test_schools_lists_demo_with_public_password(client):
     assert response.status_code == 200
     assert response.json() == {
         "schools": [
-            {"school_id": "demo", "name": "Simulated high school", "demo_password": "lunchloop"}
+            {"school_id": "demo", "name": "Simulated high school", "demo_password": "lunchloop"},
+            {"school_id": "live", "name": "LunchLoop live demo", "demo_password": None},
         ],
         "simulated": True,
     }
@@ -147,7 +149,8 @@ def test_schools_hides_demo_password_once_hash_configured(monkeypatch, tmp_path)
     with make_client(monkeypatch, tmp_path) as c:
         body = c.get("/api/schools").json()
         assert body["schools"] == [
-            {"school_id": "demo", "name": "Simulated high school", "demo_password": None}
+            {"school_id": "demo", "name": "Simulated high school", "demo_password": None},
+            {"school_id": "live", "name": "LunchLoop live demo", "demo_password": None},
         ]
         assert login(c, "demo", "lunchloop").status_code == 401
         ok = login(c, "demo", "demo-secret-pw")
@@ -190,12 +193,13 @@ def test_demo_login_returns_token_school_and_12h_expiry(client):
     assert set(body) == {"token", "school", "expires_at", "simulated"}
     assert body["simulated"] is True
     assert body["school"] == {"school_id": "demo", "name": "Simulated high school"}
-    assert abs(body["expires_at"] - (before + 12 * 3600)) < 60
+    expires_at = datetime.fromisoformat(body["expires_at"].replace("Z", "+00:00")).timestamp()
+    assert abs(expires_at - (before + 12 * 3600)) < 60
     # token format from the contract: <base64url JSON payload>.<hex HMAC-SHA256>
     raw, signature = body["token"].split(".")
     assert signature == sign(raw)
     payload = json.loads(base64.urlsafe_b64decode(raw + "=" * (-len(raw) % 4)))
-    assert payload == {"s": "demo", "exp": body["expires_at"]}
+    assert payload == {"s": "demo", "exp": int(expires_at)}
 
 
 def test_wrong_password_and_unknown_school_give_identical_401(client):

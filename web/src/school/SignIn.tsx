@@ -1,29 +1,60 @@
 import { useEffect, useId, useRef, useState } from 'react'
-import type { FormEvent } from 'react'
+import type { FormEvent, ReactNode } from 'react'
 import { api, ApiError } from '../shared/api'
 import type { School } from '../shared/api'
 import { copy } from '../shared/copy'
+import { LIVE_SCHOOL } from '../shared/studentSchool'
 import { useApi } from '../shared/useApi'
 import { ErrorNotice, Loading } from '../shared/ui/Notice'
 import type { SchoolSession } from './session'
 
 const t = copy.school.signIn
 
-export function SignIn({ onSignedIn, expired }: { onSignedIn: (s: SchoolSession) => void; expired: boolean }) {
-  const [schools, reloadSchools] = useApi(() => api.schools(), [])
+interface SignInProps {
+  onSignedIn: (s: SchoolSession) => void
+  expired: boolean
+  /** Set for the live demo page: that one school, no picker, no demo shortcut. */
+  lockedSchool?: string
+}
+
+function Frame({ title, lead, expired, children }: { title: string; lead: string; expired: boolean; children: ReactNode }) {
   return (
     <div className="s-signin">
-      <h1 className="s-signin__title">{t.title}</h1>
-      <p className="s-signin__lead">{t.lead}</p>
+      <h1 className="s-signin__title">{title}</h1>
+      <p className="s-signin__lead">{lead}</p>
       {expired && (
         <p className="s-signin__expired" role="status">
           {t.expired}
         </p>
       )}
+      {children}
+    </div>
+  )
+}
+
+export function SignIn({ onSignedIn, expired, lockedSchool }: SignInProps) {
+  if (lockedSchool) {
+    const live = copy.school.live
+    return (
+      <Frame title={live.title} lead={live.lead} expired={expired}>
+        <Form schools={[{ school_id: lockedSchool, name: live.name, demo_password: null }]} onSignedIn={onSignedIn} />
+      </Frame>
+    )
+  }
+  return <PickerSignIn onSignedIn={onSignedIn} expired={expired} />
+}
+
+function PickerSignIn({ onSignedIn, expired }: Omit<SignInProps, 'lockedSchool'>) {
+  const [schools, reloadSchools] = useApi(() => api.schools(), [])
+  return (
+    <Frame title={t.title} lead={t.lead} expired={expired}>
       {schools.state === 'loading' && <Loading label={t.schoolsLoading} />}
       {schools.state === 'error' && <ErrorNotice error={schools.error} onRetry={reloadSchools} />}
-      {schools.state === 'ready' && <Form schools={schools.data.schools} onSignedIn={onSignedIn} />}
-    </div>
+      {/* The live demo has its own page, so it stays out of this picker. */}
+      {schools.state === 'ready' && (
+        <Form schools={schools.data.schools.filter((s) => s.school_id !== LIVE_SCHOOL)} onSignedIn={onSignedIn} />
+      )}
+    </Frame>
   )
 }
 

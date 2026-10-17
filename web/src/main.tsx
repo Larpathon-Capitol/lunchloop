@@ -1,9 +1,9 @@
 import { lazy, StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
+import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import './shared/base.css'
 import './shared/ui/ui.css'
-import { setStudentSchool } from './shared/api'
+import { applyStudentSchool, LIVE_SCHOOL, schoolForStudentUrl } from './shared/studentSchool'
 import { Shell } from './shared/ui/Shell'
 import { Home } from './Home'
 
@@ -11,8 +11,20 @@ import { Home } from './Home'
 const SchoolArea = lazy(() => import('./school/SchoolArea').then((m) => ({ default: m.SchoolArea })))
 const StudentView = lazy(() => import('./student/StudentView').then((m) => ({ default: m.StudentView })))
 
-// A student link like /student?school=demo picks the school before anything loads.
-setStudentSchool(new URLSearchParams(location.search).get('school'))
+const Hub = lazy(() => import('./hub/Hub').then((m) => ({ default: m.Hub })))
+const Backstage = lazy(() => import('./backstage/Backstage').then((m) => ({ default: m.Backstage })))
+
+/**
+ * The student game. /student plays in the simulated school (or the one in ?school=), /live plays in
+ * the real live demo school. The school is set while this renders, before StudentView's effects
+ * make their first request. One component serves both paths so moving between them never remounts.
+ */
+function GameRoute() {
+  const { pathname, search } = useLocation()
+  const live = pathname.split('/')[1] === 'live'
+  applyStudentSchool(live ? LIVE_SCHOOL : schoolForStudentUrl(search))
+  return <StudentView />
+}
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
@@ -21,8 +33,12 @@ createRoot(document.getElementById('root')!).render(
         <Route element={<Shell />}>
           <Route index element={<Home />} />
           <Route path="kitchen" element={<Navigate to="/school/kitchen" replace />} />
+          <Route path="hub" element={<Hub />} />
           <Route path="school/*" element={<SchoolArea />} />
-          <Route path="student/*" element={<StudentView />} />
+          <Route path="student/*" element={<GameRoute />} />
+          <Route path="live/admin/*" element={<SchoolArea lockedSchool={LIVE_SCHOOL} base="/live/admin" />} />
+          <Route path="live/*" element={<GameRoute />} />
+          <Route path="behind-the-scenes" element={<Backstage />} />
           <Route path="*" element={<Home />} />
         </Route>
       </Routes>

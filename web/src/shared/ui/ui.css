@@ -104,6 +104,7 @@ a.btn {
   color: var(--slate);
   text-decoration: none;
   font-weight: 500;
+  white-space: nowrap;
   position: relative;
   transition: color var(--t-fast) var(--ease);
 }
@@ -136,9 +137,24 @@ a.btn {
 .shell__mute:hover {
   color: var(--ink);
 }
+/* The stripped header on the live page: no links, just a quiet label. */
+.shell__live {
+  margin: 0;
+  color: var(--slate);
+  font-size: var(--text-sm);
+}
+
 /* Below ~420px the nav needs the room: the logo stays, the name is read aloud only. */
 @media (max-width: 419px) {
-  .shell__brand-name {
+  .shell__link {
+    padding: 0 var(--s1);
+    font-size: var(--text-sm);
+  }
+  .shell__underline {
+    left: var(--s1);
+    right: var(--s1);
+  }
+  .shell__brand:not(.shell__brand--static) .shell__brand-name {
     position: absolute;
     width: 1px;
     height: 1px;

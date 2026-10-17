@@ -20,6 +20,13 @@ export const school = {
     schoolsLoading: 'Loading schools…',
   },
 
+  live: {
+    name: 'LunchLoop live demo',
+    title: 'Live demo sign-in',
+    lead: 'See what the people in the room are voting for, as they vote.',
+    note: 'Real votes from real people, not simulated.',
+  },
+
   wants: {
     title: 'What students want',
     loading: 'Loading what students want…',

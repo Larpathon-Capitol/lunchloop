@@ -91,6 +91,9 @@ def backtest(weeks=4, ratio=3.0, data_dir=None):
         "net_dollars_saved": round(net_dollars_saved, 2),
         "series": series,
     }
+    # Keep memory bounded: callers can ask for many ratio values.
+    if len(_CACHE) >= 32:
+        _CACHE.clear()
     _CACHE[cache_key] = copy.deepcopy(result)
     return result
 

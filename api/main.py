@@ -7,6 +7,7 @@ import hmac
 import re
 import threading
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 from contextlib import asynccontextmanager, closing
 
@@ -30,6 +31,9 @@ from .game import (
     today,
     valid_num,
 )
+from .events import EventStore
+from .limits import LimitsMiddleware, SecurityHeadersMiddleware
+from .trace import trace_forecast
 
 MAX_RATIO = 99
 MAX_MULTIPLIER = 10
@@ -78,7 +82,11 @@ FAILURE_WINDOW = 600
 MAX_FAILURES = 5
 
 
-def create_app():
+def create_app(max_requests=3000, max_actions=300, body_limit=16 * 1024, request_limit=None, vote_limit=None):
+    if request_limit is not None:
+        max_requests = request_limit
+    if vote_limit is not None:
+        max_actions = vote_limit
     settings = {
         "data": os.getenv("LUNCHLOOP_DATA_DIR", "data"),
         "db": os.getenv("LUNCHLOOP_DB", "lunchloop.db"),
@@ -104,14 +112,29 @@ def create_app():
         application.state.schools = schools
         application.state.passwords = configured_passwords()
         application.state.settings = settings
+        application.state.events = EventStore()
         yield
 
-    application = FastAPI(lifespan=lifespan)
+    docs_enabled = os.getenv("LUNCHLOOP_DOCS") == "1"
+    application = FastAPI(
+        lifespan=lifespan,
+        docs_url="/docs" if docs_enabled else None,
+        redoc_url="/redoc" if docs_enabled else None,
+        openapi_url="/openapi.json" if docs_enabled else None,
+    )
     origins = [
         origin.strip()
         for origin in os.getenv("LUNCHLOOP_CORS_ORIGIN", "*").split(",")
         if origin.strip()
     ]
+    # Added innermost first: limits, then CORS (so limit errors still carry CORS headers), then headers.
+    application.add_middleware(
+        LimitsMiddleware,
+        max_requests=max_requests,
+        max_actions=max_actions,
+        body_limit=body_limit,
+        event_store=lambda: application.state.events,
+    )
     application.add_middleware(
         CORSMiddleware,
         allow_origins=origins,
@@ -119,6 +142,7 @@ def create_app():
         allow_headers=["*"],
         allow_credentials=False,
     )
+    application.add_middleware(SecurityHeadersMiddleware)
 
     async def http_error(request, exception):
         detail = getattr(exception, "detail", "error")
@@ -134,9 +158,15 @@ def create_app():
     application.add_exception_handler(RequestValidationError, validation_error)
     application.add_exception_handler(Exception, unexpected_error)
 
-    def request_context(request):
+    def request_context(request, selected_school=None):
         request_settings = request.app.state.settings
+        if selected_school == "live":
+            return request_settings, request_settings["today"]
         return request_settings, today(request, request_settings)
+
+    def record(request, kind, school_id=None, device_id=None, summary="", detail=None, started=None):
+        elapsed = (time.perf_counter() - started) * 1000 if started is not None else None
+        request.app.state.events.add(kind, school_id, device_id, summary, detail, elapsed)
 
     def school_id(request, value):
         selected = value or "demo"
@@ -163,6 +193,7 @@ def create_app():
         selected = body.school_id
         # An unknown school has nothing to guess, so it is never counted.
         if selected not in request.app.state.schools:
+            record(request, "staff_sign_in_failed", None, summary="A staff sign in failed", detail={"school_id": None})
             raise HTTPException(401, "wrong school or password")
         configured = request.app.state.passwords.get(selected)
         public_demo = selected == "demo" and not configured
@@ -183,18 +214,21 @@ def create_app():
         else:
             valid = public_demo and hmac.compare_digest(body.password.encode(), b"lunchloop")
         if not valid:
+            record(request, "staff_sign_in_failed", selected, summary="A staff sign in failed", detail={"school_id": selected})
             raise HTTPException(401, "wrong school or password")
         if not public_demo:
             with failures_lock:
                 failures.pop(key, None)
         token, expires = make_token(selected)
         school = request.app.state.schools[selected]
-        return {"token": token, "school": {"school_id": school["school_id"], "name": school["name"]}, "expires_at": expires, "simulated": True}
+        record(request, "staff_sign_in", selected, summary="A staff member signed in")
+        expires_at = datetime.fromtimestamp(expires, timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
+        return {"token": token, "school": {"school_id": school["school_id"], "name": school["name"]}, "expires_at": expires_at, "simulated": True}
 
     @application.get("/api/admin/summary")
     def admin_summary(request: Request):
         selected = admin_school(request)
-        settings, current_date = request_context(request)
+        settings, current_date = request_context(request, selected)
         school = request.app.state.schools[selected]
         with closing(connect(settings["db"])) as connection:
             option = connection.execute("SELECT * FROM vote_options WHERE open_date=?", (current_date,)).fetchone()
@@ -242,8 +276,8 @@ def create_app():
 
     @application.get("/api/spin")
     def spin(request: Request, device_id: str | None = Query(None, alias="device"), school: str | None = None):
-        request_settings, current_date = request_context(request)
         selected_school = school_id(request, school)
+        request_settings, current_date = request_context(request, selected_school)
         player_device = device(device_id, required=False)
         with closing(connect(request_settings["db"])) as connection:
             if player_device:
@@ -279,6 +313,8 @@ def create_app():
                     (selected_school, player_device, current_date),
                 ).fetchone()
             )
+        if player_device:
+            record(request, "spin", selected_school, player_device, "A player spun the menu", {"date": current_date})
         return {
             "date": current_date,
             "target_date": option_row["target_date"],
@@ -288,20 +324,49 @@ def create_app():
             "simulated": True,
         }
 
+    @application.get("/api/events")
+    def events(request: Request, after: str = "0", limit: str = "50"):
+        try:
+            after_number = int(after)
+            limit_number = int(limit)
+        except (TypeError, ValueError):
+            raise HTTPException(400, "bad input")
+        if after_number < 0 or limit_number < 1 or limit_number > 100:
+            raise HTTPException(400, "bad input")
+        rows, latest = request.app.state.events.after(after_number, limit_number)
+        return {"events": rows, "latest_id": latest, "simulated": True}
+
+    @application.get("/api/trace/forecast")
+    def trace(request: Request, item_id: str, date_value: str | None = Query(None, alias="date"), ratio: float = 3.0):
+        settings, current_date = request_context(request)
+        target_date = parse_date(date_value or current_date).isoformat()
+        with closing(connect(settings["db"])) as connection:
+            if connection.execute("SELECT 1 FROM menu WHERE date=?", (target_date,)).fetchone() is None:
+                raise HTTPException(404, "unknown date")
+        try:
+            ratio_value = valid_num(ratio, 3.0, 0, MAX_RATIO)
+            return trace_forecast(item_id, target_date, ratio_value, settings["data"], as_of=current_date)
+        except not_found_errors() as error:
+            raise HTTPException(404, str(error)) from error
+        except ValueError as error:
+            raise HTTPException(400, str(error)) from error
+
     @application.post("/api/vote")
     def vote(request: Request, body: VoteBody):
-        request_settings, current_date = request_context(request)
         selected_school = school_id(request, body.school)
+        request_settings, current_date = request_context(request, selected_school)
         player_device = device(body.device)
+        started = time.perf_counter()
         with closing(connect(request_settings["db"])) as connection:
             option_row = connection.execute(
                 "SELECT * FROM vote_options WHERE open_date=?", (current_date,)
             ).fetchone()
             if option_row is None:
                 raise HTTPException(404, "no voting today")
-            if not connection.execute(
-                "SELECT 1 FROM items WHERE item_id=?", (body.item_id,)
-            ).fetchone():
+            item_row = connection.execute(
+                "SELECT name FROM items WHERE item_id=?", (body.item_id,)
+            ).fetchone()
+            if not item_row:
                 raise HTTPException(404, "unknown item")
             option_ids = [option_row[f"option_{number}"] for number in (1, 2, 3)]
             if body.item_id not in option_ids:
@@ -330,6 +395,7 @@ def create_app():
                 ).fetchone()[0]
                 for item_id in option_ids
             }
+        record(request, "vote", selected_school, player_device, f"A player voted for {item_row['name']}", {"item_id": body.item_id, "name": item_row["name"], "tally": tally[body.item_id]}, started)
         return {
             "ok": True,
             "streak": streak,
@@ -340,8 +406,8 @@ def create_app():
 
     @application.get("/api/me")
     def me(request: Request, device_id: str | None = Query(None, alias="device"), school: str | None = None):
-        request_settings, current_date = request_context(request)
         selected_school = school_id(request, school)
+        request_settings, current_date = request_context(request, selected_school)
         player_device = device(device_id)
         with closing(connect(request_settings["db"])) as connection:
             ensure_player(connection, player_device, selected_school)
@@ -375,9 +441,10 @@ def create_app():
 
     @application.post("/api/guess")
     def guess(request: Request, body: GuessBody):
-        request_settings, current_date = request_context(request)
         selected_school = school_id(request, body.school)
+        request_settings, current_date = request_context(request, selected_school)
         player_device = device(body.device)
+        started = time.perf_counter()
         with closing(connect(request_settings["db"])) as connection:
             ensure_player(connection, player_device, selected_school)
             connection.commit()
@@ -409,12 +476,14 @@ def create_app():
                 connection.rollback()
                 raise HTTPException(409, "already guessed today") from error
             connection.commit()
+        record(request, "guess", selected_school, player_device, f"A player made a guess for {body.item_id}", {"item_id": body.item_id, "target_date": target_row[0]}, started)
         return {"ok": True, "target_date": target_row[0], "simulated": True}
 
     def engine_call(request, function_name, **arguments):
         request_settings, _ = request_context(request)
         arguments.setdefault("data_dir", request_settings["data"])
         try:
+            started = time.perf_counter()
             result = getattr(engine, function_name)(**arguments)
         except NotImplementedError as error:
             raise HTTPException(501, "engine not ready") from error
@@ -427,6 +496,14 @@ def create_app():
         if not isinstance(result, dict):
             raise HTTPException(500, "engine returned an unexpected result")
         result["simulated"] = True
+        kind = {"prep_list": "prep", "backtest": "savings", "simulate": "simulate", "meter": "meter"}.get(function_name)
+        if kind:
+            items = result.get("items", [])
+            total_prep = result.get("totals", {}).get("prep_servings")
+            if total_prep is None:
+                total_prep = sum(item.get("prep", 0) for item in items)
+            detail = {"date": arguments.get("date"), "item_count": len(items), "total_prep_servings": total_prep, "leftover_cut_pct": result.get("leftover_cut_pct")}
+            record(request, kind, summary=f"The engine finished {kind}", detail=detail, started=started)
         return result
 
     @application.get("/api/prep")
@@ -455,7 +532,7 @@ def create_app():
         return engine_call(
             request,
             "backtest",
-            weeks=valid_num(weeks, 4, 0, 52, integer=True),
+            weeks=valid_num(weeks, 4, 0, 12, integer=True),
             ratio=valid_num(ratio, 3.0, 0, MAX_RATIO),
         )
 
