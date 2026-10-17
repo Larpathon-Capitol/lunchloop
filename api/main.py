@@ -8,6 +8,7 @@ import re
 import threading
 import time
 import random
+import secrets
 from typing import Any
 from datetime import datetime, timezone
 from pathlib import Path
@@ -22,8 +23,9 @@ from pydantic import BaseModel, ConfigDict, Field, StrictFloat
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from .db import connect, init_db, load_taken
-from .auth import configured_passwords, make_token, read_token, verify_password
+from .auth import configured_passwords, make_token, read_token, verify_password, sign_device, verify_device
 from .game import (
+    DEVICE_PATTERN,
     correct_guess_count,
     device,
     ensure_player,
@@ -52,7 +54,7 @@ def not_found_errors():
 class VoteBody(BaseModel):
     model_config = ConfigDict(strict=True)
 
-    device: str
+    device: Any = None
     item_id: str
     school: str | None = None
 
@@ -60,7 +62,7 @@ class VoteBody(BaseModel):
 class GuessBody(BaseModel):
     model_config = ConfigDict(strict=True)
 
-    device: str
+    device: Any = None
     item_id: str
     school: str | None = None
 
@@ -110,11 +112,36 @@ class LoginBody(BaseModel):
     password: str = Field(max_length=1024)
 
 
+class DeviceBody(BaseModel):
+    model_config = ConfigDict(strict=True)
+    legacy: str | None = None
+
+
+def env_limit(name, default):
+    """A positive whole-number limit from the environment, or the default when unset."""
+    value = os.getenv(name)
+    if value is None or value.strip() == "":
+        return default
+    try:
+        number = int(value)
+    except ValueError:
+        raise ValueError(f"{name} must be a whole number") from None
+    if number < 1:
+        raise ValueError(f"{name} must be at least 1")
+    return number
+
+
 FAILURE_WINDOW = 600
 MAX_FAILURES = 5
 
 
-def create_app(max_requests=3000, max_actions=300, body_limit=16 * 1024, request_limit=None, vote_limit=None):
+def create_app(max_requests=None, max_actions=None, body_limit=16 * 1024, request_limit=None, vote_limit=None,
+               device_request_limit=None, device_action_limit=None, mint_limit=None):
+    max_requests = env_limit("LUNCHLOOP_IP_REQUESTS", 1200) if max_requests is None else max_requests
+    max_actions = env_limit("LUNCHLOOP_IP_ACTIONS", 300) if max_actions is None else max_actions
+    device_request_limit = env_limit("LUNCHLOOP_DEVICE_REQUESTS", 60) if device_request_limit is None else device_request_limit
+    device_action_limit = env_limit("LUNCHLOOP_DEVICE_ACTIONS", 12) if device_action_limit is None else device_action_limit
+    mint_limit = env_limit("LUNCHLOOP_DEVICE_MINTS", 120) if mint_limit is None else mint_limit
     if request_limit is not None:
         max_requests = request_limit
     if vote_limit is not None:
@@ -123,6 +150,7 @@ def create_app(max_requests=3000, max_actions=300, body_limit=16 * 1024, request
         "data": os.getenv("LUNCHLOOP_DATA_DIR", "data"),
         "db": os.getenv("LUNCHLOOP_DB", "lunchloop.db"),
         "today": os.getenv("LUNCHLOOP_TODAY", "2026-10-19"),
+        "signed_devices": os.getenv("LUNCHLOOP_SIGNED_DEVICES") == "1",
     }
     failures = {}
     failures_lock = threading.Lock()
@@ -144,6 +172,7 @@ def create_app(max_requests=3000, max_actions=300, body_limit=16 * 1024, request
         application.state.schools = schools
         application.state.passwords = configured_passwords()
         application.state.settings = settings
+        application.state.signed_devices = settings["signed_devices"]
         # Warm the engine's caches so the first visitor doesn't wait for the backtest.
         try:
             engine.meter(date=settings["today"], data_dir=settings["data"])
@@ -170,6 +199,9 @@ def create_app(max_requests=3000, max_actions=300, body_limit=16 * 1024, request
         max_requests=max_requests,
         max_actions=max_actions,
         body_limit=body_limit,
+        device_requests=device_request_limit,
+        device_actions=device_action_limit,
+        max_mints=mint_limit,
         event_store=lambda: application.state.events,
     )
     application.add_middleware(
@@ -200,6 +232,9 @@ def create_app(max_requests=3000, max_actions=300, body_limit=16 * 1024, request
         if selected_school == "live":
             return request_settings, request_settings["today"]
         return request_settings, today(request, request_settings)
+
+    def parse_player(request, value, required=True):
+        return device(value, required=required, signed_enforced=request.app.state.signed_devices)
 
     def record(request, kind, school_id=None, device_id=None, summary="", detail=None, started=None):
         elapsed = (time.perf_counter() - started) * 1000 if started is not None else None
@@ -432,11 +467,23 @@ def create_app(max_requests=3000, max_actions=300, body_limit=16 * 1024, request
         _, current_date = request_context(request)
         return {"ok": True, "today": current_date, "simulated": True}
 
+    @application.post("/api/device")
+    def issue_device(request: Request, body: DeviceBody | None = None):
+        # The per-IP mint limit is applied in LimitsMiddleware before this runs.
+        legacy = body.legacy if body else None
+        if legacy is not None and verify_device(legacy) is not None:
+            return {"device": legacy, "simulated": True}
+        known = False
+        if legacy is not None and DEVICE_PATTERN.fullmatch(legacy):
+            with closing(connect(request.app.state.settings["db"])) as connection:
+                known = connection.execute("SELECT 1 FROM players WHERE device=? LIMIT 1", (legacy,)).fetchone() is not None
+        return {"device": sign_device(legacy if known else secrets.token_hex(16)), "simulated": True}
+
     @application.get("/api/spin")
     def spin(request: Request, device_id: str | None = Query(None, alias="device"), school: str | None = None):
         selected_school = school_id(request, school)
         request_settings, current_date = request_context(request, selected_school)
-        player_device = device(device_id, required=False)
+        player_device = parse_player(request, device_id, required=bool(request.app.state.signed_devices and device_id is not None))
         with closing(connect(request_settings["db"])) as connection:
             if player_device:
                 ensure_player(connection, player_device, selected_school)
@@ -484,7 +531,7 @@ def create_app(max_requests=3000, max_actions=300, body_limit=16 * 1024, request
     def get_tray(request: Request, device_id: str | None = Query(None, alias="device"), school: str | None = None):
         selected_school = school_id(request, school)
         request_settings, current_date = request_context(request, selected_school)
-        player_device = device(device_id, required=False)
+        player_device = parse_player(request, device_id, required=bool(request.app.state.signed_devices and device_id is not None))
         with closing(connect(request_settings["db"])) as connection:
             target_row = next_day(connection, current_date)
             if target_row is None:
@@ -507,7 +554,7 @@ def create_app(max_requests=3000, max_actions=300, body_limit=16 * 1024, request
 
     @application.post("/api/tray")
     def post_tray(request: Request, body: TrayBody):
-        player_device = device(body.device)
+        player_device = parse_player(request, body.device)
         selected_school = school_id(request, body.school)
         request_settings, current_date = request_context(request, selected_school)
         if not isinstance(body.picks, dict):
@@ -554,7 +601,7 @@ def create_app(max_requests=3000, max_actions=300, body_limit=16 * 1024, request
 
     @application.post("/api/served")
     def served(request: Request, body: ServedBody):
-        player_device = device(body.device)
+        player_device = parse_player(request, body.device)
         selected_school = school_id(request, body.school)
         if not isinstance(body.got, bool):
             raise HTTPException(400, "got must be true or false")
@@ -765,7 +812,7 @@ def create_app(max_requests=3000, max_actions=300, body_limit=16 * 1024, request
     def vote(request: Request, body: VoteBody):
         selected_school = school_id(request, body.school)
         request_settings, current_date = request_context(request, selected_school)
-        player_device = device(body.device)
+        player_device = parse_player(request, body.device)
         started = time.perf_counter()
         with closing(connect(request_settings["db"])) as connection:
             option_row = connection.execute(
@@ -818,7 +865,7 @@ def create_app(max_requests=3000, max_actions=300, body_limit=16 * 1024, request
     def me(request: Request, device_id: str | None = Query(None, alias="device"), school: str | None = None):
         selected_school = school_id(request, school)
         request_settings, current_date = request_context(request, selected_school)
-        player_device = device(device_id)
+        player_device = parse_player(request, device_id)
         with closing(connect(request_settings["db"])) as connection:
             ensure_player(connection, player_device, selected_school)
             streak, xp, badges, last_vote_date = stats(
@@ -864,7 +911,7 @@ def create_app(max_requests=3000, max_actions=300, body_limit=16 * 1024, request
     def guess(request: Request, body: GuessBody):
         selected_school = school_id(request, body.school)
         request_settings, current_date = request_context(request, selected_school)
-        player_device = device(body.device)
+        player_device = parse_player(request, body.device)
         started = time.perf_counter()
         with closing(connect(request_settings["db"])) as connection:
             ensure_player(connection, player_device, selected_school)

@@ -343,7 +343,22 @@ def test_bad_paging_values_are_400(client, params):
 # --------------------------------------------------------------------- ring
 
 
-def test_ring_keeps_only_the_newest_300(client):
+@pytest.fixture
+def roomy_client(monkeypatch, tmp_path):
+    """Like `client`, but one device may make 1,000 requests a minute: the ring test
+    spins 320 times from one device, well over the default per-device limit of 60."""
+    monkeypatch.setenv("LUNCHLOOP_DEVICE_REQUESTS", "1000")
+    monkeypatch.setenv("LUNCHLOOP_DATA_DIR", str(DATA))
+    monkeypatch.setenv("LUNCHLOOP_DB", str(tmp_path / "t.db"))
+    monkeypatch.setenv("LUNCHLOOP_TODAY", "2026-10-19")
+    from api.main import create_app
+
+    with TestClient(create_app()) as c:
+        yield c
+
+
+def test_ring_keeps_only_the_newest_300(roomy_client):
+    client = roomy_client
     spin_n(client, 320)
     collected = []
     cursor = 0

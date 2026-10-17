@@ -117,6 +117,7 @@ Errors are `{"error": "<plain message>"}` with status 400 (bad input), 404 (unkn
 | GET /api/prep?date=&ratio= | date default today | engine `prep_list()`; each item also gets `diet`, `gluten_free`, `dairy_free` |
 | GET /api/savings?weeks=&ratio= | | engine `backtest()` |
 | POST /api/simulate | `{"date"?, "attendance_multiplier", "price_multiplier", "ratio"}` | engine `simulate()` |
+| POST /api/device | `{"legacy"?: str}` | `{"device": "<id>.<sig>", "simulated": true}` (see the device notes below the tray section) |
 | GET /api/spin?device= | | `{"date", "target_date", "target_slot", "options": [{"item_id", "name", "allergens": [str], "diet": [str], "gluten_free": bool, "dairy_free": bool}], "pool": [{"item_id", "name", "diet", "gluten_free", "dairy_free"}], "already_voted": bool, "simulated": true}` |
 | POST /api/vote | `{"device", "item_id"}` (any of today's options, four on the full data) | `{"ok": true, "streak", "xp", "tally": {item_id: count}, "simulated": true}` |
 | POST /api/guess | `{"device", "item_id"}` (most popular item next school day) | `{"ok": true, "target_date", "simulated": true}` |
@@ -132,6 +133,8 @@ Students can pack one tray for the next school day. `GET /api/tray?device=&schoo
 Packing a tray earns 10 XP. A school day is active for streaks and longest-run badges when the device voted or packed a tray. The `tray` key in `/api/admin/summary` is the current school's tally, or null when no trays were packed today. Tray submissions use the same per-IP limit as votes and guesses.
 
 - `device` is a random ID the browser makes (8 to 64 letters, digits or dashes). No names or emails. The first call with a new device creates its player row.
+- `POST /api/device` accepts an optional `legacy` id and returns `{"device": "<id>.<sig>", "simulated": true}`. `<id>` is a device id as above and `<sig>` is the first 16 lowercase hex characters of HMAC-SHA256(server secret, `device:<id>`), so a signed id is at most 81 characters. A valid unsigned `legacy` id that already has a player row (any school) is signed as is, so the student keeps their streak and XP. Any other `legacy` value, or none, gets a new random id (32 hex characters). A `legacy` that is already a valid signed id comes back unchanged. Every call except the unchanged case counts as a new player for the mint limit (see Limits).
+- Env `LUNCHLOOP_SIGNED_DEVICES=1` turns enforcement on: `POST /api/vote`, `POST /api/guess`, `GET /api/tray` with a device, `POST /api/tray`, `POST /api/served`, `GET /api/me` and `GET /api/spin` with a device answer 400 `{"error": "invalid device"}` to a missing, unsigned or wrongly signed device. Off (the default), both plain and signed ids are accepted, but a signed id with a bad signature is still 400. Either way a signed id and its unsigned base are the same player: history, streaks and the one-per-day rules are kept under the unsigned base id. Simulated `/api/demo/crowd` devices are internal and not affected.
 - One vote and one guess per device per school day.
 - Streak counts consecutive school days with a vote. XP: +10 per vote, +25 per correct guess.
 - A guess is scored once its target date is in the past (by the demo clock), using `future_meals.csv`: correct if the item has the most `servings_taken` among that day's `meat_alternate` items.
@@ -209,7 +212,20 @@ Events: the server keeps the newest 300 live events (school `live`) and, separat
 
 - The interactive docs (`/docs`, `/redoc`, `/openapi.json`) are off unless env `LUNCHLOOP_DOCS=1`.
 - Request bodies over 16 KB get 413.
-- Each client IP may make 3,000 requests a minute, and 300 votes plus guesses in 10 minutes (a whole class can share one school Wi-Fi address). Over the limit: 429 `{"error": "slow down a little"}`.
+- Each client IP may make 1,200 requests a minute and 300 actions in 10 minutes (a whole school can share one Wi-Fi address). Actions are `POST` to `/api/vote`, `/api/guess`, `/api/tray`, `/api/served`, `/api/admin/free` and `/api/demo/crowd`.
+- Each device (the `device` query parameter or JSON body field, counted by its unsigned base id) may also make 60 requests a minute and 12 actions in 10 minutes. Requests without a device only count against their IP. A signed id with a bad signature is not counted as that device.
+- Over an IP or device limit: 429 `{"error": "slow down a little"}`.
+- Each client IP may get 120 new players from `POST /api/device` in 10 minutes. Over that: 429 `{"error": "too many new players from this network, try again soon"}`.
+- The first time an address hits a limit kind in a minute, a `rate_limited` event is recorded with `detail.limit` set to `requests`, `votes and guesses`, `device requests`, `device actions` or `new players`. It never holds the address or the device id.
+- Every limit can be changed with env (read when the app starts; each must be a whole number of at least 1):
+
+  | env | default |
+  | --- | --- |
+  | `LUNCHLOOP_IP_REQUESTS` | 1200 requests per IP per minute |
+  | `LUNCHLOOP_IP_ACTIONS` | 300 actions per IP per 10 minutes |
+  | `LUNCHLOOP_DEVICE_REQUESTS` | 60 requests per device per minute |
+  | `LUNCHLOOP_DEVICE_ACTIONS` | 12 actions per device per 10 minutes |
+  | `LUNCHLOOP_DEVICE_MINTS` | 120 new players per IP per 10 minutes |
 - Every response carries `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer` and `X-Frame-Options: DENY`; admin responses also carry `Cache-Control: no-store`.
 
 ## Free leftovers and lunch service

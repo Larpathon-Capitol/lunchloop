@@ -25,10 +25,19 @@ def today(request, settings):
     return parse_date(header_value).isoformat()
 
 
-def device(value, required=True):
+def device(value, required=True, signed_enforced=False):
     if value is None and not required:
         return None
-    if not isinstance(value, str) or not DEVICE_PATTERN.fullmatch(value):
+    if not isinstance(value, str):
+        raise HTTPException(400, "invalid device")
+    if "." in value:
+        from .auth import verify_device
+
+        base = verify_device(value)
+        if base is None:
+            raise HTTPException(400, "invalid device")
+        return base
+    if signed_enforced or not DEVICE_PATTERN.fullmatch(value):
         raise HTTPException(400, "invalid device")
     return value
 
