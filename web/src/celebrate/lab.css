@@ -1,0 +1,79 @@
+.clab {
+  max-width: 560px;
+  margin: 0 auto;
+  padding: var(--s4) var(--s4) var(--s16);
+  display: grid;
+  gap: var(--s6);
+}
+.clab-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s3);
+}
+.clab h1 {
+  font-size: var(--text-xl);
+}
+.clab section {
+  display: grid;
+  gap: var(--s3);
+  padding-top: var(--s4);
+  border-top: var(--hairline);
+}
+.clab h2 {
+  font-family: var(--font-ui);
+  font-size: var(--text-md);
+  font-weight: 700;
+}
+.clab-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2);
+  align-items: center;
+}
+.clab-btn {
+  min-height: var(--touch);
+  padding: 0 var(--s4);
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: var(--sumi);
+  color: var(--washi);
+  font-weight: 700;
+  cursor: pointer;
+}
+.clab-btn.shu {
+  background: var(--shu);
+  color: var(--on-shu);
+}
+.clab-btn.quiet {
+  background: transparent;
+  color: var(--sumi);
+  box-shadow: inset 0 0 0 1.5px var(--sumi);
+}
+.clab-btn:active {
+  transform: scale(var(--press-scale));
+}
+.clab-stage {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-height: 150px;
+  border-radius: var(--radius);
+  background: var(--shoji);
+  box-shadow: var(--lift);
+}
+.clab-stage.ai {
+  background: var(--ai);
+  min-height: 180px;
+  overflow: hidden;
+}
+.clab-big {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 72px;
+  color: var(--ai);
+}
+.clab-status {
+  color: var(--nezumi);
+  font-size: var(--text-sm);
+}

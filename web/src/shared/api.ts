@@ -103,6 +103,57 @@ export interface Me {
   xp: number
   badges: string[]
   last_guess: { target_date: string; item_id: string; correct: boolean | null } | null
+  /** This device voted today at this school. */
+  voted_today: boolean
+  /** This device packed a tray today at this school. */
+  packed_today: boolean
+  simulated: true
+}
+
+/** One food on tomorrow's tray. */
+export interface TrayItem {
+  item_id: string
+  name: string
+  allergens: Allergen[]
+}
+
+export interface TrayGroup {
+  component: Component
+  items: TrayItem[]
+}
+
+/** item_id = picked, null = skipped on purpose. */
+export type TrayPicks = Partial<Record<Component, string | null>>
+
+/** Trays packed today at this school, for today's target day. share is 0 to 1. */
+export interface TrayTally {
+  target_date: string
+  total: number
+  groups: {
+    component: Component
+    skips: number
+    items: { item_id: string; name: string; picks: number; share: number }[]
+  }[]
+}
+
+export interface Tray {
+  open_date: string
+  target_date: string
+  /** Components on the target day, in tray order. Groups with no food that day are left out. */
+  groups: TrayGroup[]
+  /** This device's tray for today, or null when it hasn't packed yet. */
+  picks: TrayPicks | null
+  /** Only when this device already packed today. */
+  tally: TrayTally | null
+  simulated: true
+}
+
+export interface TrayResult {
+  ok: true
+  target_date: string
+  streak: number
+  xp: number
+  tally: TrayTally
   simulated: true
 }
 
@@ -165,7 +216,7 @@ export interface Health {
 }
 
 export type EventKind =
-  | 'spin' | 'vote' | 'guess' | 'staff_sign_in' | 'staff_sign_in_failed'
+  | 'spin' | 'vote' | 'tray' | 'guess' | 'staff_sign_in' | 'staff_sign_in_failed'
   | 'prep' | 'savings' | 'simulate' | 'meter' | 'rate_limited'
 
 export interface ServerEvent {
@@ -265,6 +316,10 @@ export const api = {
   spin: (device: string) => request<Spin>(`/spin${query({ device, school: school() })}`),
   vote: (device: string, item_id: string) => request<VoteResult>('/vote', post({ device, item_id, school: school() })),
   guess: (device: string, item_id: string) => request<GuessResult>('/guess', post({ device, item_id, school: school() })),
+  /** Tomorrow's tray. 404 when there is no next school day. */
+  getTray: (device: string) => request<Tray>(`/tray${query({ device, school: school() })}`),
+  /** Pack today's tray. 400 with a plain message for bad picks, 409 when already packed today. */
+  postTray: (device: string, picks: TrayPicks) => request<TrayResult>('/tray', post({ device, picks, school: school() })),
   me: (device: string) => request<Me>(`/me${query({ device, school: school() })}`),
   meter: () => request<Meter>('/meter'),
   schools: () => request<Schools>('/schools'),

@@ -1,30 +1,64 @@
-/* Design tokens. Every color, size and duration in the app comes from here. */
+/* Design tokens. Every color, size and duration in the app comes from here.
+   The world: a lunch counter in a small Japanese restaurant. Indigo noren cloth, pale paper,
+   sumi ink, a vermilion seal, plum blossoms, and one stainless steel cafeteria tray. */
 :root {
-  /* Color */
-  --paper: #f2f4f3;
-  --surface: #ffffff;
-  --ink: #15181a;
-  --slate: #55606a;
-  --line: #d5dbd8;
-  --accent: #c2410c;
-  --accent-ink: #ffffff;
-  --accent-mark: #ea580c;
-  --ok: #1f7a4d;
+  /* Ground and ink */
+  --washi: #f1f3ee; /* page ground, pale paper with a hint of celadon */
+  --shoji: #fbfcf9; /* raised paper: sheets, panels */
+  --sumi: #1b1f2a; /* main text, 14.7:1 on washi */
+  --nezumi: #5a6070; /* secondary text, 5.6:1 on washi */
+  --line: #d9ddd4; /* hairlines only, never text */
+
+  /* The noren field: hero and headers */
+  --ai: #1f2d4d; /* indigo cloth */
+  --ai-deep: #16203a; /* indigo in shadow */
+  --on-ai: #ede8dc; /* text on indigo, 11.2:1 */
+  --on-ai-soft: #b9bfcc; /* secondary text on indigo */
+
+  /* Action and reward */
+  --shu: #c2362b; /* vermilion: buttons, the hanko seal, selection. White on it 5.5:1 */
+  --shu-deep: #a82c23; /* pressed vermilion */
+  --on-shu: #ffffff;
+  --kin: #b07812; /* gold: XP, milestones (fills and large text only) */
+  --kin-light: #e3b24f; /* gold on indigo, 7.0:1 */
+
+  /* Blossom (decoration only, never text on light ground) */
+  --ume: #e8879a; /* plum blossom */
+  --sakura: #f7dde0; /* blossom tint */
+
+  /* Food groups: fills, icons and tray rims. White text passes on all but grain */
+  --g-entree: #b5523b; /* soy glaze */
+  --g-grain: #93680f; /* toasted rice */
+  --g-vegetable: #4f7f35; /* matcha leaf */
+  --g-fruit: #c94562; /* ume plum */
+  --g-milk: #3f729e; /* sky glaze */
+
+  /* Status (always paired with an icon or word) */
+  --ok: #3f7a2e;
   --warn: #9a5b00;
   --bad: #b42318;
 
+  /* Older names, kept so every screen picks up the new world */
+  --paper: var(--washi);
+  --surface: var(--shoji);
+  --ink: var(--sumi);
+  --slate: var(--nezumi);
+  --accent: var(--shu);
+  --accent-ink: var(--on-shu);
+  --accent-mark: var(--shu);
+
   /* Type */
-  --font-display: 'Bricolage Grotesque', system-ui, sans-serif;
-  --font-ui: 'Public Sans', system-ui, sans-serif;
+  --font-display: 'Shippori Mincho B1', 'Hiragino Mincho ProN', serif; /* rare, large moments only */
+  --font-ui: 'Zen Maru Gothic', 'Hiragino Maru Gothic ProN', system-ui, sans-serif;
   --text-sm: 14px;
   --text-base: 16px;
   --text-md: 18px;
   --text-lg: 22px;
   --text-xl: 28px;
   --text-2xl: 36px;
-  --text-hero: 48px;
-  --leading: 1.5;
-  --leading-tight: 1.15;
+  --text-hero: clamp(44px, 9vw, 96px);
+  --leading: 1.55;
+  --leading-tight: 1.1;
 
   /* Spacing, 4px scale */
   --s1: 4px;
@@ -40,15 +74,20 @@
 
   /* Layout and shape */
   --max-width: 1100px;
-  --radius: 8px;
+  --radius: 14px; /* lacquer-box corners */
+  --radius-sm: 8px;
+  --radius-pill: 999px;
   --hairline: 1px solid var(--line);
   --touch: 44px;
-  --focus-ring: 0 0 0 3px var(--paper), 0 0 0 5px var(--accent);
+  --focus-ring: 0 0 0 3px var(--washi), 0 0 0 5px var(--shu);
+  --lift: 0 1px 0 rgba(27, 31, 42, 0.06), 0 8px 24px -12px rgba(27, 31, 42, 0.22); /* paper resting on paper */
 
   /* Motion */
   --t-fast: 120ms;
-  --t-med: 200ms;
-  --t-slow: 300ms;
+  --t-med: 220ms;
+  --t-slow: 320ms;
   --ease: cubic-bezier(0.2, 0, 0, 1);
-  --press-scale: 0.96;
+  --ease-brush: cubic-bezier(0.7, 0, 0.2, 1); /* slow start, fast sweep, soft stop */
+  --ease-out: cubic-bezier(0.2, 0.72, 0.16, 1);
+  --press-scale: 0.94;
 }

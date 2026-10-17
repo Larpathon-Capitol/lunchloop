@@ -17,7 +17,7 @@
 }
 .kitchen__sub {
   margin-top: var(--s1);
-  color: var(--slate);
+  color: var(--nezumi);
 }
 .kitchen__head .sim-tag {
   margin-left: auto;
@@ -58,7 +58,7 @@
 
 /* Panels: white surface on paper, no shadow */
 .k-panel {
-  background: var(--surface);
+  background: var(--shoji);
   border-radius: var(--radius);
   padding: var(--s6);
 }
@@ -71,7 +71,7 @@
   margin-bottom: var(--s4);
 }
 .k-panel__empty {
-  color: var(--slate);
+  color: var(--nezumi);
 }
 
 /* Meal check strip */
@@ -79,7 +79,7 @@
   display: grid;
   gap: var(--s3);
   padding: var(--s4) var(--s6);
-  background: var(--surface);
+  background: var(--shoji);
   border-radius: var(--radius);
 }
 @media (max-width: 480px) {
@@ -95,7 +95,7 @@
   font-size: var(--text-md);
 }
 .k-mc__summary {
-  color: var(--slate);
+  color: var(--nezumi);
 }
 .k-mc__summary--bad {
   color: var(--bad);
@@ -131,7 +131,7 @@
 .k-mc__item--ok { color: var(--ok); }
 .k-mc__item--missing { color: var(--bad); }
 .k-mc__item--low { color: var(--warn); }
-.k-mc__item .k-mc__name { color: var(--ink); }
+.k-mc__item .k-mc__name { color: var(--sumi); }
 
 /* Prep list rows */
 .k-rows {
@@ -154,11 +154,11 @@
   font-size: var(--text-md);
 }
 .k-row__reason {
-  color: var(--slate);
+  color: var(--nezumi);
   margin-top: var(--s1);
 }
 .k-row__none {
-  color: var(--slate);
+  color: var(--nezumi);
   font-size: var(--text-sm);
   margin-top: var(--s2);
 }
@@ -169,14 +169,15 @@
   min-width: 96px;
 }
 .k-row__big {
-  font-family: var(--font-display);
+  font-family: var(--font-ui);
+  font-variant-numeric: tabular-nums;
   font-weight: 700;
   font-size: var(--text-2xl);
   line-height: var(--leading-tight);
   font-variant-numeric: tabular-nums;
 }
 .k-row__unit {
-  color: var(--slate);
+  color: var(--nezumi);
   font-size: var(--text-sm);
 }
 
@@ -190,8 +191,8 @@
 }
 .k-tag {
   border: var(--hairline);
-  border-radius: var(--radius);
-  padding: 0 var(--s2);
+  border-radius: var(--radius-pill);
+  padding: 0 var(--s3);
   font-size: var(--text-sm);
   line-height: var(--s6);
 }
@@ -205,7 +206,7 @@
   font-size: var(--text-base);
 }
 .k-agroups__note {
-  color: var(--slate);
+  color: var(--nezumi);
   font-size: var(--text-sm);
   margin: var(--s1) 0 var(--s3);
   max-width: 70ch;
@@ -226,12 +227,12 @@
 }
 .k-agroups__row dd {
   margin: 0;
-  color: var(--slate);
+  color: var(--nezumi);
 }
 .k-agroups__count {
   display: block;
   font-weight: 400;
-  color: var(--slate);
+  color: var(--nezumi);
 }
 @media (max-width: 480px) {
   .k-agroups__row { grid-template-columns: minmax(0, 1fr); gap: 0; }
@@ -258,14 +259,14 @@
 }
 .k-slider__value {
   margin-left: auto;
-  color: var(--slate);
+  color: var(--nezumi);
   font-size: var(--text-sm);
   text-align: right;
 }
 .k-slider__ends {
   display: flex;
   justify-content: space-between;
-  color: var(--slate);
+  color: var(--nezumi);
   font-size: var(--text-sm);
 }
 
@@ -298,7 +299,7 @@
   margin-top: calc((var(--s1) - var(--s6)) / 2);
   border-radius: 50%;
   border: 0;
-  background: var(--accent);
+  background: var(--shu);
   transition: transform var(--t-fast) var(--ease);
 }
 .k-slider__input::-moz-range-thumb {
@@ -306,16 +307,16 @@
   height: var(--s6);
   border-radius: 50%;
   border: 0;
-  background: var(--accent);
+  background: var(--shu);
 }
 .k-slider__input:active::-webkit-slider-thumb {
   transform: scale(var(--press-scale));
 }
 .k-slider__input:focus-visible::-webkit-slider-thumb {
-  box-shadow: 0 0 0 3px var(--surface), 0 0 0 5px var(--ink);
+  box-shadow: 0 0 0 3px var(--shoji), 0 0 0 5px var(--sumi);
 }
 .k-slider__input:focus-visible::-moz-range-thumb {
-  box-shadow: 0 0 0 3px var(--surface), 0 0 0 5px var(--ink);
+  box-shadow: 0 0 0 3px var(--shoji), 0 0 0 5px var(--sumi);
 }
 
 .k-sim__totals {
@@ -341,11 +342,12 @@
   border-top: 0;
 }
 .k-sim-stat dt {
-  color: var(--slate);
+  color: var(--nezumi);
 }
 .k-sim-stat dd {
   margin: 0;
-  font-family: var(--font-display);
+  font-family: var(--font-ui);
+  font-variant-numeric: tabular-nums;
   font-weight: 700;
   font-size: var(--text-lg);
 }
@@ -372,14 +374,15 @@
   margin-right: var(--s2);
 }
 .k-savings__rest {
-  color: var(--slate);
+  color: var(--nezumi);
 }
 .k-savings__net {
   margin-bottom: var(--s2);
   max-width: 70ch;
 }
 .k-savings__netbig {
-  font-family: var(--font-display);
+  font-family: var(--font-ui);
+  font-variant-numeric: tabular-nums;
   font-weight: 700;
   font-size: var(--text-xl);
   line-height: var(--leading-tight);
@@ -387,7 +390,7 @@
 }
 .k-savings__how {
   margin-bottom: var(--s5);
-  color: var(--slate);
+  color: var(--nezumi);
   font-size: var(--text-sm);
   max-width: 70ch;
 }
@@ -405,7 +408,7 @@
 }
 .k-cmp thead th {
   border-top: 0;
-  color: var(--slate);
+  color: var(--nezumi);
   font-size: var(--text-sm);
   font-weight: 600;
   vertical-align: bottom;
@@ -418,7 +421,8 @@
   padding-left: var(--s3);
 }
 .k-cmp tbody .k-cmp__num {
-  font-family: var(--font-display);
+  font-family: var(--font-ui);
+  font-variant-numeric: tabular-nums;
   font-weight: 700;
   font-size: var(--text-lg);
 }
@@ -436,7 +440,7 @@
   font-size: var(--text-md);
 }
 .k-chart__sub {
-  color: var(--slate);
+  color: var(--nezumi);
   margin-top: var(--s1);
   font-size: var(--text-sm);
 }
@@ -458,9 +462,9 @@
   fill: none;
   stroke-linecap: round;
 }
-.k-swatch--taken { stroke: var(--ink); stroke-width: 3; }
-.k-swatch--lunchloop { stroke: var(--slate); stroke-width: 2; }
-.k-swatch--usual { stroke: var(--slate); stroke-width: 1.5; stroke-dasharray: 5 4; }
+.k-swatch--taken { stroke: var(--sumi); stroke-width: 3; }
+.k-swatch--lunchloop { stroke: var(--shu); stroke-width: 2.5; }
+.k-swatch--usual { stroke: var(--nezumi); stroke-width: 1.5; stroke-dasharray: 5 4; }
 .k-chart__frame {
   height: 320px;
   font-variant-numeric: tabular-nums;
@@ -472,7 +476,7 @@
   font-family: var(--font-ui);
 }
 .k-tip {
-  background: var(--surface);
+  background: var(--shoji);
   border: var(--hairline);
   border-radius: var(--radius);
   padding: var(--s3);
@@ -493,4 +497,15 @@
 .k-tip__rows dd {
   margin: 0;
   font-weight: 600;
+}
+
+/* Panel and row titles use the UI face; the display face is kept for the page title and the headline number */
+.k-panel__title,
+.k-mc__title,
+.k-row__name,
+.k-agroups__title,
+.k-chart__title,
+.k-sim__totals-title {
+  font-family: var(--font-ui);
+  font-weight: 700;
 }

@@ -8,12 +8,20 @@
 
 html {
   -webkit-text-size-adjust: 100%;
+  scrollbar-color: var(--nezumi) var(--washi);
+  accent-color: var(--shu);
+}
+
+::selection {
+  background: var(--sakura);
+  color: var(--sumi);
 }
 
 body {
   margin: 0;
-  background: var(--paper);
-  color: var(--ink);
+  background: var(--washi);
+  color: var(--sumi);
+  caret-color: var(--shu);
   font-family: var(--font-ui);
   font-size: var(--text-base);
   line-height: var(--leading);
@@ -34,7 +42,9 @@ p {
 }
 
 a {
-  color: var(--accent);
+  color: var(--shu);
+  text-underline-offset: 0.2em;
+  text-decoration-thickness: 1px;
 }
 
 button {

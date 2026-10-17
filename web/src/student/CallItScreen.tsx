@@ -1,22 +1,40 @@
-// Called it: guess which entree will be most popular on the next school day.
+// Call it: guess which entree will be most popular on the next school day.
 // The API only accepts entrees (meat_alternate) on that day's menu, so those are the choices.
 import { motion, useReducedMotion } from 'framer-motion'
 import { useEffect, useRef, useState } from 'react'
+import { lines, pickLine, ume } from '../mascot'
 import { api, ApiError, type PrepItem } from '../shared/api'
 import { copy } from '../shared/copy'
 import { fmtDay } from '../shared/format'
+import { Crystal, Lock } from '../shared/icons'
+import { press } from '../shared/motion'
 import { sound } from '../shared/sound'
-import { ErrorNotice, Loading } from '../shared/ui/Notice'
-import { LIVE_SCHOOL, activeStudentSchool } from '../shared/studentSchool'
-import { SimulatedTag } from '../shared/ui/SimulatedTag'
-import { FoodGlyph } from './FoodGlyph'
+import { ErrorNotice } from '../shared/ui/Notice'
 import { ChoiceRow } from './ChoiceRow'
+import { FoodGlyph } from './FoodGlyph'
+import { fade, popSpring } from './springs'
 import { useStudent } from './state'
-import { instant, popSpring } from './springs'
+import { PanelSkeleton } from './VoteScreen'
 
 const t = copy.student.calledIt
 
-export function CalledItScreen() {
+type Result = 'right' | 'wrong' | 'pending'
+
+/** The last call's result as a seal: gold when right, a soft pencil ring otherwise. */
+function ResultSeal({ result }: { result: Result }) {
+  const label = result === 'right' ? t.sealRight : result === 'wrong' ? t.sealWrong : t.sealPending
+  return (
+    <span className={`result-seal result-seal--${result}`}>
+      <svg viewBox="0 0 100 100" aria-hidden="true">
+        <circle cx="50" cy="50" r="45" className="result-seal__ring" />
+        <circle cx="50" cy="50" r="38" className="result-seal__inner" />
+      </svg>
+      <span className="result-seal__label">{label}</span>
+    </span>
+  )
+}
+
+export function CallItScreen() {
   const { device, me, meError, refreshMe, calendar, calendarError, reloadCalendar, catalog, showFood } = useStudent()
   const reduce = useReducedMotion()
   const [selected, setSelected] = useState<string | null>(null)
@@ -39,20 +57,41 @@ export function CalledItScreen() {
   }, [])
 
   const header = (
-    <header className="screen__head">
-      <h1 className="screen__title">{t.title}</h1>
-      <SimulatedTag live={activeStudentSchool() === LIVE_SCHOOL} />
+    <header className="tabscreen__head">
+      <span className="tabscreen__icon">
+        <Crystal />
+      </span>
+      <h1 className="tabscreen__title">{t.title}</h1>
     </header>
   )
 
-  if (calendarError) return <div className="screen">{header}<ErrorNotice error={calendarError} onRetry={reloadCalendar} /></div>
-  if (meError) return <div className="screen">{header}<ErrorNotice error={meError} onRetry={refreshMe} /></div>
-  if (!calendar || !me) return <div className="screen">{header}<Loading label={copy.student.loading.calledIt} /></div>
+  if (calendarError)
+    return (
+      <div className="tabscreen">
+        {header}
+        <ErrorNotice error={calendarError} onRetry={reloadCalendar} />
+      </div>
+    )
+  if (meError)
+    return (
+      <div className="tabscreen">
+        {header}
+        <ErrorNotice error={meError} onRetry={refreshMe} />
+      </div>
+    )
+  if (!calendar || !me)
+    return (
+      <div className="tabscreen" role="status" aria-live="polite">
+        {header}
+        <span className="visually-hidden">{copy.student.loading.calledIt}</span>
+        <PanelSkeleton />
+      </div>
+    )
 
   const next = calendar.next
   const nameOf = (id: string) => catalog[id]?.name ?? id
   const last = me.last_guess
-  // A guess made today points at the next menu day; anything older is a past result.
+  // A call made today points at the next menu day; anything older is a past result.
   const todays = locked ?? (last && next && last.target_date === next.date ? last : null)
   const past = last && (!todays || last.target_date !== todays.target_date) ? last : null
   const choices: PrepItem[] = next ? next.items.filter((i) => i.component === 'meat_alternate') : []
@@ -66,7 +105,8 @@ export function CalledItScreen() {
       const r = await api.guess(device, selected)
       void refreshMe()
       if (!alive.current) return
-      sound.land()
+      sound.stamp()
+      ume.react('curious', pickLine(lines.pick), 2400)
       setLocked({ item_id: selected, target_date: r.target_date })
     } catch (e) {
       const status = e instanceof ApiError ? e.status : 0
@@ -79,60 +119,61 @@ export function CalledItScreen() {
   }
 
   return (
-    <div className="screen">
+    <div className="tabscreen">
       {header}
 
       {past && (
-        <section className="panel panel--quiet" aria-labelledby="last-title">
-          <h2 id="last-title" className="section-title">
-            {t.lastHeading}
-          </h2>
-          <div className="result">
-            <FoodGlyph id={past.item_id} />
-            <p className="result__text">
+        <section className="paper paper--result" aria-labelledby="last-title">
+          <ResultSeal result={past.correct === true ? 'right' : past.correct === false ? 'wrong' : 'pending'} />
+          <div className="paper__result-body">
+            <h2 id="last-title" className="section-title">
+              {t.lastHeading}
+            </h2>
+            <p className="paper__lead">
               {past.correct === true
                 ? t.lastRight(nameOf(past.item_id), fmtDay(past.target_date))
                 : past.correct === false
                   ? t.lastWrong(nameOf(past.item_id), fmtDay(past.target_date))
                   : t.lastPending(nameOf(past.item_id), fmtDay(past.target_date))}
             </p>
-            {past.correct === true && <span className="result__xp num">{t.rightXp}</span>}
+            {past.correct === true && <span className="gold-tag num">{t.rightXp}</span>}
           </div>
         </section>
       )}
 
       {!next ? (
-        <section className="panel">
-          <p className="panel__lead">{t.noDay}</p>
+        <section className="paper">
+          <p className="paper__lead">{t.noDay}</p>
         </section>
       ) : todays ? (
         <motion.section
-          className="panel"
+          className="paper paper--result"
           aria-labelledby="locked-title"
-          initial={reduce || !locked ? false : { opacity: 0, scale: 0.98 }}
+          initial={reduce || !locked ? false : { opacity: 0, scale: 0.96 }}
           animate={{ opacity: 1, scale: 1 }}
-          transition={reduce ? instant : popSpring}
+          transition={reduce ? fade : popSpring}
         >
-          <div className="result">
-            <FoodGlyph id={todays.item_id} large />
-            <div className="result__body">
-              <h2 id="locked-title" className="section-title" tabIndex={-1} ref={lockedTitle}>
-                {t.lockedHeading}
-              </h2>
-              <p className="panel__lead">{t.lockedBody(nameOf(todays.item_id), fmtDay(todays.target_date))}</p>
-            </div>
+          <span className="glyph-disc glyph-disc--big glyph-disc--entree">
+            <FoodGlyph id={todays.item_id} />
+          </span>
+          <div className="paper__result-body">
+            <h2 id="locked-title" className="section-title" tabIndex={-1} ref={lockedTitle}>
+              <Lock className="inline-icon" />
+              {t.lockedHeading}
+            </h2>
+            <p className="paper__lead">{t.lockedBody(nameOf(todays.item_id), fmtDay(todays.target_date))}</p>
           </div>
         </motion.section>
       ) : (
-        <section className="panel" aria-labelledby="guess-title">
+        <section className="paper" aria-labelledby="guess-title">
           <h2 id="guess-title" className="section-title">
             {t.question(fmtDay(next.date))}
           </h2>
-          <p className="panel__lead">{t.lead}</p>
+          <p className="paper__lead">{t.lead}</p>
           {choices.length === 0 ? (
-            <p className="panel__note">{t.empty}</p>
+            <p className="paper__note">{t.empty}</p>
           ) : (
-            <div className="reel reel--list" role="group" aria-labelledby="guess-title">
+            <div className="choices" role="group" aria-labelledby="guess-title">
               {choices.map((c) => (
                 <ChoiceRow
                   key={c.item_id}
@@ -151,18 +192,13 @@ export function CalledItScreen() {
             </div>
           )}
           {error && (
-            <p className="panel__error" role="alert">
+            <p className="paper__error" role="alert">
               {error}
             </p>
           )}
-          <button
-            type="button"
-            className="btn btn--primary btn--big"
-            disabled={!chosen || busy}
-            onClick={lock}
-          >
+          <motion.button type="button" className="btn-shu btn-shu--big" disabled={!chosen || busy} onClick={lock} whileTap={press}>
             {busy ? t.locking : chosen ? t.lock : t.pickFirst}
-          </button>
+          </motion.button>
         </section>
       )}
     </div>

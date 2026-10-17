@@ -9,7 +9,7 @@
   padding: 0 var(--s5);
   border: 1px solid transparent;
   border-radius: var(--radius);
-  font-weight: 600;
+  font-weight: 700;
   font-size: var(--text-base);
   cursor: pointer;
   transition: background-color var(--t-fast) var(--ease), transform var(--t-fast) var(--ease);
@@ -23,8 +23,11 @@
   opacity: 0.55;
 }
 .btn--primary {
-  background: var(--accent);
-  color: var(--accent-ink);
+  background: var(--shu);
+  color: var(--on-shu);
+}
+.btn--primary:hover {
+  background: var(--shu-deep);
 }
 .btn--quiet {
   background: transparent;
@@ -67,9 +70,11 @@ a.btn {
 :root {
   --bar-h: 56px;
 }
+/* Layers: page ground, the hero cloth (0), the tray stage (1), the page (2), the header over the
+   hero (3). While the noren parts the curtain sits at 3 and the tray rides above it at 4. */
 .shell__bar {
-  border-bottom: var(--hairline);
-  background: var(--paper);
+  position: relative;
+  z-index: 2;
 }
 .shell__inner {
   max-width: var(--max-width);
@@ -81,9 +86,10 @@ a.btn {
   gap: var(--s2);
 }
 .shell__brand {
-  font-family: var(--font-display);
-  font-weight: 700;
+  font-family: var(--font-ui);
+  font-weight: 900;
   font-size: var(--text-md);
+  letter-spacing: -0.01em;
   color: var(--ink);
   text-decoration: none;
   margin-right: auto;
@@ -92,6 +98,47 @@ a.btn {
   gap: var(--s2);
   min-height: var(--touch);
 }
+.shell__brand .logo-mark {
+  flex: none;
+}
+
+/* Home: no bar at all, just the mark and the mute floating on the indigo. */
+.shell__bar--home {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 3;
+  color: var(--on-ai);
+}
+.shell__bar--home .shell__inner {
+  max-width: none;
+  padding: var(--s2) max(var(--s4), 4vw) 0;
+}
+.shell__bar--home .shell__brand,
+.shell__bar--home .shell__mute {
+  color: var(--on-ai);
+}
+.shell__bar--home .shell__mute:hover {
+  color: var(--on-ai);
+  background: transparent;
+}
+
+/* Game: a compact paper bar. */
+.shell__bar--game {
+  background: var(--washi);
+  border-bottom: var(--hairline);
+}
+.shell__bar--game .shell__inner {
+  height: 52px;
+}
+
+/* Staff pages: paper bar with the nav. */
+.shell__bar--staff {
+  background: var(--washi);
+  border-bottom: var(--hairline);
+}
+
 .shell__nav {
   display: flex;
   gap: var(--s1);
@@ -101,7 +148,7 @@ a.btn {
   align-items: center;
   min-height: var(--touch);
   padding: 0 var(--s2);
-  color: var(--slate);
+  color: var(--nezumi);
   text-decoration: none;
   font-weight: 500;
   white-space: nowrap;
@@ -109,10 +156,10 @@ a.btn {
   transition: color var(--t-fast) var(--ease);
 }
 .shell__link:hover {
-  color: var(--ink);
+  color: var(--sumi);
 }
 .shell__link[aria-current='page'] {
-  color: var(--ink);
+  color: var(--sumi);
 }
 .shell__underline {
   position: absolute;
@@ -121,7 +168,7 @@ a.btn {
   bottom: var(--s1);
   height: 2px;
   border-radius: 1px;
-  background: var(--accent-mark);
+  background: var(--shu);
 }
 .shell__mute {
   display: inline-grid;
@@ -130,17 +177,22 @@ a.btn {
   height: var(--touch);
   border: 0;
   background: transparent;
-  color: var(--slate);
-  border-radius: var(--radius);
+  color: var(--nezumi);
+  border-radius: var(--radius-pill);
   cursor: pointer;
+  transition: color var(--t-fast) var(--ease), background-color var(--t-fast) var(--ease);
 }
 .shell__mute:hover {
-  color: var(--ink);
+  color: var(--sumi);
+  background: var(--shoji);
+}
+.shell__mute:active {
+  transform: scale(var(--press-scale));
 }
 /* The stripped header on the live page: no links, just a quiet label. */
 .shell__live {
   margin: 0;
-  color: var(--slate);
+  color: var(--nezumi);
   font-size: var(--text-sm);
 }
 
@@ -154,7 +206,7 @@ a.btn {
     left: var(--s1);
     right: var(--s1);
   }
-  .shell__brand:not(.shell__brand--static) .shell__brand-name {
+  .shell__bar--staff .shell__brand:not(.shell__brand--static) .shell__brand-name {
     position: absolute;
     width: 1px;
     height: 1px;
@@ -162,6 +214,41 @@ a.btn {
     clip: rect(0 0 0 0);
   }
 }
+
+/* The noren curtain: two cloth panels that part from the middle. */
+.noren {
+  position: fixed;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+  overflow: hidden;
+}
+.noren__panel {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 50.5%;
+  background: var(--ai);
+  overflow: hidden;
+}
+.noren__panel--left {
+  left: 0;
+  /* a soft fold where the cloth meets the split */
+  box-shadow: inset -18px 0 22px -18px var(--ai-deep);
+}
+.noren__panel--right {
+  right: 0;
+  box-shadow: inset 18px 0 22px -18px var(--ai-deep);
+}
+.cloth {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  pointer-events: none;
+}
+
 .skip-link {
   position: absolute;
   top: var(--s2);
@@ -175,7 +262,7 @@ a.btn {
   color: var(--ink);
   border: 1px solid var(--ink);
   border-radius: var(--radius);
-  font-weight: 600;
+  font-weight: 700;
   text-decoration: none;
   transform: translateY(calc(-100% - var(--s4)));
 }
@@ -184,9 +271,17 @@ a.btn {
 }
 .shell__main:focus {
   outline: none;
+  box-shadow: none;
 }
+/* Positioned above the tray stage; no transform (it would trap the game's fixed sheets). */
 .shell__main {
+  position: relative;
+  z-index: 2;
   max-width: var(--max-width);
   margin: 0 auto;
   padding: var(--s6) var(--s4) var(--s16);
+}
+.shell__main--home {
+  max-width: none;
+  padding: 0;
 }

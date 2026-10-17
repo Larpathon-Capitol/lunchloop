@@ -12,6 +12,7 @@ export type FeedStatus = 'connecting' | 'live' | 'paused' | 'offline'
 export interface Counts {
   votes: number
   guesses: number
+  trays: number
   signIns: number
   forecasts: number
 }
@@ -23,13 +24,14 @@ function tally(counts: Counts, events: ServerEvent[]): Counts {
   for (const e of events) {
     if (e.kind === 'vote') next.votes++
     else if (e.kind === 'guess') next.guesses++
+    else if (e.kind === 'tray') next.trays++
     else if (e.kind === 'staff_sign_in') next.signIns++
     else if (FORECAST_KINDS.includes(e.kind)) next.forecasts++
   }
   return next
 }
 
-const ZERO: Counts = { votes: 0, guesses: 0, signIns: 0, forecasts: 0 }
+const ZERO: Counts = { votes: 0, guesses: 0, trays: 0, signIns: 0, forecasts: 0 }
 
 /**
  * Polls GET /api/events while the tab is visible. Opens with the newest rows the server

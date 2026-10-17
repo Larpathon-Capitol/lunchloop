@@ -1,8 +1,9 @@
 // One pickable menu row: a toggle button (aria-pressed) with the food, plus an info
-// button that opens the food sheet. Used by the spin ballot and by Called It, inside
+// button that opens the food sheet. Used by the vote reel and by Call it, inside
 // a role="group", so each row is a normal Tab stop with no arrow-key contract.
 import { motion, useReducedMotion } from 'framer-motion'
 import { copy } from '../shared/copy'
+import { Check, Info } from '../shared/icons'
 import { press } from '../shared/motion'
 import { FoodGlyph } from './FoodGlyph'
 import { popSpring } from './springs'
@@ -12,7 +13,7 @@ interface Props {
   name: string
   on: boolean
   disabled?: boolean
-  /** Spring the radio in, for when the reel lands. */
+  /** Spring the row in, for when the reel lands. */
   popIn?: boolean
   onPick: () => void
   onInfo: () => void
@@ -21,36 +22,28 @@ interface Props {
 export function ChoiceRow({ item_id, name, on, disabled, popIn, onPick, onInfo }: Props) {
   const reduce = useReducedMotion()
   return (
-    <div className={on ? 'reel__row reel__row--on' : 'reel__row'}>
-      <motion.button
-        type="button"
-        aria-pressed={on}
-        className="reel__pick"
-        onClick={onPick}
-        disabled={disabled}
-        whileTap={press}
-      >
+    <div className={on ? 'choice choice--on' : 'choice'}>
+      <motion.button type="button" aria-pressed={on} className="choice__main" onClick={onPick} disabled={disabled} whileTap={press}>
         <motion.span
-          className="reel__radio"
-          initial={reduce || !popIn ? false : { scale: 0 }}
+          className="glyph-disc glyph-disc--entree"
+          initial={reduce || !popIn ? false : { scale: 0.5 }}
           animate={{ scale: 1 }}
           transition={popSpring}
           aria-hidden="true"
         >
-          {on && (
-            <motion.svg viewBox="0 0 16 16" initial={reduce ? false : { scale: 0.4 }} animate={{ scale: 1 }} transition={popSpring}>
-              <path d="m4 8.5 2.6 2.5L12 5.5" />
-            </motion.svg>
-          )}
+          <FoodGlyph id={item_id} />
         </motion.span>
-        <FoodGlyph id={item_id} />
-        <span className="reel__name">{name}</span>
+        <span className="choice__name">{name}</span>
+        <span className="choice__mark" aria-hidden="true">
+          {on && (
+            <motion.span className="choice__check" initial={reduce ? false : { scale: 0.3, rotate: -30 }} animate={{ scale: 1, rotate: 0 }} transition={popSpring}>
+              <Check />
+            </motion.span>
+          )}
+        </span>
       </motion.button>
-      <button type="button" className="reel__info" onClick={onInfo} aria-label={copy.student.spin.info(name)}>
-        <svg viewBox="0 0 20 20" aria-hidden="true">
-          <circle cx="10" cy="10" r="7.5" />
-          <path d="M10 9v5M10 6.2v.3" />
-        </svg>
+      <button type="button" className="icon-btn choice__info" onClick={onInfo} aria-label={copy.student.spin.info(name)}>
+        <Info />
       </button>
     </div>
   )

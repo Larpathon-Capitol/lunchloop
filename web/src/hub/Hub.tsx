@@ -61,8 +61,8 @@ function Qr({ text, className }: { text: string; className?: string }) {
       data-url={text}
       shapeRendering="crispEdges"
     >
-      <rect width={box} height={box} fill="var(--surface)" />
-      <path d={d} transform={`translate(${quiet} ${quiet})`} fill="var(--ink)" />
+      <rect width={box} height={box} fill="var(--shoji)" />
+      <path d={d} transform={`translate(${quiet} ${quiet})`} fill="var(--sumi)" />
     </svg>
   )
 }

@@ -13,7 +13,7 @@
   font-size: var(--text-2xl);
 }
 .hub__lead {
-  color: var(--slate);
+  color: var(--nezumi);
   font-size: var(--text-md);
 }
 .hub__note {
@@ -47,11 +47,11 @@
   font-size: var(--text-lg);
 }
 .hub-row__line {
-  color: var(--slate);
+  color: var(--nezumi);
 }
 .hub-row__url {
   font-size: var(--text-sm);
-  color: var(--slate);
+  color: var(--nezumi);
   overflow-wrap: anywhere;
   user-select: all;
 }
@@ -96,7 +96,8 @@
   font-weight: 600;
 }
 .hub-qr__url {
-  font-family: var(--font-display);
+  font-family: var(--font-ui);
+  font-variant-numeric: tabular-nums;
   font-weight: 700;
   font-size: var(--text-xl);
   line-height: var(--leading-tight);
@@ -124,15 +125,15 @@
   margin: 0;
   padding: var(--s6);
   border: 0;
-  background: var(--surface);
-  color: var(--ink);
+  background: var(--shoji);
+  color: var(--sumi);
 }
 .hub-full[open] {
   display: grid;
   grid-template-rows: auto 1fr;
 }
 .hub-full::backdrop {
-  background: var(--surface);
+  background: var(--shoji);
 }
 .hub-full__close {
   justify-self: end;
@@ -149,7 +150,8 @@
   height: min(70vh, 90vw);
 }
 .hub-full__url {
-  font-family: var(--font-display);
+  font-family: var(--font-ui);
+  font-variant-numeric: tabular-nums;
   font-weight: 700;
   font-size: clamp(var(--text-xl), 4vw, var(--text-hero));
   line-height: var(--leading-tight);
@@ -165,4 +167,9 @@
   from {
     opacity: 0;
   }
+}
+
+.hub-row__name {
+  font-family: var(--font-ui);
+  font-weight: 700;
 }

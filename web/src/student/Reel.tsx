@@ -50,10 +50,6 @@ function buildFiller(pool: Props['pool'], options: SpinOption[]) {
 function Idle() {
   return (
     <div className="reel reel--idle">
-      <svg className="reel__idle-mark" viewBox="0 0 48 48" aria-hidden="true">
-        <rect x="6" y="9" width="36" height="30" rx="4" />
-        <path d="M6 19h36M6 29h36" />
-      </svg>
       <p className="reel__idle-text">{t.idle}</p>
     </div>
   )
@@ -117,19 +113,18 @@ export function Reel({ options, pool, phase, selected, disabled, onLanded, onSel
 
   // Hand keyboard and screen reader focus to the first choice once the reel lands.
   useEffect(() => {
-    if (live) groupRef.current?.querySelector<HTMLButtonElement>('.reel__pick')?.focus({ preventScroll: true })
+    if (live) groupRef.current?.querySelector<HTMLButtonElement>('.choice__main')?.focus({ preventScroll: true })
   }, [live])
 
   if (!spinning || !options.length) return <Idle />
 
   return (
-    <div className="reel">
+    <div className={live ? 'reel reel--live' : 'reel'}>
       <motion.div className="reel__strip" style={{ y }}>
         <div aria-hidden="true">
           {filler.map((o, i) => (
             <div className="reel__row" key={i} ref={i === 0 ? rowRef : undefined}>
-              <span className="reel__pick">
-                <span className="reel__radio reel__radio--ghost" />
+              <span className="reel__ghost">
                 <FoodGlyph id={o.item_id} />
                 <span className="reel__name">{o.name}</span>
               </span>
@@ -155,8 +150,7 @@ export function Reel({ options, pool, phase, selected, disabled, onLanded, onSel
           <div aria-hidden="true">
             {options.map((o) => (
               <div className="reel__row" key={o.item_id}>
-                <span className="reel__pick">
-                  <span className="reel__radio reel__radio--ghost" />
+                <span className="reel__ghost">
                   <FoodGlyph id={o.item_id} />
                   <span className="reel__name">{o.name}</span>
                 </span>

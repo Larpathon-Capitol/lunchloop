@@ -1,0 +1,104 @@
+.lab {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: var(--s8) var(--s4) 160px;
+  display: grid;
+  gap: var(--s8);
+}
+
+.lab h1 {
+  font-size: var(--text-2xl);
+}
+
+.lab h2 {
+  font-family: var(--font-ui);
+  font-size: var(--text-md);
+  font-weight: 700;
+  margin-bottom: var(--s3);
+}
+
+.lab-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2);
+  align-items: center;
+}
+
+.lab-controls button {
+  min-height: var(--touch);
+  padding: 0 var(--s4);
+  border: var(--hairline);
+  border-radius: var(--radius-pill);
+  background: var(--shoji);
+  color: var(--sumi);
+  font: inherit;
+  font-size: var(--text-sm);
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.lab-controls button[aria-pressed='true'] {
+  background: var(--shu);
+  border-color: var(--shu);
+  color: var(--on-shu);
+}
+
+.lab-controls button:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.lab-stage {
+  border-radius: var(--radius);
+  padding: var(--s16) var(--s6) var(--s6);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--s8);
+}
+
+.lab-stage[data-ground='washi'] {
+  background: var(--washi);
+  border: var(--hairline);
+}
+
+.lab-stage[data-ground='ai'] {
+  background: var(--ai);
+  color: var(--on-ai);
+}
+
+.lab-cell {
+  display: grid;
+  justify-items: center;
+  gap: var(--s2);
+  font-size: var(--text-sm);
+  color: var(--nezumi);
+}
+
+.lab-stage[data-ground='ai'] .lab-cell {
+  color: var(--on-ai-soft);
+}
+
+.lab-sheet {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  align-items: end;
+  gap: var(--s6) var(--s4);
+}
+
+.lab-rim {
+  width: 260px;
+  height: 64px;
+  border-radius: var(--radius-sm);
+  background: var(--line);
+  border-top: 6px solid var(--nezumi);
+  display: grid;
+  place-items: center;
+  color: var(--nezumi);
+  font-size: var(--text-sm);
+}
+
+.lab-spacer {
+  height: 1200px;
+  color: var(--nezumi);
+}

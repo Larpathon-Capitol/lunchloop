@@ -167,6 +167,7 @@ export function CountsStrip({ counts }: { counts: Counts }) {
   const items: [number, (n: number) => string][] = [
     [counts.votes, t.counts.votes],
     [counts.guesses, t.counts.guesses],
+    [counts.trays, t.counts.trays],
     [counts.signIns, t.counts.signIns],
     [counts.forecasts, t.counts.forecasts],
   ]

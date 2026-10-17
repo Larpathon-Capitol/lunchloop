@@ -1,0 +1,202 @@
+/* Reward kit styles. Tokens only. */
+
+.cel-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* Hanko seal */
+.hanko {
+  position: relative;
+  display: inline-block;
+  line-height: 0;
+}
+.hanko-seal {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+.hanko-ring {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.hanko-ring svg {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+/* Number roll */
+.roll {
+  display: inline-flex;
+  height: 1.2em;
+  line-height: 1.2;
+  overflow: hidden;
+  vertical-align: bottom;
+  font-variant-numeric: tabular-nums;
+}
+.roll-col {
+  display: block;
+  height: 1.2em;
+  overflow: hidden;
+}
+.roll-strip {
+  display: block;
+  will-change: transform;
+}
+.roll-digit {
+  display: block;
+  height: 1.2em;
+  text-align: center;
+}
+
+/* Brush progress */
+.brush {
+  display: block;
+  width: 100%;
+  min-width: 0;
+}
+.brush svg {
+  display: block;
+  width: 100%;
+  overflow: visible;
+}
+
+/* XP token */
+.xp-toast {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 var(--s3);
+  border-radius: var(--radius-pill);
+  background: var(--kin-light);
+  box-shadow: inset 0 0 0 2px var(--kin);
+  color: var(--sumi);
+  font-family: var(--font-ui);
+  font-weight: 900;
+  font-size: var(--text-sm);
+  letter-spacing: 0.01em;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+/* Milestone overlay */
+.milestone {
+  position: fixed;
+  inset: 0;
+  z-index: 9000;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  background: var(--ai);
+  color: var(--on-ai);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.milestone-branch {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: min(100%, 520px);
+  height: auto;
+  pointer-events: none;
+}
+.milestone-body {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  justify-items: center;
+  gap: var(--s3);
+  margin-top: 18vh;
+  padding: 0 var(--s6);
+  text-align: center;
+}
+.milestone-number {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: clamp(112px, 34vw, 176px);
+  line-height: 1;
+  color: var(--kin-light);
+}
+.milestone-label {
+  font-size: var(--text-md);
+  font-weight: 700;
+  color: var(--on-ai);
+}
+.milestone-line {
+  max-width: 22ch;
+  font-size: var(--text-md);
+  color: var(--on-ai-soft);
+  text-wrap: balance;
+}
+.milestone-btn {
+  margin-top: var(--s5);
+  min-width: 180px;
+  min-height: 52px;
+  padding: 0 var(--s8);
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: var(--shu);
+  color: var(--on-shu);
+  font-family: var(--font-ui);
+  font-weight: 900;
+  font-size: var(--text-md);
+  cursor: pointer;
+}
+.milestone-btn:active {
+  background: var(--shu-deep);
+}
+.milestone-btn:focus-visible {
+  box-shadow: 0 0 0 3px var(--ai), 0 0 0 5px var(--on-ai);
+}
+.milestone-hint {
+  position: absolute;
+  bottom: max(var(--s6), env(safe-area-inset-bottom));
+  left: 0;
+  right: 0;
+  z-index: 2;
+  text-align: center;
+  font-size: var(--text-sm);
+  color: var(--on-ai-soft);
+}
+
+/* Orchestrator layer */
+.celebrate-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 8000;
+  pointer-events: none;
+}
+.celebrate-spot {
+  position: absolute;
+  width: 0;
+  height: 0;
+}
+.celebrate-streak {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s2);
+  padding: var(--s1) var(--s4) var(--s1) var(--s3);
+  border-radius: var(--radius-pill);
+  background: var(--ai);
+  color: var(--on-ai);
+  font-weight: 700;
+  font-size: var(--text-sm);
+  white-space: nowrap;
+}
+.celebrate-streak .roll {
+  color: var(--kin-light);
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: var(--text-lg);
+}
+.celebrate-streak svg {
+  flex: none;
+}

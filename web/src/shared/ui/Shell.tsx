@@ -1,13 +1,23 @@
-import { Suspense, useEffect, useRef } from 'react'
+import { lazy, Suspense, useEffect, useRef } from 'react'
 import { NavLink, Link, Outlet, useLocation } from 'react-router-dom'
 import { motion } from 'framer-motion'
+import { UmeDock } from '../../mascot'
+import { SoundOff, SoundOn } from '../icons'
 import { copy } from '../copy'
 import { useReducedMotion } from '../motion'
 import { setMuted, useMuted } from '../sound'
 import { Logo } from './Logo'
+import { NorenCurtain } from './Noren'
+import { useNoren } from './norenStore'
 import { Loading } from './Notice'
 
+// three.js and the tray only download on the screens that show the tray.
+const TrayStage = lazy(() => import('../../tray/TrayStage'))
+
 const underlineSpring = { type: 'spring', stiffness: 520, damping: 38 } as const
+
+/** Top-level views that are staff pages: they keep the nav and never show the tray. */
+const STAFF_VIEWS = new Set(['school', 'kitchen', 'hub', 'behind-the-scenes'])
 
 function NavItem({ to, label, reduce }: { to: string; label: string; reduce: boolean }) {
   return (
@@ -28,9 +38,24 @@ function NavItem({ to, label, reduce }: { to: string; label: string; reduce: boo
   )
 }
 
-export function Shell() {
+function MuteButton() {
   const muted = useMuted()
+  return (
+    <button
+      className="shell__mute"
+      onClick={() => setMuted(!muted)}
+      aria-pressed={!muted}
+      aria-label={copy.app.sound}
+      title={muted ? copy.app.soundTurnOn : copy.app.soundTurnOff}
+    >
+      {muted ? <SoundOff width={22} height={22} /> : <SoundOn width={22} height={22} />}
+    </button>
+  )
+}
+
+export function Shell() {
   const reduce = !!useReducedMotion()
+  const parting = useNoren() !== 0
   const { pathname } = useLocation()
   const [, seg1 = '', seg2 = ''] = pathname.split('/')
   // One key per top-level view, so the Student view's own sub-routes never remount.
@@ -40,12 +65,15 @@ export function Shell() {
   const inGame = (view === 'student' || view === 'live') && !liveAdmin
   // Peers on /live (and anywhere they tap from there) get a header with nowhere to wander to.
   const liveGame = inGame && view === 'live'
+  // Staff pages keep the nav. Everything else that isn't the game shows the home hero (index and unknown paths).
+  const staff = liveAdmin || STAFF_VIEWS.has(view)
+  const home = !inGame && !staff
   // /student and /live get separate keys, so switching between them starts the game fresh in the other school.
   const viewKey = liveAdmin ? 'live-admin' : liveGame ? 'game-live' : inGame ? 'game' : view
+  const mode = home ? 'home' : inGame ? 'game' : 'staff'
   const mainRef = useRef<HTMLElement>(null)
-  const firstRender = useRef(true)
-  const skipEnter = firstRender.current
-  firstRender.current = false
+  // Only staff pages fade in. Home and the game hand over through the tray and the noren instead.
+  const fadeIn = !reduce && mode === 'staff'
 
   useEffect(() => {
     const titles: Record<string, string> = {
@@ -59,8 +87,20 @@ export function Shell() {
     document.title = titles[viewKey] ?? copy.app.titleHome
   }, [viewKey, liveGame])
 
+  const brand = liveGame ? (
+    <span className="shell__brand shell__brand--static">
+      <Logo />
+      <span className="shell__brand-name">{copy.app.name}</span>
+    </span>
+  ) : (
+    <Link to="/" className="shell__brand">
+      <Logo />
+      <span className="shell__brand-name">{copy.app.name}</span>
+    </Link>
+  )
+
   return (
-    <>
+    <div className={`shell shell--${mode}`}>
       <a
         className="skip-link"
         href="#main"
@@ -71,50 +111,33 @@ export function Shell() {
       >
         {copy.app.skipToMain}
       </a>
-      <header className="shell__bar">
+      <header className={`shell__bar shell__bar--${mode}`}>
         <div className="shell__inner">
-          {liveGame ? (
-            <span className="shell__brand shell__brand--static">
-              <Logo />
-              <span className="shell__brand-name">{copy.app.name}</span>
-            </span>
-          ) : (
-            <Link to="/" className="shell__brand">
-              <Logo />
-              <span className="shell__brand-name">{copy.app.name}</span>
-            </Link>
-          )}
-          {liveGame ? (
-            <p className="shell__live">{copy.app.liveLabel}</p>
-          ) : (
+          {brand}
+          {liveGame && <p className="shell__live">{copy.app.liveLabel}</p>}
+          {staff && (
             <nav className="shell__nav" aria-label={copy.app.navLabel}>
               <NavItem to="/student" label={copy.app.navStudent} reduce={reduce} />
               <NavItem to="/school" label={copy.app.navSchool} reduce={reduce} />
               <NavItem to="/behind-the-scenes" label={copy.app.navBackstage} reduce={reduce} />
             </nav>
           )}
-          <button
-            className="shell__mute"
-            onClick={() => setMuted(!muted)}
-            aria-pressed={!muted}
-            aria-label={copy.app.sound}
-            title={muted ? copy.app.soundTurnOn : copy.app.soundTurnOff}
-          >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <path d="M11 5 6 9H3v6h3l5 4z" />
-              {muted ? <path d="m16 9 5 6m0-6-5 6" /> : <path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13" />}
-            </svg>
-          </button>
+          <MuteButton />
         </div>
       </header>
+      {(home || inGame) && (
+        <Suspense fallback={null}>
+          <TrayStage />
+        </Suspense>
+      )}
       {/* Opacity only: a transform here would trap position:fixed sheets inside the Student view. */}
       <motion.main
         key={viewKey}
         id="main"
         ref={mainRef}
         tabIndex={-1}
-        className="shell__main"
-        initial={skipEnter || reduce ? false : { opacity: 0 }}
+        className={`shell__main shell__main--${mode}`}
+        initial={fadeIn ? { opacity: 0 } : false}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.2, ease: [0.2, 0, 0, 1] }}
       >
@@ -122,6 +145,9 @@ export function Shell() {
           <Outlet />
         </Suspense>
       </motion.main>
-    </>
+      {/* Ume waits for the curtain to finish before stepping in. */}
+      {inGame && <UmeDock hidden={parting} />}
+      <NorenCurtain />
+    </div>
   )
 }
