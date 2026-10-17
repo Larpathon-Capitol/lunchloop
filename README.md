@@ -28,6 +28,7 @@ Not ready yet. Setup steps for macOS and Windows will go here once the app runs.
 ## Credits
 
 - [Ekansh Simgekar](https://github.com/magicKansh) built the first forecasting prototype and the simulated cafeteria data this project started from.
+- [Yojith](https://github.com/yojithprograms), LunchLoop team member.
 
 ## License
 
