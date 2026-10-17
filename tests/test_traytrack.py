@@ -10,7 +10,8 @@ import pytest
 
 from prediction import (load_data, predict_demand, service_level, newsvendor_buffer,
                         calculate_costs, expected_costs, evaluate_methods, mae_report,
-                        split_dates, compute_data_driven_buffers, TEST_DAYS, USE_WEEKDAY_SHRINK)
+                        split_dates, compute_data_driven_buffers, TEST_DAYS, USE_WEEKDAY_SHRINK,
+                        RECENT_WINDOW_DAYS, DEFAULT_BUFFER_RULE, safety_buffer, validate_history)
 
 
 @pytest.fixture(scope="module")
@@ -61,11 +62,19 @@ def test_weekday_candidate_hand_calc():
 
 
 def test_forecast_ship_gate(df):
-    # Only a forecast change that beats the baseline on held-out test data may ship.
+    # Only a forecast change that beats the all-time average on held-out test data may ship.
     r = mae_report(df)
-    assert USE_WEEKDAY_SHRINK == r["new_beats_old_on_test"] == r["candidate_adopted"]
-    if not USE_WEEKDAY_SHRINK:
-        assert r["shipped_mae_servings_per_day"] == r["old_method"]["overall_mae_servings_per_day"]
+    if r["shipped_method"] != "all_time_average":
+        assert r["new_beats_old_on_test"]
+    assert USE_WEEKDAY_SHRINK == r["rejected_candidates"]["weekday_shrunk"]["beats_old_on_test"]
+
+
+def test_recent_window_hand_calc():
+    # 5 old days at 200 served, then 20 recent days at 100 (attendance 400): the shipped
+    # forecast uses only the last 20 days -> 100, the all-time average would say 120.
+    hist = make_history([200] * 5 + [100] * RECENT_WINDOW_DAYS)
+    p = predict_demand(hist, "X", "main", 400, target_date="2026-10-15")
+    assert p["predicted_demand"] == 100 and p["method"] == "recent_window"
 
 
 # ---- buffers -------------------------------------------------------------------
@@ -85,8 +94,20 @@ def test_newsvendor_buffer_is_quantile_with_floors():
 
 
 def test_buffers_grow_with_shortage_penalty(df):
-    low, high = compute_data_driven_buffers(df, 1.5), compute_data_driven_buffers(df, 5.0)
-    assert all(high[i]["buffer"] >= low[i]["buffer"] for i in low)
+    for rule in ("cost_optimal", "shortage_first"):
+        low = compute_data_driven_buffers(df, 1.5, buffer_rule=rule)
+        high = compute_data_driven_buffers(df, 5.0, buffer_rule=rule)
+        assert all(high[i]["buffer"] >= low[i]["buffer"] for i in low)
+
+
+def test_shortage_first_buffer_hand_calc():
+    errors = [i / 100 for i in range(-10, 31)]          # -10% .. +30%
+    assert safety_buffer(errors, "main", 3.0, "shortage_first") == pytest.approx(0.26)   # 90th pct
+    assert safety_buffer([-0.2] * 20, "main", 3.0, "shortage_first") == pytest.approx(0.05)  # floor
+    assert safety_buffer([-0.2] * 20, "fruit", 3.0, "shortage_first") == pytest.approx(0.10)
+    assert safety_buffer(errors, "main", 3.0, "cost_optimal") == newsvendor_buffer(errors, "main", 3.0)
+    with pytest.raises(ValueError):
+        safety_buffer(errors, "main", 3.0, "bogus")
 
 
 # ---- cost accounting ------------------------------------------------------------
@@ -179,11 +200,13 @@ def test_penalties_1x_3x_5x_trade_surplus_for_shortage(df):
 
 def test_buffer_rule_comparison_is_consistent(evaluation):
     o, rules = evaluation["overall"], evaluation["buffer_rules"]["test"]
-    assert rules["newsvendor_shipped"]["total_cost"] == pytest.approx(o["lunchloop_total_cost"], abs=0.05)
+    assert o["buffer_rule"] == DEFAULT_BUFFER_RULE
+    assert rules[DEFAULT_BUFFER_RULE]["total_cost"] == pytest.approx(o["lunchloop_total_cost"], abs=0.05)
     assert rules["usual_amount"]["total_cost"] == pytest.approx(o["baseline_total_cost"], abs=0.05)
-    assert rules["newsvendor_shipped"]["shortage_servings"] == o["estimated_shortage_servings"]
+    assert rules[DEFAULT_BUFFER_RULE]["shortage_servings"] == o["estimated_shortage_servings"]
     # More buffer can only mean fewer shortages on the same forecast.
-    assert rules["no_buffer"]["shortage_servings"] >= rules["newsvendor_shipped"]["shortage_servings"]
+    for rule in ("shortage_first", "cost_optimal"):
+        assert rules["no_buffer"]["shortage_servings"] >= rules[rule]["shortage_servings"]
 
 
 def test_accuracy_report_is_honest_about_the_comparison(df):

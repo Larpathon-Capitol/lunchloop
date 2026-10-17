@@ -136,7 +136,7 @@ buffers = compute_data_driven_buffers(df)
 assert len(buffers) == 6
 for item, info in buffers.items():
     assert 0 <= info["buffer"] <= 0.40
-    assert info["shortage_rate_estimate"] <= 1 - info["service_level_target"] + 1e-9
+    assert info["shortage_rate_estimate"] <= 1 - info["service_level_target"] + 1 / info["samples"] + 1e-9  # quantile interpolation: at most one extra miss
 cats = dict(df.drop_duplicates("food_item")[["food_item", "food_category"]].values)
 assert all(buffers[i]["buffer"] >= 0.10 for i in buffers if cats[i] in ("fruit", "vegetable", "dairy"))
 

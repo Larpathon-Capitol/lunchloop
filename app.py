@@ -3,7 +3,9 @@
 Run with:  uvicorn app:app --reload
 Then open http://127.0.0.1:8000/docs for interactive testing.
 """
-from typing import List, Optional
+import threading
+from contextlib import asynccontextmanager
+from typing import List, Literal, Optional
 
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
@@ -12,9 +14,17 @@ from pydantic import BaseModel, Field
 
 from prediction import (load_data, plan_day, plan_month, summarize_history, mae_report,
                          compute_data_driven_buffers, validate_history, evaluate_methods,
-                         walk_forward_residuals, SHORTAGE_PENALTY_MULTIPLIER)
+                         walk_forward_residuals, SHORTAGE_PENALTY_MULTIPLIER, DEFAULT_BUFFER_RULE)
+from simulation import run_simulation_study
 
-app = FastAPI(title="TrayTrack API")
+@asynccontextmanager
+async def lifespan(_app):
+    # Warm the ~30 s simulation cache in the background so the first page load doesn't wait.
+    threading.Thread(target=simulation, daemon=True).start()
+    yield
+
+
+app = FastAPI(title="TrayTrack API", lifespan=lifespan)
 
 # Dev-friendly default: allow the React dev server to call this without extra config.
 app.add_middleware(
@@ -31,20 +41,23 @@ RESIDUALS = walk_forward_residuals(df)
 BUFFERS = compute_data_driven_buffers(df, residuals=RESIDUALS)
 ACCURACY = mae_report(df)
 DATA_QUALITY_ISSUES = validate_history(df)
-_buffer_cache = {SHORTAGE_PENALTY_MULTIPLIER: BUFFERS}
+_buffer_cache = {(SHORTAGE_PENALTY_MULTIPLIER, DEFAULT_BUFFER_RULE): BUFFERS}
 _eval_cache = {}
+_simulation = {}
+_simulation_lock = threading.Lock()
 
 
-def buffers_for(m):
-    """Buffers depend on the shortage multiplier (newsvendor service level = 1 - 1/m)."""
-    if m not in _buffer_cache:
+def buffers_for(m, rule=DEFAULT_BUFFER_RULE):
+    """Buffers depend on the shortage multiplier and the buffer rule."""
+    if (m, rule) not in _buffer_cache:
         if len(_buffer_cache) > 32:  # bounded: m is user input
             _buffer_cache.clear()
-        _buffer_cache[m] = compute_data_driven_buffers(df, m, residuals=RESIDUALS)
-    return _buffer_cache[m]
+        _buffer_cache[(m, rule)] = compute_data_driven_buffers(df, m, residuals=RESIDUALS, buffer_rule=rule)
+    return _buffer_cache[(m, rule)]
 
 # A multiplier <= 0 would make shortages free or profitable; reject it at the boundary.
 Multiplier = Field(SHORTAGE_PENALTY_MULTIPLIER, gt=0, le=100)
+BufferRule = Literal["shortage_first", "cost_optimal"]
 
 
 class MenuItem(BaseModel):
@@ -58,6 +71,7 @@ class PlanRequest(BaseModel):
     target_date: Optional[str] = None  # "YYYY-MM-DD"; used to estimate attendance if expected_attendance is omitted
     menu: Optional[List[MenuItem]] = None
     shortage_penalty_multiplier: float = Multiplier
+    buffer_rule: BufferRule = DEFAULT_BUFFER_RULE
 
 
 class MonthPlanRequest(BaseModel):
@@ -65,6 +79,7 @@ class MonthPlanRequest(BaseModel):
     month: int  # 1-12
     menu: Optional[List[MenuItem]] = None
     shortage_penalty_multiplier: float = Multiplier
+    buffer_rule: BufferRule = DEFAULT_BUFFER_RULE
 
 
 @app.get("/health")
@@ -105,8 +120,9 @@ def plan(request: PlanRequest):
     menu = [item.model_dump() for item in request.menu] if request.menu else None
     return plan_day(df, expected_attendance=request.expected_attendance,
                      target_date=request.target_date, menu=menu,
-                     buffers_table=buffers_for(request.shortage_penalty_multiplier),
-                     shortage_penalty_multiplier=request.shortage_penalty_multiplier)
+                     buffers_table=buffers_for(request.shortage_penalty_multiplier, request.buffer_rule),
+                     shortage_penalty_multiplier=request.shortage_penalty_multiplier,
+                     buffer_rule=request.buffer_rule)
 
 
 @app.post("/plan/month")
@@ -115,8 +131,9 @@ def plan_month_endpoint(request: MonthPlanRequest):
         raise HTTPException(status_code=400, detail="month must be 1-12.")
     menu = [item.model_dump() for item in request.menu] if request.menu else None
     return plan_month(df, request.year, request.month, menu=menu,
-                       buffers_table=buffers_for(request.shortage_penalty_multiplier),
-                       shortage_penalty_multiplier=request.shortage_penalty_multiplier)
+                       buffers_table=buffers_for(request.shortage_penalty_multiplier, request.buffer_rule),
+                       shortage_penalty_multiplier=request.shortage_penalty_multiplier,
+                       buffer_rule=request.buffer_rule)
 
 
 @app.get("/plan/sensitivity")
@@ -137,15 +154,26 @@ def plan_sensitivity(expected_attendance: int):
 
 
 @app.get("/evaluate")
-def evaluate(shortage_penalty_multiplier: float = Query(SHORTAGE_PENALTY_MULTIPLIER, gt=0, le=100)):
+def evaluate(shortage_penalty_multiplier: float = Query(SHORTAGE_PENALTY_MULTIPLIER, gt=0, le=100),
+             buffer_rule: BufferRule = DEFAULT_BUFFER_RULE):
     """Leak-free walk-forward evaluation of baseline vs. TrayTrack, on the same held-out
     school days (see evaluate_methods() in prediction.py for the full methodology)."""
-    m = shortage_penalty_multiplier
-    if m not in _eval_cache:
+    key = (shortage_penalty_multiplier, buffer_rule)
+    if key not in _eval_cache:
         if len(_eval_cache) > 32:  # bounded: m is user input
             _eval_cache.clear()
-        _eval_cache[m] = evaluate_methods(df, shortage_penalty_multiplier=m)
-    return _eval_cache[m]
+        _eval_cache[key] = evaluate_methods(df, shortage_penalty_multiplier=key[0], buffer_rule=buffer_rule)
+    return _eval_cache[key]
+
+
+@app.get("/simulation")
+def simulation():
+    """The SYNTHETIC multi-scenario strategy study (simulation.py). Fixed settings and seeds,
+    so it is computed once (about 30 s) and cached."""
+    with _simulation_lock:
+        if "result" not in _simulation:
+            _simulation["result"] = run_simulation_study()
+    return _simulation["result"]
 
 
 DASHBOARD_HTML = """
@@ -282,6 +310,30 @@ DASHBOARD_HTML = """
   </section>
 
   <section class="card">
+    <h2>Simulation study: many synthetic schools</h2>
+    <p class="sub" id="sim-sub" style="margin-bottom:14px">Running the simulation (about 30 seconds the first time)&hellip;</p>
+    <div class="totals-line" id="sim-pick"></div>
+    <div id="sim-buttons" style="margin-top:14px; display:none">
+      Shortage cost:
+      <button type="button" data-m="1x">1x</button>
+      <button type="button" data-m="3x">3x</button>
+      <button type="button" data-m="5x">5x</button>
+    </div>
+    <table id="sim-table" style="margin-top:14px; display:none">
+      <thead><tr><th>Strategy (unseen test schools)</th><th>Savings</th><th>Leftovers</th><th>Shortage servings vs. usual</th>
+        <th>Rows short</th><th>Demand met</th><th>Total $</th></tr></thead>
+      <tbody id="sim-rows"></tbody>
+    </table>
+    <h2 style="margin-top:24px">When demand assumptions change</h2>
+    <table id="sim-family" style="margin-top:10px; display:none">
+      <thead><tr><th>Scenario (test schools)</th><th>Forecast MAE</th><th>Leftovers</th><th>Shortages vs. usual</th>
+        <th>Demand met (usual / TT)</th><th>Savings</th><th>Cost-optimal alternative</th></tr></thead>
+      <tbody id="sim-family-rows"></tbody>
+    </table>
+    <p class="note" id="sim-note"></p>
+  </section>
+
+  <section class="card">
     <h2 id="month-title">Next month&rsquo;s prediction</h2>
     <p class="sub" id="month-sub" style="margin-bottom:14px">Loading&hellip;</p>
     <p class="note" id="month-range" style="margin-top:0"></p>
@@ -361,10 +413,9 @@ async function loadHistory() {
     document.getElementById('table').style.display = '';
     document.getElementById('buffer-note').textContent =
       'Safety buffers come from each food\\'s walk-forward forecast errors (each past day ' +
-      'predicted using only earlier days), using the newsvendor rule: prepare enough for ' +
-      '1 - 1/multiplier of days, never below the forecast, and never below +10% for ' +
-      'fruit, vegetables and milk. The short-day rate is how often, on those same past days, ' +
-      'the buffered amount would still have run short.';
+      'predicted using only earlier days). The shipped shortage-first rule prepares enough for ' +
+      '90% of past days, never below +5% (+10% for fruit, vegetables and milk). The short-day ' +
+      'rate is how often, on those same past days, the buffered amount would still have run short.';
   } catch (e) {
     document.getElementById('subtitle').innerHTML =
       '<span class="err">Could not load /summary or /buffers: ' + e.message + '</span>';
@@ -615,7 +666,7 @@ async function loadEvaluation() {
       `<b>Simulated school.</b> ${o.evaluated_days} held-out school days (${o.window_start} to ` +
       `${o.window_end}), ${o.n} day-food rows. Both plans use only data from before each day and ` +
       `are scored against what was actually served. A missing serving costs ` +
-      `${o.shortage_penalty_multiplier}x its unit cost, so TrayTrack's buffer targets enough food ` +
+      `${o.shortage_penalty_multiplier}x its unit cost; TrayTrack's ${o.buffer_rule.replace('_', '-')} buffer targets enough food ` +
       `on ${Math.round(o.service_level_target * 100)}% of days.`;
     const rows = [
       ['Food prepared ($, includes surplus)', o.baseline_food_cost, o.lunchloop_food_cost, true],
@@ -667,8 +718,8 @@ async function loadEvaluation() {
 
 const PENALTIES = [1, 3, 5];
 const RULE_LABELS = {
-  newsvendor_shipped: 'TrayTrack newsvendor buffer (shipped)',
-  p90_previous: 'Previous 90th-percentile buffer',
+  shortage_first: 'Shortage-first buffer, 90% of days (shipped)',
+  cost_optimal: 'Cost-optimal newsvendor buffer (previous)',
   fixed_10_15pct: 'Fixed +10% / +15% buffer',
   usual_amount: 'Cooking the usual amount',
   no_buffer: 'No buffer (breaks fruit/veg floor)',
@@ -687,8 +738,8 @@ async function loadPenalties() {
     }
     document.getElementById('pen-sub').innerHTML =
       '<b>Simulated school.</b> Same held-out test days, scored against actual servings. A higher ' +
-      'shortage cost makes TrayTrack prepare more (buffer target = 1 - 1/cost), trading ' +
-      'leftovers for fewer shortages.';
+      'shortage cost makes the cost-optimal rule prepare more (target = 1 - 1/cost); the shipped ' +
+      'shortage-first rule always aims for at least 90% of days, so its prep barely moves.';
     const pct = v => v === null ? 'n/a' : v + '%';
     const tbody = document.getElementById('pen-rows');
     evals.forEach((e, i) => {
@@ -732,10 +783,90 @@ async function loadPenalties() {
 }
 
 
+const SHIPPED_STRATEGY = 'recent_shortage_first';
+const FAMILY_LABELS = {steady: 'Steady demand', typical: 'Typical', volatile: 'Volatile, frequent surprises',
+  trending: 'Popularity trending', weekday_heavy: 'Strong weekday patterns'};
+
+function renderSimulation(sim, m) {
+  const res = sim.results[m];
+  const test = res.by_split.test;
+  const pick = res.chosen_on_validation;
+  const label = s => sim.strategy_labels[s] || s;
+  const pct = v => (v > 0 ? '+' : '') + v + '%';
+  const ratio = v => v === null ? 'n/a' : v.toFixed(2) + 'x';
+  document.getElementById('sim-pick').innerHTML =
+    `<div><b>${label(pick.best_within_shortage_limit || 'none')}</b>best on validation within ` +
+    `${Math.round((sim.config.shortage_limit - 1) * 100)}% of usual shortages (${m})</div>` +
+    `<div><b>${label(pick.best_by_cost)}</b>cheapest on validation, ignoring shortages (${m})</div>` +
+    `<div><b>${sim.chosen_forecast_on_validation.replace(/_/g, ' ')}</b>forecast chosen on validation</div>`;
+  const tbody = document.getElementById('sim-rows');
+  tbody.innerHTML = '';
+  for (const [s, r] of Object.entries(test)) {
+    const tr = document.createElement('tr');
+    const name = s === pick.best_within_shortage_limit ? `<b>${label(s)}</b>` : label(s);
+    tr.innerHTML = `<td>${name}${s === SHIPPED_STRATEGY ? ' (shipped)' : ''}</td>` +
+      `<td>${r.savings_pct_vs_usual}%</td><td>${pct(r.leftover_change_pct)}</td>` +
+      `<td>${ratio(r.shortage_vs_usual_ratio)}</td><td>${r.days_short}</td>` +
+      `<td>${r.fill_rate_pct}%</td><td>${fmtMoney(r.total_cost)}</td>`;
+    tbody.appendChild(tr);
+  }
+  document.getElementById('sim-table').style.display = '';
+
+  const fb = document.getElementById('sim-family-rows');
+  fb.innerHTML = '';
+  const over = [];
+  for (const [fam, t] of Object.entries(res.test_by_family)) {
+    const x = t[SHIPPED_STRATEGY], u = t.usual, c = t.recent_cost_optimal;
+    const mae = sim.forecast_mae.test_by_family[fam].recent_20_days.vs_true_demand;
+    if (x.shortage_vs_usual_ratio !== null && x.shortage_vs_usual_ratio > sim.config.shortage_limit) {
+      over.push(`${FAMILY_LABELS[fam]} (${ratio(x.shortage_vs_usual_ratio)}, ${x.shortage_servings} vs. ${u.shortage_servings} servings)`);
+    }
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${FAMILY_LABELS[fam]}</td><td>${mae}</td><td>${pct(x.leftover_change_pct)}</td>` +
+      `<td>${ratio(x.shortage_vs_usual_ratio)}</td><td>${u.fill_rate_pct}% / ${x.fill_rate_pct}%</td>` +
+      `<td>${x.savings_pct_vs_usual}%</td>` +
+      `<td>${c.savings_pct_vs_usual}% saved, shortages ${ratio(c.shortage_vs_usual_ratio)}</td>`;
+    fb.appendChild(tr);
+  }
+  document.getElementById('sim-family').style.display = '';
+  const n = sim.config.schools_per_family;
+  document.getElementById('sim-note').innerHTML =
+    `<b>Synthetic.</b> ${Object.keys(sim.config.families).length} scenario types, each with ` +
+    `${n.train} training, ${n.validation} validation and ${n.test} unseen test schools ` +
+    `(${sim.config.scored_days_per_school} scored days x ${sim.config.foods.length} foods each). ` +
+    'Buffers were tuned on training schools, the strategy was picked on validation schools, and ' +
+    'only test schools are shown here. Shortages are counted against true simulated demand. ' +
+    (over.length ? `<b>Where the shipped strategy runs short more than the limit:</b> ${over.join('; ')}. ` +
+      'The overall result stays within the limit because the messier scenarios dominate the totals. '
+      : 'The shipped strategy stays within the shortage limit in every scenario. ') +
+    'These are properties of the simulation and its assumptions, not evidence about a real school.';
+}
+
+async function loadSimulation() {
+  try {
+    const res = await fetch('/simulation');
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const sim = await res.json();
+    document.getElementById('sim-sub').innerHTML =
+      '<b>Simulated schools (synthetic data).</b> Each school has its own attendance, popularity ' +
+      'drift, weekday habits and surprise days; its kitchen cooks its running average + ' +
+      `${Math.round(sim.config.kitchen_margin * 100)}%, so it sometimes sells out, like a real one.`;
+    document.getElementById('sim-buttons').style.display = '';
+    document.querySelectorAll('#sim-buttons button').forEach(b =>
+      b.addEventListener('click', () => renderSimulation(sim, b.dataset.m)));
+    renderSimulation(sim, '3x');
+  } catch (err) {
+    document.getElementById('sim-sub').innerHTML =
+      '<span class="err">Could not load /simulation: ' + err.message + '</span>';
+  }
+}
+
+
 loadHistory();
 loadAccuracy();
 loadEvaluation();
 loadPenalties();
+loadSimulation();
 loadMonthPlan();
 </script>
 </body>

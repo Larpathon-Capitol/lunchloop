@@ -172,23 +172,34 @@ WEEKDAY_SHRINK_K = 4  # a weekday's own rate gets weight n / (n + 4) after n pas
 # the held-out test window (mae_report()). It does not (test MAE 7.53 vs 7.26), so it stays
 # off; tests/test_traytrack.py fails if this flag ever disagrees with the gate result.
 USE_WEEKDAY_SHRINK = False
+# Shipped forecast window: the share over the last 20 school days. Chosen on VALIDATION
+# schools in the synthetic simulation study (simulation.py), then passed the CSV ship gate
+# (held-out test MAE 7.17 vs 7.26 for the all-time average). None = all history.
+RECENT_WINDOW_DAYS = 20
 
 
 def _estimate_serve_rate(hist, target_date=None, weekday_shrink=None):
     """The rate estimate behind predict_demand(), once a food has enough history.
 
-    Shipped method: the all-history rate (served / attendance). The CANDIDATE (used when
-    weekday_shrink is True) nudges it toward that weekday's own rate by
-    n / (n + WEEKDAY_SHRINK_K), where n = past occurrences of the weekday. The candidate's k
-    was picked on the validation window only; it beat the all-time average there but not on
-    the held-out test window, so it is not shipped (see USE_WEEKDAY_SHRINK). An earlier hard
-    cascade (last 8 same-weekdays, else last 25 days, else all history) did worse than both.
+    Shipped method: served / attendance over the last RECENT_WINDOW_DAYS days (all history
+    while there are fewer). The weekday CANDIDATE (weekday_shrink=True) instead nudges the
+    all-history rate toward that weekday's own rate by n / (n + WEEKDAY_SHRINK_K); it beat
+    the all-time average on validation but not on held-out test days, so it is not shipped
+    (see USE_WEEKDAY_SHRINK). An earlier hard cascade did worse than both.
     """
     if weekday_shrink is None:
         weekday_shrink = USE_WEEKDAY_SHRINK
+    if not weekday_shrink:
+        recent = hist.tail(RECENT_WINDOW_DAYS) if RECENT_WINDOW_DAYS else hist
+        rate = recent["quantity_served"].sum() / recent["attendance"].sum()
+        if len(recent) < len(hist):
+            return rate, "recent_window", (f"Based on the last {len(recent)} school days: "
+                                           f"{rate:.1%} of attending students took it.")
+        return rate, "history_scaled_by_attendance", (
+            f"Based on all {len(hist)} past days: {rate:.1%} of attending students took it.")
     rate = hist["quantity_served"].sum() / hist["attendance"].sum()
     note = f"Based on all {len(hist)} past days: {rate:.1%} of attending students took it."
-    if not weekday_shrink or target_date is None or rate == 0:
+    if target_date is None or rate == 0:
         return rate, "history_scaled_by_attendance", note
     day_name = pd.Timestamp(target_date).strftime("%A")
     same = hist[hist["date"].dt.weekday == pd.Timestamp(target_date).weekday()]
@@ -327,52 +338,58 @@ def _mae_summary(res, pred_col):
 
 def mae_report(df, min_warmup_days=MIN_BACKTEST_WARMUP_DAYS, test_days=TEST_DAYS):
     """The ship gate for the forecast: prediction accuracy (servings/day) of the all-time
-    average ("old_method", the baseline) vs. the weekday candidate ("new_method"), scored on
-    the HELD-OUT test window, with the validation window reported separately.
+    average ("old_method", the baseline) vs. the SHIPPED forecast ("new_method", last
+    RECENT_WINDOW_DAYS days), scored on the HELD-OUT test window, with validation reported
+    separately and the rejected weekday candidate scored alongside.
 
     Also reports a 95% bootstrap interval (resampling whole test days, fixed seed) for
-    "new MAE minus old MAE", so a small difference isn't mistaken for a real one.
-    candidate_adopted says whether the shipped forecast uses the candidate (it should only
-    when new_beats_old_on_test is True).
+    "new MAE minus old MAE", so a small difference isn't mistaken for a real one. A forecast
+    change may ship only when new_beats_old_on_test is True.
     """
     res = _walk_forward_predictions(df, min_warmup_days, test_days)
     if res.empty:
         return {"n_predictions": 0, "old_method": None, "new_method": None}
     test, val = res[res["split"] == "test"], res[res["split"] == "validation"]
 
-    diff = (test["cand_pred"] - test["actual"]).abs() - (test["old_pred"] - test["actual"]).abs()
+    def mean_abs(sub, col):
+        return round(float((sub[col] - sub["actual"]).abs().mean()), 2)
+
+    diff = (test["new_pred"] - test["actual"]).abs() - (test["old_pred"] - test["actual"]).abs()
     per_day = diff.groupby(test["date"]).sum().to_numpy()
     counts = test.groupby("date").size().to_numpy()
     idx = np.random.default_rng(0).integers(0, len(per_day), size=(2000, len(per_day)))
     boot = per_day[idx].sum(axis=1) / counts[idx].sum(axis=1)
     lo, hi = np.percentile(boot, [2.5, 97.5])
+    shipped = "weekday_shrunk" if USE_WEEKDAY_SHRINK else (
+        f"recent_{RECENT_WINDOW_DAYS}_days" if RECENT_WINDOW_DAYS else "all_time_average")
 
     return {"n_predictions": int(len(test)),
             "window": {"test_start": str(test["date"].min().date()), "test_end": str(test["date"].max().date()),
                        "test_days": int(test["date"].nunique())},
-            "old_method": _mae_summary(test, "old_pred"), "new_method": _mae_summary(test, "cand_pred"),
+            "old_method": _mae_summary(test, "old_pred"), "new_method": _mae_summary(test, "new_pred"),
             "new_minus_old_mae": round(float(diff.mean()), 2),
             "new_minus_old_mae_95ci": [round(float(lo), 2), round(float(hi), 2)],
             "new_beats_old_on_test": bool(diff.mean() < 0),
-            "candidate_adopted": USE_WEEKDAY_SHRINK,
-            "shipped_method": "weekday_shrunk" if USE_WEEKDAY_SHRINK else "all_time_average",
-            "shipped_mae_servings_per_day": round(float((test["new_pred"] - test["actual"]).abs().mean()), 2),
+            "shipped_method": shipped,
+            "shipped_mae_servings_per_day": mean_abs(test, "new_pred"),
+            "rejected_candidates": {"weekday_shrunk": {
+                "test_mae": mean_abs(test, "cand_pred"),
+                "validation_mae": mean_abs(val, "cand_pred") if len(val) else None,
+                "beats_old_on_test": bool(mean_abs(test, "cand_pred") < mean_abs(test, "old_pred"))}},
             "validation": None if val.empty else {
                 "n_predictions": int(len(val)),
                 "start": str(val["date"].min().date()), "end": str(val["date"].max().date()),
-                "old_mae": round(float((val["old_pred"] - val["actual"]).abs().mean()), 2),
-                "new_mae": round(float((val["cand_pred"] - val["actual"]).abs().mean()), 2)},
-            "note": "Walk-forward: each prediction uses only data from before that day. The "
-                    "candidate's setting was chosen on the validation window; the test window (the "
-                    f"last {test_days} school days) is the ship gate. 'old' = all-time average "
-                    "share (the baseline); 'new' = candidate: that share nudged toward the same "
-                    "weekday's share by n/(n+4). The candidate ships only if it beats 'old' on the "
-                    "test window. Actual served on sold-out days is a lower bound on demand.",
+                "old_mae": mean_abs(val, "old_pred"), "new_mae": mean_abs(val, "new_pred")},
+            "note": "Walk-forward: each prediction uses only data from before that day. 'old' = "
+                    "all-time average share (the baseline); 'new' = the shipped forecast, the "
+                    f"share over the last {RECENT_WINDOW_DAYS} school days, chosen on validation "
+                    "schools in the synthetic simulation study. The test window (the last "
+                    f"{test_days} school days) is the ship gate. Actual served on sold-out days is "
+                    "a lower bound on demand.",
             "circularity_caveat": "This dataset is SYNTHETIC, generated with explicit weekday "
-                    "and seasonal patterns (e.g. a 'pizza Friday' bump) by the same project that "
-                    "built 'new_method' to look for that kind of pattern. Treat this as a "
-                    "demonstration of mechanics, not a real-world accuracy claim, until it has "
-                    "been run against real records."}
+                    "and seasonal patterns by the same project that builds the forecasts. Treat "
+                    "this as a demonstration of mechanics, not a real-world accuracy claim, until "
+                    "it has been run against real records."}
 
 
 SHORTAGE_PENALTY_MULTIPLIER = 3.0  # default: a missing serving costs 3x its own unit_cost
@@ -404,6 +421,37 @@ def newsvendor_buffer(rel_errors, food_category=None,
     return float(np.clip(buf, floor, MAX_BUFFER))
 
 
+SHORTAGE_FIRST_LEVEL = 0.90
+# Default buffer rule. "shortage_first" was the cheapest strategy that kept shortages within
+# 110% of the usual amount on VALIDATION schools in the simulation study, at 1x, 3x and 5x.
+# "cost_optimal" (the plain newsvendor rule) cuts more leftovers but runs short far more.
+DEFAULT_BUFFER_RULE = "shortage_first"
+BUFFER_RULES = ("shortage_first", "cost_optimal")
+
+
+def target_service_level(shortage_penalty_multiplier=SHORTAGE_PENALTY_MULTIPLIER,
+                         buffer_rule=DEFAULT_BUFFER_RULE):
+    """Share of days the buffer aims to cover. cost_optimal: 1 - 1/m (newsvendor).
+    shortage_first: at least 90%, higher only if 1 - 1/m is higher (m above 10)."""
+    m_level = service_level(shortage_penalty_multiplier)
+    return m_level if buffer_rule == "cost_optimal" else max(SHORTAGE_FIRST_LEVEL, m_level)
+
+
+def safety_buffer(rel_errors, food_category=None,
+                  shortage_penalty_multiplier=SHORTAGE_PENALTY_MULTIPLIER,
+                  buffer_rule=DEFAULT_BUFFER_RULE):
+    """The buffer for one food under either rule. cost_optimal = newsvendor_buffer().
+    shortage_first = the target_service_level() quantile of past errors, never below +5%
+    (+10% for fruit/vegetable/milk), never above MAX_BUFFER."""
+    if buffer_rule not in BUFFER_RULES:
+        raise ValueError(f"buffer_rule must be one of {BUFFER_RULES}")
+    if buffer_rule == "cost_optimal":
+        return newsvendor_buffer(rel_errors, food_category, shortage_penalty_multiplier)
+    floor = max(0.05, PROTECTED_MIN_BUFFER if food_category in PROTECTED_CATEGORIES else 0.0)
+    level = target_service_level(shortage_penalty_multiplier, buffer_rule)
+    return float(np.clip(np.quantile(rel_errors, level), floor, MAX_BUFFER))
+
+
 def _pick_errors(item_errors, pooled_errors):
     """This food's own backtest errors if there are enough, else all foods' errors pooled,
     else None (callers then use the fixed default buffer)."""
@@ -415,8 +463,9 @@ def _pick_errors(item_errors, pooled_errors):
 
 
 def compute_data_driven_buffers(df, shortage_penalty_multiplier=SHORTAGE_PENALTY_MULTIPLIER,
-                                residuals=None, min_warmup_days=MIN_BACKTEST_WARMUP_DAYS):
-    """Per-food newsvendor buffers for LIVE planning, from the whole walk-forward backtest
+                                residuals=None, min_warmup_days=MIN_BACKTEST_WARMUP_DAYS,
+                                buffer_rule=DEFAULT_BUFFER_RULE):
+    """Per-food buffers (see safety_buffer()) for LIVE planning, from the whole walk-forward backtest
     (every one of those days is genuinely in the past when planning a future day).
 
     Returns {food_item: {buffer, service_level_target, shortage_rate_estimate, low_pct,
@@ -435,10 +484,10 @@ def compute_data_driven_buffers(df, shortage_penalty_multiplier=SHORTAGE_PENALTY
         errors, source = _pick_errors(g["rel_error"].to_numpy(), pooled)
         if errors is None:
             continue
-        buf = newsvendor_buffer(errors, g["food_category"].iloc[0], shortage_penalty_multiplier)
+        buf = safety_buffer(errors, g["food_category"].iloc[0], shortage_penalty_multiplier, buffer_rule)
         buffers[item] = {
-            "buffer": round(buf, 3),
-            "service_level_target": round(service_level(shortage_penalty_multiplier), 3),
+            "buffer": round(buf, 3), "buffer_rule": buffer_rule,
+            "service_level_target": round(target_service_level(shortage_penalty_multiplier, buffer_rule), 3),
             "shortage_rate_estimate": round(float((errors > buf).mean()), 3),
             "low_pct": round(float(np.percentile(errors, 10)) * 100, 1),
             "high_pct": round(float(np.percentile(errors, 90)) * 100, 1),
@@ -555,7 +604,8 @@ def expected_costs(predicted_demand, recommended_prep, unit_cost, baseline_prep=
 
 
 def evaluate_methods(df, min_warmup_days=MIN_BACKTEST_WARMUP_DAYS,
-                      shortage_penalty_multiplier=SHORTAGE_PENALTY_MULTIPLIER, test_days=TEST_DAYS):
+                      shortage_penalty_multiplier=SHORTAGE_PENALTY_MULTIPLIER, test_days=TEST_DAYS,
+                      buffer_rule=DEFAULT_BUFFER_RULE):
     """Leak-free cost comparison of the baseline ("cook the usual amount per student") vs.
     TrayTrack, on the SAME held-out school days, against the ACTUAL served counts.
 
@@ -594,7 +644,7 @@ def evaluate_methods(df, min_warmup_days=MIN_BACKTEST_WARMUP_DAYS,
         if errors is None:
             prep, buf, source = calculate_prep_quantity(row.new_pred, row.food_category)
         else:
-            buf = newsvendor_buffer(errors, row.food_category, m)
+            buf = safety_buffer(errors, row.food_category, m, buffer_rule)
             prep = math.ceil(row.new_pred * (1 + buf))
         costs = calculate_costs(row.actual, prep, row.unit_cost, row.baseline_prep, m)
         rate = waste_rates.get(row.food_category)
@@ -603,9 +653,9 @@ def evaluate_methods(df, min_warmup_days=MIN_BACKTEST_WARMUP_DAYS,
         rule_preps = {
             "usual_amount": row.baseline_prep, "no_buffer": row.new_pred,
             "fixed_10_15pct": fixed_prep,
-            "p90_previous": fixed_prep if errors is None else
-                math.ceil(row.new_pred * (1 + float(np.clip(np.quantile(errors, 0.9), 0.05, MAX_BUFFER)))),
-            "newsvendor_shipped": prep}
+            **{rule: fixed_prep if errors is None else
+               math.ceil(row.new_pred * (1 + safety_buffer(errors, row.food_category, m, rule)))
+               for rule in BUFFER_RULES}}
         for rule, rule_prep in rule_preps.items():
             c = calculate_costs(row.actual, rule_prep, row.unit_cost, None, m)
             t = rule_totals.setdefault((row.split, rule), [0.0, 0, 0])
@@ -652,7 +702,8 @@ def evaluate_methods(df, min_warmup_days=MIN_BACKTEST_WARMUP_DAYS,
     overall = agg(test)
     overall.update({"evaluated_days": int(test["date"].nunique()),
                     "window_start": test["date"].min(), "window_end": test["date"].max(),
-                    "shortage_penalty_multiplier": m, "service_level_target": round(service_level(m), 3)})
+                    "shortage_penalty_multiplier": m, "buffer_rule": buffer_rule,
+                    "service_level_target": round(target_service_level(m, buffer_rule), 3)})
     return {
         "evaluated_predictions": int(len(test)), "excluded": excluded,
         "daily": res.to_dict("records"),
@@ -662,10 +713,11 @@ def evaluate_methods(df, min_warmup_days=MIN_BACKTEST_WARMUP_DAYS,
                                         "shortage_servings": int(t[2])}
                                  for (sp, rule), t in rule_totals.items() if sp == split}
                          for split in ("validation", "test")},
-        "buffer_rules_note": "Same forecast, same days, different prep rules. newsvendor_shipped is "
-                "what TrayTrack uses. no_buffer breaks the +10% fruit/vegetable/milk floor and "
-                "runs short most often, so it is not a valid choice even when it is cheapest. "
-                "p90_previous is the earlier 90th-percentile rule (no protected floor).",
+        "buffer_rules_note": f"Same forecast, same days, different prep rules. {buffer_rule} is the "
+                "rule used for the headline numbers. shortage_first aims to have enough on 90% of "
+                "days; cost_optimal is the newsvendor rule (1 - 1/multiplier). no_buffer breaks "
+                "the +10% fruit/vegetable/milk floor and runs short most often, so it is not a "
+                "valid choice even when it is cheapest.",
         "synthetic_data": True,
         "note": "Baseline and TrayTrack are scored on the SAME held-out test days against the "
                 "ACTUAL served counts, using only data from before each day (forecast, buffer "
@@ -682,7 +734,7 @@ def evaluate_methods(df, min_warmup_days=MIN_BACKTEST_WARMUP_DAYS,
 
 
 def plan_month(df, year, month, menu=None, buffers_table=None,
-                shortage_penalty_multiplier=SHORTAGE_PENALTY_MULTIPLIER):
+                shortage_penalty_multiplier=SHORTAGE_PENALTY_MULTIPLIER, buffer_rule=DEFAULT_BUFFER_RULE):
     """Plan every school day in a calendar month by calling plan_day() once per day,
     then roll the results up into monthly per-food and overall totals.
 
@@ -698,7 +750,8 @@ def plan_month(df, year, month, menu=None, buffers_table=None,
                 "per_food_totals": [], "totals": {}, "assumptions": []}
 
     daily_plans = [plan_day(df, target_date=day, menu=menu, buffers_table=buffers_table,
-                             shortage_penalty_multiplier=shortage_penalty_multiplier) for day in days]
+                             shortage_penalty_multiplier=shortage_penalty_multiplier,
+                             buffer_rule=buffer_rule) for day in days]
 
     by_food = {}
     for day_plan in daily_plans:
@@ -783,7 +836,8 @@ def plan_month(df, year, month, menu=None, buffers_table=None,
         "estimated_savings_vs_baseline": savings,
         "estimated_savings_pct_vs_baseline": round(savings / baseline_total * 100, 1) if baseline_total > 0 else None,
         "shortage_penalty_multiplier": shortage_penalty_multiplier,
-        "service_level_target": round(service_level(shortage_penalty_multiplier), 3),
+        "service_level_target": round(target_service_level(shortage_penalty_multiplier, buffer_rule), 3),
+        "buffer_rule": buffer_rule,
     }
     return {
         "year": year, "month": month, "school_days": len(days),
@@ -818,7 +872,7 @@ def summarize_history(df):
 
 
 def plan_day(df, expected_attendance=None, target_date=None, menu=None, buffers_table=None,
-             shortage_penalty_multiplier=SHORTAGE_PENALTY_MULTIPLIER):
+             shortage_penalty_multiplier=SHORTAGE_PENALTY_MULTIPLIER, buffer_rule=DEFAULT_BUFFER_RULE):
     """Plan one day. menu = list of {"food_item", "food_category", "unit_cost"(optional)}.
 
     expected_attendance: pass a number if you already know it (e.g. from a head count
@@ -931,7 +985,8 @@ def plan_day(df, expected_attendance=None, target_date=None, menu=None, buffers_
                    "baseline_shortage_servings": total("baseline_shortage"),
                    "estimated_plate_waste_servings": total("estimated_plate_waste_servings"),
                    "shortage_penalty_multiplier": shortage_penalty_multiplier,
-                   "service_level_target": round(service_level(shortage_penalty_multiplier), 3),
+                   "service_level_target": round(target_service_level(shortage_penalty_multiplier, buffer_rule), 3),
+                   "buffer_rule": buffer_rule,
                    "foods_without_baseline": [i["food_item"] for i in items if i["baseline_total_cost"] is None]},
         "assumptions": [
             "Data is SYNTHETIC. unit_cost values are assumptions (popcorn chicken ~$0.58 is "
@@ -951,10 +1006,12 @@ def plan_day(df, expected_attendance=None, target_date=None, menu=None, buffers_
             "measured stockout cost (a real shortage also costs goodwill, nutrition, and staff "
             "time that aren't priced here). Try other multipliers to see how sensitive the "
             "comparison is to this choice.",
-            "Buffers use the newsvendor rule for this cost model: prepare enough for "
-            f"{service_level(shortage_penalty_multiplier):.0%} of days (1 - 1/multiplier), read off "
-            "each food's walk-forward forecast errors. Never below the forecast, never below "
-            f"+{PROTECTED_MIN_BUFFER:.0%} for fruit/vegetable/dairy, never above +{MAX_BUFFER:.0%}.",
+            f"Buffer rule '{buffer_rule}': prepare enough for "
+            f"{target_service_level(shortage_penalty_multiplier, buffer_rule):.0%} of days, read off "
+            "each food's walk-forward forecast errors. shortage_first (default) aims for at least "
+            "90% of days; cost_optimal uses the newsvendor rule 1 - 1/multiplier. Never below "
+            f"the forecast, never below +{PROTECTED_MIN_BUFFER:.0%} for fruit/vegetable/dairy, "
+            f"never above +{MAX_BUFFER:.0%}. buffers_table must be built with the same rule.",
             "Surplus, shortage and savings are EXPECTED values: averaged over demand scenarios "
             "built from past forecast errors (cost_basis says which). Foods without enough "
             "backtest history fall back to treating the forecast as exact (cost_basis = "

@@ -40,7 +40,9 @@ The dashboard shows, all computed live from the CSV: history per food with its b
 forecast accuracy on the held-out test window (baseline vs. candidate, with an uncertainty
 interval and which one shipped), the held-out cost comparison against the usual amount (food
 cost, shortage cost, surplus, shortage and plate waste as separate rows), the same comparison
-at 1x, 3x and 5x shortage cost, every buffer rule side by side, and next month's forecast.
+at 1x, 3x and 5x shortage cost, every buffer rule side by side, the simulation study (best
+strategy, its trade-offs, and how it changes across demand scenarios), and next month's
+forecast.
 
 ### Endpoints
 
@@ -50,23 +52,28 @@ at 1x, 3x and 5x shortage cost, every buffer rule side by side, and next month's
   interval for the difference, and which method shipped.
 - `GET /evaluate`: held-out cost comparison, TrayTrack vs. the usual amount, scored against
   actual servings, plus `buffer_rules` (every prep rule on the same forecast and days).
-  Optional `?shortage_penalty_multiplier=`.
+  Optional `?shortage_penalty_multiplier=` and `?buffer_rule=shortage_first|cost_optimal`.
+- `GET /simulation`: the synthetic multi-scenario strategy study (computed once, about 30 s,
+  started in the background when the server starts).
 - `GET /plan/sensitivity?expected_attendance=410`: one day planned at 1x, 1.5x, 2x, 3x and
   5x shortage cost. Each multiplier gets its own buffers.
-- `GET /buffers`: per-food newsvendor buffers, their target and backtest short-day rate,
+- `GET /buffers`: per-food buffers (default rule), their target and backtest short-day rate,
   and the backtest errors they were read from.
 - `GET /data-quality`: results of `validate_history()` on the loaded CSV.
 - `POST /plan`: one day's plan. Takes `expected_attendance` or `target_date`
   (`YYYY-MM-DD`; attendance is then estimated from that weekday's history). Optional
-  `menu` and `shortage_penalty_multiplier` (default 3, must be > 0).
+  `menu`, `shortage_penalty_multiplier` (default 3, must be > 0) and `buffer_rule`
+  (`shortage_first` default, or `cost_optimal`).
 - `POST /plan/month`: a calendar month (`year`, `month`), one daily plan per school day.
 
 ## Files
 
 - `data/cafeteria_history_synthetic.csv`: the synthetic history (see below).
 - `prediction.py`: forecast, buffers, cost model, backtests. Documented inline.
+- `simulation.py`: synthetic school generator and the strategy study.
 - `app.py`: FastAPI wrapper and the dashboard.
-- `tests/test_traytrack.py`: pytest suite. `test_prototype.py`, `test_api.py`: older script checks.
+- `tests/test_traytrack.py`, `tests/test_simulation.py`: pytest suite (about 90 s; one test
+  reruns the full simulation study). `test_prototype.py`, `test_api.py`: older script checks.
 
 ## The dataset
 
@@ -98,44 +105,44 @@ Labor Day). It is **synthetic**:
 
 ## How the forecast works
 
-`predict_demand()` (shipped): the food's share of attending students, served / attendance
-over all its past days, times expected attendance.
+`predict_demand()` (shipped): the food's share of attending students over the **last 20
+school days** (all history while there are fewer), times expected attendance.
 
-**Ship rule: a forecast change is kept only if it beats this baseline on the held-out test
-window.** Two changes were tried and neither passed, so neither ships:
+**Ship rule: a forecast change is kept only if it beats the all-time average on held-out
+data.** Three changes have been tried:
 
-- The earlier hard cascade (last 8 same weekdays, else last 25 days, else all history).
-- A weekday candidate, `share = w x weekday_share + (1 - w) x all_days_share` with
-  `w = n / (n + 4)` (`n` = past days on that weekday), with `4` chosen on the validation
-  window. It is still in the code behind `USE_WEEKDAY_SHRINK = False` so `/accuracy` can
-  keep scoring it; a test fails if that flag ever disagrees with the gate result.
+| Candidate | How it was chosen | CSV test MAE (baseline 7.26) | Ships? |
+|---|---|---|---|
+| hard cascade (last 8 same weekdays, else last 25 days, else all) | earlier version | 8.00 | no |
+| weekday shrinkage, `w = n / (n + 4)` | `4` picked on CSV validation | 7.53 | no |
+| last 20 school days | picked on validation schools in the simulation | **7.17** | **yes** |
+
+The 20-day window passes, but only just: its 95% bootstrap interval on the CSV is -0.22 to
++0.07 servings/day, which includes 0. In the simulation it also wins on unseen test schools
+(14.98 vs. 15.52 MAE against true demand), mostly in the "trending" scenario where
+popularity drifts. The weekday candidate is still in the code behind
+`USE_WEEKDAY_SHRINK = False` so `/accuracy` can keep scoring it.
 
 Sold-out days are **kept**. Served on a sold-out day is capped, so it understates demand,
-but those are the high-demand days: the old code dropped them, which biased the estimate
-even lower. Foods with under 3 days of history fall back to their category's average
-share, then to a flat 25% (`confidence: "low"`).
+but those are the high-demand days: dropping them biased the estimate even lower. Foods
+with under 3 days of history fall back to their category's average share, then to a flat
+25% (`confidence: "low"`).
 
-## Safety buffers (newsvendor)
+## Safety buffers
 
-The cost model (next section) is `total = food prepared x unit cost + shortage x unit cost
-x m`. One more prepared serving costs `unit cost` for sure and saves `m x unit cost` if it
-would otherwise have been missing, so total cost is lowest when the share of days with
-enough food is:
+Each food's buffer is read off its own walk-forward forecast errors (actual / forecast - 1),
+so `prep = ceil(forecast x (1 + buffer))`. Two rules, picked with `buffer_rule`:
 
-```
-service level = 1 - 1/m        (m = shortage_penalty_multiplier; 3x -> 67%, 5x -> 80%)
-```
+- **`shortage_first` (default)**: enough for **90% of past days** (more only if the shortage
+  multiplier is above 10x). Never below +5%, never below +10% for fruit, vegetables and
+  milk, never above +40%. It was the cheapest strategy that kept shortages within 110% of
+  the usual amount on validation schools in the simulation, at 1x, 3x and 5x.
+- **`cost_optimal`**: the newsvendor rule. With `total = food prepared x unit cost +
+  shortage x unit cost x m`, total cost is lowest when the share of days with enough food is
+  `1 - 1/m` (3x -> 67%, 5x -> 80%). It cuts more leftovers but runs short far more often.
 
-The buffer is that quantile of the food's walk-forward forecast errors (actual / forecast
-- 1), so `prep = ceil(forecast x (1 + buffer))`. Guardrails: never below the forecast,
-never below +10% for fruit, vegetables and milk, never above +40%. A food needs 15 backtest
-errors of its own; otherwise all foods' errors are pooled; otherwise the old fixed 10%/15%
-is used.
-
-The default `m = 3` is an assumption (the project plan's example treats running out as
-several times worse than a leftover). With `m <= 1` a shortage costs no more than the food
-it saves, so the rule says "no buffer". That is why the old default of 1x made under-
-preparing look free.
+A food needs 15 backtest errors of its own; otherwise all foods' errors are pooled;
+otherwise the old fixed 10%/15% is used. The default shortage cost `m = 3` is an assumption.
 
 ## Cost model
 
@@ -188,53 +195,102 @@ Every scored prediction uses only data from strictly before that day: forecast, 
 data and confirming no earlier prediction, buffer or prep changes. Attendance is the day's
 actual count for every method (it assumes a morning head count before cooking).
 
-## Results (synthetic data, regenerate with `GET /accuracy` and `GET /evaluate`)
+## Results on the CSV (synthetic, regenerate with `GET /accuracy` and `GET /evaluate`)
 
-**Forecast accuracy, test window** (MAE, servings per food per day, 90 predictions):
+**Forecast**: see the table above. Shipped: last 20 school days, test MAE 7.17 vs. 7.26 for
+the all-time average (not a clear difference).
 
-| Method | Validation MAE | Test MAE | Ships? |
-|---|---|---|---|
-| all-time average share (baseline) | 6.02 | 7.26 | **yes** |
-| previous cascade | 5.96 | 8.00 | no, worse than baseline |
-| weekday candidate | 5.69 | 7.53 | no, worse than baseline |
+**Cost, held-out test window, TrayTrack vs. usual amount** (total = food + shortage cost):
 
-**The prediction model did not improve.** The weekday candidate won on validation but lost
-on held-out test days (+0.28 servings/day, 95% bootstrap interval -0.09 to +0.67, so no
-clear difference either way). Per the ship rule, TrayTrack forecasts with the plain
-all-time average. With 34 days of history there isn't enough data for weekday structure to
-pay off reliably. The test window was not used to re-tune anything.
+| Shortage cost | Buffer rule | Usual total | TrayTrack total | Savings | Leftovers (usual / TT) | Shortage servings (usual / TT) |
+|---|---|---|---|---|---|---|
+| 1x | shortage_first (default) | $6,142.39 | $6,081.54 | 1.0% | 1501 / 1320 | 26 / 29 |
+| 3x | shortage_first (default) | $6,178.49 | $6,120.94 | 0.9% | 1501 / 1320 | 26 / 29 |
+| 5x | shortage_first (default) | $6,214.59 | $6,160.34 | 0.9% | 1501 / 1320 | 26 / 29 |
+| 1x | cost_optimal | $6,142.39 | $5,807.09 | 5.5% | 1501 / 950 | 26 / 125 |
+| 3x | cost_optimal | $6,178.49 | $6,014.67 | 2.7% | 1501 / 1065 | 26 / 84 |
+| 5x | cost_optimal | $6,214.59 | $6,103.08 | 1.8% | 1501 / 1175 | 26 / 46 |
 
-**Cost, test window, TrayTrack vs. usual amount** (total = food + shortage cost):
+On these 15 test days the default cuts leftovers by 12% with 3 more short servings than the
+usual amount (29 vs. 26, 1.12x, just over the 110% target). The cost-optimal rule saves more
+but runs short 2 to 5 times as much. `/evaluate` also lists every buffer rule side by side.
 
-| Shortage cost | Buffer target | Usual total | TrayTrack total | Savings (test) | Savings (validation) | Surplus servings (usual / TT) | Shortage servings (usual / TT) |
-|---|---|---|---|---|---|---|---|
-| 1x | 0% of days | $6,142.39 | $5,803.72 | $338.67 (5.5%) | $105.48 (2.8%) | 1501 / 958 | 26 / 136 |
-| **3x (default)** | **67% of days** | **$6,178.49** | **$6,017.16** | **$161.33 (2.6%)** | **$17.43 (0.5%)** | **1501 / 1072** | **26 / 88** |
-| 5x | 80% of days | $6,214.59 | $6,119.43 | $95.16 (1.5%) | $0.26 (0.0%) | 1501 / 1184 | 26 / 52 |
+## Simulation study (synthetic schools, `GET /simulation`, `simulation.py`)
 
-How to read it: in this simulated school, TrayTrack cuts unserved surplus by 21 to 36%, but
-it **runs short more often** than the usual amount at every setting (at 3x: 88 vs. 26
-servings short). That trade comes out cheaper on these test days. The savings shrink as
-shortages are priced higher, and on the validation window they were much smaller (0.5% at
-3x, essentially 0 at 5x). The honest summary is "a few percent, sensitive to how bad you
-think running out is", not a robust win.
+The CSV has one school and 15 test days, and on sold-out days nobody knows true demand. So
+TrayTrack is also tested on many **synthetic** schools where the simulator knows true demand
+every day. The strategies only see what a real kitchen sees: that morning's attendance and
+past prepared / served counts.
 
-**Buffer rules, same forecast, test window** (total cost; surplus / shortage servings at 3x):
+**How the schools are made** (every number here is an assumption, see `SCENARIOS`):
 
-| Prep rule | 1x | 3x | 5x | Surplus / shortage (3x) |
+- 6 foods with the CSV's demand shares and unit costs, 80 school days, 340 to 460 students.
+- Attendance: weekday pattern (Fridays -5%), daily noise, occasional field-trip or flu dips.
+- Demand: per-school popularity, a popularity random walk and trend, each food's own weekday
+  habits, day-to-day noise, one-day surprises (a shock of up to +/-30 to 45%), and sometimes
+  a permanent level change mid-term (a recipe change).
+- 5 scenario types: steady, typical, volatile, trending and weekday-heavy.
+- The kitchen that produced the history cooks its running average + 20%, without knowing the
+  day's demand, so it sells out on about 10% of rows and leaves about 17% unserved. The CSV
+  shows about 6% sell-outs and 10% leftovers, but its prep was generated from served counts,
+  so a kitchen that doesn't see the future can't match both. 20% sits in the middle. It was
+  set before any strategy was run.
+
+**How overfitting is prevented:** each scenario type gets 6 training, 6 validation and 12
+test schools (120 in all; 70 scored days x 6 foods each). Training schools tune the per-food
+buffers. Validation schools pick the forecast and the "best" strategy. Test schools are only
+reported. A test fails if the shipped settings ever differ from the validation choice.
+
+**Strategies** (all walk-forward, each using only earlier days): the usual amount; all-time
+average + fixed 10%/15%; each forecast (all-time average, last 20 days) with each buffer
+rule; per-food static buffers tuned for cost on training schools; and per-food static
+buffers capped so training shortages stay within 110% of the usual amount.
+
+**Picked on validation:** forecast = last 20 days at every multiplier. Best within the
+shortage limit = last 20 days + shortage-first at 1x, 3x and 5x. Cheapest ignoring
+shortages = per-food cost-tuned (1x) or last 20 days + cost-optimal (3x, 5x).
+
+**Unseen test schools, 3x** (1x and 5x are on the dashboard; leftovers and shortages
+don't depend on the multiplier for the shortage-first and usual strategies):
+
+| Strategy | Savings | Leftovers | Shortage servings vs. usual | Rows short | Demand met |
+|---|---|---|---|---|---|
+| cooking the usual amount | 0% | 0% | 1.00x | 3198 | 97.93% |
+| all-time + fixed 10%/15% | 3.83% | -31.6% | 1.51x | 5164 | 96.88% |
+| all-time + cost-optimal (previous TrayTrack) | 5.08% | -43.9% | 1.73x | 6622 | 96.43% |
+| all-time + shortage-first | 3.22% | -20.0% | 1.04x | 3870 | 97.85% |
+| last 20 days + cost-optimal | 5.26% | -45.3% | 1.74x | 6787 | 96.41% |
+| **last 20 days + shortage-first (shipped)** | **3.48%** | **-20.7%** | **0.99x** | **3815** | **97.95%** |
+| per-food buffer tuned for cost | 5.16% | -50.4% | 2.00x | 7267 | 95.86% |
+| per-food buffer capped at usual shortages | 2.22% | -13.9% | 1.02x | 3526 | 97.89% |
+
+Savings of the shipped strategy at 1x / 3x / 5x: 3.52% / 3.48% / 3.44%.
+
+**Can TrayTrack cut leftovers and keep shortages near the usual amount?** Overall, yes in
+this simulation: about 21% fewer leftovers with the same number of short servings. But:
+
+- **Shortages are smaller but more frequent**: 3815 short rows vs. 3198 (+19%).
+- **It depends on the scenario** (test schools):
+
+| Scenario | Leftovers | Shortages vs. usual | Demand met (usual / TT) | Savings at 3x |
 |---|---|---|---|---|
-| TrayTrack newsvendor (shipped) | **$5,803.72** | **$6,017.16** | $6,119.43 | 1072 / 88 |
-| previous 90th-percentile buffer | $6,013.74 | $6,058.04 | **$6,102.34** | 1155 / 34 |
-| fixed +10% / +15% | $6,179.70 | $6,222.00 | $6,264.30 | 1623 / 27 |
-| cooking the usual amount | $6,142.39 | $6,178.49 | $6,214.59 | 1501 / 26 |
-| no buffer (breaks the fruit/veg floor, not allowed) | $5,610.12 | $5,874.28 | $6,138.44 | 423 / 230 |
+| steady | -47.6% | 12.06x (1941 vs. 161 servings) | 99.97% / 99.68% | 7.77% |
+| typical | -22.0% | 1.22x | 98.98% / 98.75% | 3.44% |
+| volatile | -7.1% | 0.94x | 95.88% / 96.12% | 1.60% |
+| trending | -20.7% | 0.73x | 98.09% / 98.61% | 3.93% |
+| weekday-heavy | -6.7% | 1.05x | 96.70% / 96.55% | 0.97% |
 
-The newsvendor rule is cheapest among allowed rules at 1x and 3x, but **not at 5x**, where
-the previous 90th-percentile rule wins (and it also wins at 3x and 5x on the validation
-window). A version that picked the service level from past costs was tried and did worse at
-3x and 5x on both windows, so it was dropped. No buffer at all is cheapest at 1x and 3x
-only because a 3x penalty still undervalues 230 short servings; it also breaks the fruit and
-vegetable floor. All these numbers are recomputed from the CSV on every `/evaluate` call.
+In steady and typical schools the shipped strategy runs short more than the 110% limit. The
+usual amount barely runs short there because its 20% margin is generous for calm demand.
+The overall total stays within the limit only because volatile schools dominate the
+shortage counts. In volatile and weekday-heavy schools the leftover cut is small (about
+7%). Per-food static buffers did not beat the adaptive rules: the cost-tuned ones have about
+twice the usual shortage servings at 3x, and the shortage-capped ones cut fewer leftovers than shortage-first.
+
+**What stays uncertain:** every number above comes from scenarios we designed. A real
+school's noise, trends and surprises could look different, and the ranking of strategies
+could change. The kitchen policy that generated the history also shapes what every strategy
+learns from. None of this is evidence of real-world savings.
 
 ## Input validation
 
@@ -258,9 +314,14 @@ vegetable floor. All these numbers are recomputed from the CSV on every `/evalua
 - The baseline is a ratio proxy, not a recorded "usual" decision.
 - The backtest short-day rate in `/buffers` is in-sample; the out-of-sample rate is in
   `/evaluate` (`lunchloop_days_short`).
-- The test window was used as the ship gate for the forecast, and the buffer-rule table was
-  read after the fact; with only 15 test days, rerun everything on new days before trusting
-  any ranking.
+- The CSV test window is the forecast ship gate and has now been used to check three
+  candidates, so its numbers are no longer a clean, untouched estimate. With only 15 test
+  days, rerun everything on new days before trusting any ranking.
+- The simulation's scenarios, the kitchen's 20% margin and the 110% shortage limit are
+  choices we made. Different choices could change which strategy wins.
+- In the simulation the shipped strategy breaks the shortage limit in steady and typical
+  schools (see the scenario table), and it makes shortages more frequent even where total
+  short servings stay level.
 - Attendance is treated as known before cooking in the evaluation.
 
 ## Changes in this version
@@ -271,14 +332,17 @@ vegetable floor. All these numbers are recomputed from the CSV on every `/evalua
 2. **Shortage cost default of 1x made shortages free.** At 1x, cooking less is never
    penalized. The default is now 3x, buffers follow from it (newsvendor), and every
    endpoint takes the multiplier.
-3. **Buffers ignored the cost of running out** (fixed 90th percentile). Now
-   `1 - 1/m`, with fruit/vegetable/milk floors.
+3. **Buffers ignored the cost of running out** (fixed 90th percentile). Added the
+   `1 - 1/m` newsvendor rule with fruit/vegetable/milk floors. The simulation later showed
+   it runs short too often, so a 90% rule with floors (`shortage_first`) is the default
+   again, now chosen on validation rather than by habit (item 12).
 4. **The evaluation never tested the buffers actually used.** It used fixed 10%/15%
    buffers to avoid leakage. Now each test day's buffer uses only errors from earlier days.
 5. **Baseline.** The recorded prep was generated from served counts, so it is not used.
 6. **Sold-out days were dropped from the forecast**, biasing it low. Now kept.
 7. **Forecast**: a ship gate now decides. Neither the old cascade nor the weekday candidate
-   beat the all-time average on held-out days, so the all-time average ships.
+   beat the all-time average on held-out days, so they were dropped (see item 12 for the
+   forecast that did pass).
 8. **No held-out split.** Added a warm-up / validation / test split by date.
 9. **Dashboard**: added the held-out comparison; the cost-chart tooltip said "surplus
    cost" while showing total cost; the buffer table showed `NaN%` (wrong field name); the
@@ -289,6 +353,10 @@ vegetable floor. All these numbers are recomputed from the CSV on every `/evalua
     `sens.json` (saved output from the old cost model).
 11. **Dashboard, second pass**: shows the ship gate result, a 1x/3x/5x table and every
     buffer rule side by side; the "cheapest rule" sentence is computed, not typed.
+12. **Simulation study** (`simulation.py`, `/simulation`, dashboard section): 120 synthetic
+    schools in 5 scenario types with train / validation / test splits. It picked the last-20-
+    days forecast (which then passed the CSV gate) and the new `shortage_first` buffer rule,
+    now the default. The cost-optimal newsvendor rule stays available as `buffer_rule`.
 
 ## Sources
 
