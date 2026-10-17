@@ -15,9 +15,17 @@ chicken_shawarma_wrap,Chicken shawarma wrap,meat_alternate,1.28,wheat;milk,0,
 orange_chicken,Orange chicken,meat_alternate,1.23,wheat;soybeans,0,
 dinner_roll,Dinner roll,grain,0.14,wheat,0,vegetarian
 brown_rice,Brown rice,grain,0.12,,0,vegetarian;vegan
-steamed_carrots,Steamed carrots,vegetable,0.37,,120,vegetarian;vegan
-broccoli,Broccoli,vegetable,0.41,,80,vegetarian;vegan
-fruit_cup,Fruit cup,fruit,0.38,,150,vegetarian;vegan
-mandarin_oranges,Mandarin oranges,fruit,0.34,,70,vegetarian;vegan
-chocolate_milk,Chocolate milk,milk,0.37,milk,0,vegetarian
-milk_1pct,1% milk,milk,0.27,milk,0,vegetarian
+whole_wheat_tortilla,Whole wheat tortilla,grain,0.13,wheat,0,vegetarian;vegan
+whole_wheat_pita,Whole wheat pita,grain,0.13,wheat,0,vegetarian;vegan
+steamed_carrots,Steamed carrots,vegetable,0.38,,120,vegetarian;vegan
+broccoli,Broccoli,vegetable,0.43,,80,vegetarian;vegan
+side_salad,Side salad,vegetable,0.50,,100,vegetarian;vegan
+black_beans,Seasoned black beans,vegetable,0.34,,60,vegetarian;vegan
+seasoned_corn,Seasoned corn,vegetable,0.30,,60,vegetarian;vegan
+fruit_cup,Fruit cup,fruit,0.42,,150,vegetarian;vegan
+mandarin_oranges,Mandarin oranges,fruit,0.37,,70,vegetarian;vegan
+apple_slices,Apple slices,fruit,0.38,,80,vegetarian;vegan
+banana,Banana,fruit,0.26,,60,vegetarian;vegan
+chocolate_milk,Chocolate milk,milk,0.39,milk,0,vegetarian
+milk_1pct,1% milk,milk,0.29,milk,0,vegetarian
+milk_fat_free,Fat-free milk,milk,0.28,milk,0,vegetarian

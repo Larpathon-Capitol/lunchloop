@@ -39,6 +39,11 @@ _PROTOTYPE_COSTS = {
     "black_bean_quesadilla": 0.88, "chickpea_curry_rice": 0.95,
     "falafel_wrap": 0.93, "teriyaki_tofu_bowl": 1.02,
     "chicken_shawarma_wrap": 1.12, "orange_chicken": 1.08,
+    # Sides added for tray variety. Relative costs are assumptions, rescaled
+    # with the rest of their food group below.
+    "whole_wheat_tortilla": 0.16, "whole_wheat_pita": 0.17, "side_salad": 0.33,
+    "black_beans": 0.22, "seasoned_corn": 0.20, "apple_slices": 0.36, "banana": 0.25,
+    "milk_fat_free": 0.29,
 }
 _COST_TARGETS = {"meat_alternate": 1.05, "grain": 0.13, "vegetable": 0.39,
                  "fruit": 0.36, "milk": 0.32}
@@ -55,14 +60,29 @@ def _scaled_cost(item_id, component):
 
 HISTORY_START = date(2026, 1, 12)
 HISTORY_END = date(2026, 10, 16)
-FUTURE_END = date(2026, 12, 31)
-HOLIDAYS = {
-    date(2026, 1, 19), date(2026, 2, 16),
-    *[date(2026, 3, 16) + timedelta(days=i) for i in range(5)],
-    date(2026, 4, 3),
-    *[date(2026, 5, 23) + timedelta(days=i) for i in range(93)],
-    date(2026, 9, 7), date(2026, 10, 12),
+FUTURE_END = date(2027, 1, 29)
+
+
+def _closed(first, last):
+    return {first + timedelta(days=i) for i in range((last - first).days + 1)}
+
+
+# A typical Texas district pattern, not any real district's calendar. See
+# data/sources.md. Weekends are always closed on top of these.
+CLOSURES = {
+    "Martin Luther King Jr. Day": _closed(date(2026, 1, 19), date(2026, 1, 19)),
+    "Presidents Day": _closed(date(2026, 2, 16), date(2026, 2, 16)),
+    "Spring break": _closed(date(2026, 3, 16), date(2026, 3, 20)),
+    "Good Friday": _closed(date(2026, 4, 3), date(2026, 4, 3)),
+    "Memorial Day": _closed(date(2026, 5, 25), date(2026, 5, 25)),
+    "Summer break": _closed(date(2026, 5, 29), date(2026, 8, 11)),
+    "Labor Day": _closed(date(2026, 9, 7), date(2026, 9, 7)),
+    "Fall holiday": _closed(date(2026, 10, 12), date(2026, 10, 12)),
+    "Thanksgiving break": _closed(date(2026, 11, 23), date(2026, 11, 27)),
+    "Winter break": _closed(date(2026, 12, 21), date(2027, 1, 1)),
+    "Martin Luther King Jr. Day 2027": _closed(date(2027, 1, 18), date(2027, 1, 18)),
 }
+HOLIDAYS = set().union(*CLOSURES.values())
 
 _ITEM_DEFINITIONS = [
     ("cheese_pizza", "Cheese pizza", "meat_alternate", "milk;wheat", 0, "ring", 0.346),
@@ -81,12 +101,20 @@ _ITEM_DEFINITIONS = [
     ("orange_chicken", "Orange chicken", "meat_alternate", "wheat;soybeans", 0, "ring", 0.210),
     ("dinner_roll", "Dinner roll", "grain", "wheat", 0, "daily", 0.420),
     ("brown_rice", "Brown rice", "grain", "", 0, "Tue, Thu", 0.150),
+    ("whole_wheat_tortilla", "Whole wheat tortilla", "grain", "wheat", 0, "Mon, Wed, Fri", 0.140),
+    ("whole_wheat_pita", "Whole wheat pita", "grain", "wheat", 0, "Tue, Fri", 0.100),
     ("steamed_carrots", "Steamed carrots", "vegetable", "", 120, "daily", 0.295),
     ("broccoli", "Broccoli", "vegetable", "", 80, "Mon, Wed, Fri", 0.180),
+    ("side_salad", "Side salad", "vegetable", "", 100, "daily", 0.120),
+    ("black_beans", "Seasoned black beans", "vegetable", "", 60, "Tue", 0.110),
+    ("seasoned_corn", "Seasoned corn", "vegetable", "", 60, "Thu", 0.150),
     ("fruit_cup", "Fruit cup", "fruit", "", 150, "daily", 0.433),
     ("mandarin_oranges", "Mandarin oranges", "fruit", "", 70, "Mon, Wed, Fri", 0.150),
+    ("apple_slices", "Apple slices", "fruit", "", 80, "Tue, Thu", 0.170),
+    ("banana", "Banana", "fruit", "", 60, "Mon, Thu", 0.120),
     ("chocolate_milk", "Chocolate milk", "milk", "milk", 0, "daily", 0.308),
     ("milk_1pct", "1% milk", "milk", "milk", 0, "daily", 0.140),
+    ("milk_fat_free", "Fat-free milk", "milk", "milk", 0, "daily", 0.080),
 ]
 ITEMS = [(item_id, name, component, _scaled_cost(item_id, component), allergens,
           floor, schedule, rate)
@@ -105,6 +133,9 @@ DIET = {
     "dinner_roll": "vegetarian", "brown_rice": "vegetarian;vegan", "steamed_carrots": "vegetarian;vegan",
     "broccoli": "vegetarian;vegan", "fruit_cup": "vegetarian;vegan", "mandarin_oranges": "vegetarian;vegan",
     "chocolate_milk": "vegetarian", "milk_1pct": "vegetarian",
+    "whole_wheat_tortilla": "vegetarian;vegan", "whole_wheat_pita": "vegetarian;vegan",
+    "side_salad": "vegetarian;vegan", "black_beans": "vegetarian;vegan", "seasoned_corn": "vegetarian;vegan",
+    "apple_slices": "vegetarian;vegan", "banana": "vegetarian;vegan", "milk_fat_free": "vegetarian",
 }
 VEGETARIAN_ENTREES = [item_id for item_id in RING if "vegetarian" in DIET.get(item_id, "").split(";")]
 MEAT_ENTREES = [item_id for item_id in RING if item_id not in VEGETARIAN_ENTREES]
@@ -112,14 +143,16 @@ MEAT_ENTREES = [item_id for item_id in RING if item_id not in VEGETARIAN_ENTREES
 # neighbours in it always include at least one vegetarian entree.
 ROTATION = [item_id for pair in zip(VEGETARIAN_ENTREES, MEAT_ENTREES) for item_id in pair]
 ENTREES_PER_DAY = 3
-# Each entree has only about 27 history days, so its sold-out share moves several
-# points with the rotation's phase. This step and phase are the ones (of the 196
-# tried) that keep every entree at or under the 35% sold-out cap while giving a
-# varied week. See data/sources.md.
+# Each entree has only 28 to 30 history days, so its sold-out share moves several
+# points with the rotation's phase. This step and phase were picked (of 196 tried,
+# on the earlier calendar) to keep every entree at or under the 35% sold-out cap
+# while giving a varied week; on the current calendar the highest is 27.6%.
+# See data/sources.md.
 ROTATION_WEEKDAY_STEP = 4
 ROTATION_PHASE = 11
 VOTE_OPTIONS = 4
-VOTE_LAST_OPEN = date(2026, 12, 18)
+VOTE_TARGET_WEEKDAY = 3  # Thursday
+VOTE_MIN_LEAD_DAYS = 7
 _WEEKDAY_ABSENCE_RELATIVE = (1.17, 1.0, 1.0, 1.0, 1.22)
 _weekday_mean = sum(_WEEKDAY_ABSENCE_RELATIVE) / len(_WEEKDAY_ABSENCE_RELATIVE)
 WEEKDAY_ATTENDANCE = tuple(value / _weekday_mean for value in _WEEKDAY_ABSENCE_RELATIVE)
@@ -138,6 +171,17 @@ def school_days(start, end):
             days.append(current)
         current += timedelta(days=1)
     return days
+
+
+def vote_target(open_day, days):
+    """The school day a vote opened on ``open_day`` decides, or None.
+
+    It is the first Thursday at least a week out. If that Thursday is a holiday,
+    it is the next school day after it. ``days`` is the sorted list of school days.
+    """
+    earliest = open_day + timedelta(days=VOTE_MIN_LEAD_DAYS)
+    thursday = earliest + timedelta(days=(VOTE_TARGET_WEEKDAY - earliest.weekday()) % 7)
+    return next((d for d in days if d >= thursday), None)
 
 
 def _history_raw_entree_take_rate():
@@ -182,17 +226,24 @@ def entrees_for(day):
     return _ENTREE_CACHE[day]
 
 
+_WEEKDAY_NAMES = ("Mon", "Tue", "Wed", "Thu", "Fri")
+
+
+def _serves_on(schedule, weekday):
+    if schedule == "daily":
+        return True
+    return weekday in {_WEEKDAY_NAMES.index(name) for name in schedule.split(", ")}
+
+
 def menu_for(day):
     entrees = set(entrees_for(day))
     served = []
     for item_id, _, _, _, _, _, schedule, _ in ITEMS:
-        if schedule == "ring" and item_id not in entrees:
-            continue
-        if schedule == "Tue, Thu" and day.weekday() not in (1, 3):
-            continue
-        if schedule == "Mon, Wed, Fri" and day.weekday() not in (0, 2, 4):
-            continue
-        served.append(item_id)
+        if schedule == "ring":
+            if item_id in entrees:
+                served.append(item_id)
+        elif _serves_on(schedule, day.weekday()):
+            served.append(item_id)
     return served
 
 
@@ -215,7 +266,7 @@ def vote_options_for(open_index, target):
     return fillers[:position] + [special] + fillers[position:]
 
 
-# 0.636192 is the per-day sum of the three entree take rates, averaged over
+# 0.636691 is the per-day sum of the three entree take rates, averaged over
 # history days. The factor makes that sum 0.46 of students present.
 PARTICIPATION_FACTOR = 0.46 / _history_raw_entree_take_rate()
 
@@ -327,13 +378,15 @@ def generate(seed=SEED, enroll=ENROLL):
             (history_rows if day <= HISTORY_END else future_rows).append(output)
             menu_rows.append([day.isoformat(), row["item_id"], note])
 
-    future_thursdays = [d for d in future_days if d.weekday() == 3]
     vote_rows = []
-    for open_index, open_day in enumerate(d for d in future_days if d <= VOTE_LAST_OPEN):
-        targets = [d for d in future_thursdays if d >= open_day + timedelta(days=7)]
-        if targets:
-            options = vote_options_for(open_index, targets[0])
-            vote_rows.append([open_day.isoformat(), targets[0].isoformat(), "entree", *options])
+    open_index = 0
+    for open_day in future_days:
+        target = vote_target(open_day, future_days)
+        if target is None:
+            continue
+        options = vote_options_for(open_index, target)
+        vote_rows.append([open_day.isoformat(), target.isoformat(), "entree", *options])
+        open_index += 1
     return {
         "items_rows": _item_rows(),
         "history_rows": history_rows,
