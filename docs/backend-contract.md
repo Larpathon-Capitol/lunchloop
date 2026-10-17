@@ -25,6 +25,7 @@ All CSVs have a header row and use `,` as the separator. Lists inside a cell use
 | cost_per_serving | float | dollars |
 | allergens | str | `;` list from: milk, egg, fish, shellfish, tree_nuts, peanuts, wheat, soybeans, sesame |
 | prep_floor | int | minimum servings to prep (fruit and vegetable items), else 0 |
+| diet | str | semicolon list of vegetarian, vegan, contains_pork, contains_beef, spicy |
 
 **meals.csv**: history, one row per item per school day, up to and including 2026-10-16.
 
@@ -46,7 +47,7 @@ All CSVs have a header row and use `,` as the separator. Lists inside a cell use
 
 **menu.csv**: `date, item_id, day_note`. Which items are served each school day, for history and at least two weeks after 2026-10-16.
 
-**vote_options.csv**: `open_date, target_date, target_slot, option_1, option_2, option_3`. The three options students can vote on each day, for a future menu slot.
+**vote_options.csv**: `open_date, target_date, target_slot, option_1, option_2, option_3, option_4`. Four varied options students can vote on each day, with at least one vegetarian entree.
 
 ## Engine (Python, `engine/`)
 
@@ -106,25 +107,25 @@ meter(date=None, data_dir=None) -> dict
 
 ## API (FastAPI, `api/`)
 
-Run with `uvicorn api.main:app`. All routes are under `/api`. CORS origin from env var `LUNCHLOOP_CORS_ORIGIN` (default `*` for local work). A request may send header `X-Demo-Date: YYYY-MM-DD` to move the demo clock (for showing streaks); otherwise today is `LUNCHLOOP_TODAY`.
+Run with `uvicorn api.main:app`. All routes are under `/api`. CORS origin from env var `LUNCHLOOP_CORS_ORIGIN` (default `*` for local work). A request may send header `X-Demo-Date: YYYY-MM-DD` to move the demo clock for simulated schools; live always uses `LUNCHLOOP_TODAY`.
 
 Errors are `{"error": "<plain message>"}` with status 400 (bad input), 404 (unknown date or item), 409 (already voted or guessed today), or 501 (engine function not built yet).
 
 | method and path | request | response |
 | --- | --- | --- |
 | GET /api/health | | `{"ok": true, "today", "simulated": true}` |
-| GET /api/prep?date=&ratio= | date default today | engine `prep_list()` |
+| GET /api/prep?date=&ratio= | date default today | engine `prep_list()`; each item also gets `diet`, `gluten_free`, `dairy_free` |
 | GET /api/savings?weeks=&ratio= | | engine `backtest()` |
 | POST /api/simulate | `{"date"?, "attendance_multiplier", "price_multiplier", "ratio"}` | engine `simulate()` |
-| GET /api/spin?device= | | `{"date", "target_date", "target_slot", "options": [{"item_id", "name", "allergens": [str]}], "already_voted": bool, "simulated": true}` |
-| POST /api/vote | `{"device", "item_id"}` | `{"ok": true, "streak", "xp", "tally": {item_id: count}, "simulated": true}` |
+| GET /api/spin?device= | | `{"date", "target_date", "target_slot", "options": [{"item_id", "name", "allergens": [str], "diet": [str], "gluten_free": bool, "dairy_free": bool}], "pool": [{"item_id", "name", "diet", "gluten_free", "dairy_free"}], "already_voted": bool, "simulated": true}` |
+| POST /api/vote | `{"device", "item_id"}` (any of today's options, four on the full data) | `{"ok": true, "streak", "xp", "tally": {item_id: count}, "simulated": true}` |
 | POST /api/guess | `{"device", "item_id"}` (most popular item next school day) | `{"ok": true, "target_date", "simulated": true}` |
 | GET /api/me?device= | | `{"device", "streak", "xp", "badges": [str], "last_guess": {"target_date", "item_id", "correct": bool or null} or null, "voted_today", "packed_today", "correct_calls": int (guesses scored correct so far), "simulated": true}` |
 | GET /api/meter | | engine `meter()` |
 
 ## Tray
 
-Students can pack one tray for the next school day. `GET /api/tray?device=&school=` returns the target date and that day's menu grouped in fixed component order: `meat_alternate`, `grain`, `vegetable`, `fruit`, `milk`. A device's `picks` are item ids or null for a skipped group. The response includes a `tally` only after that device has packed today.
+Students can pack one tray for the next school day. `GET /api/tray?device=&school=` returns the target date and that day's menu grouped in fixed component order: `meat_alternate`, `grain`, `vegetable`, `fruit`, `milk`. Each item is `{"item_id", "name", "allergens", "diet", "gluten_free", "dairy_free"}`. `diet` is a list in the fixed order vegetarian, vegan, contains_pork, contains_beef, spicy; `gluten_free` means no wheat allergen and `dairy_free` means no milk allergen (derived, not stored). The spin options use the same item shape. A device's `picks` are item ids or null for a skipped group. The response includes a `tally` only after that device has packed today.
 
 `POST /api/tray` accepts `{"device", "school"?, "picks": {component: item_id or null}}`. Every target-day group must be picked or skipped, and at least one group must be picked. A device can pack once per school day. The response includes the target date, current streak and XP, and a tally. The tally counts packed trays, skips, and each menu item's picks and share.
 
@@ -184,8 +185,12 @@ These routes are public and show only anonymous data, so judges can watch the ba
 
 | method and path | request | response |
 | --- | --- | --- |
-| GET /api/events?after=&limit= | `after` = last event id seen (default 0), `limit` 1 to 100 (default 50) | `{"events": [{"id", "at", "kind", "school_id", "player", "summary", "detail": {}, "ms"}], "latest_id", "simulated": true}` oldest first |
+| GET /api/events?after=&limit=&scope= | `scope` optional `live` or `simulated`; global ids remain unchanged | same response, filtered when scoped |
+| GET /api/demo/calendar?school= | simulated school only | `{"today", "school_days": [str], "default_today", "simulated": true}` |
+| POST /api/demo/crowd | `{"school": "demo", "count": 1..40}` | `{"ok": true, "added", "date", "totals": {"votes", "trays"}, "simulated": true}` |
 | GET /api/trace/forecast?item_id=&date=&ratio= | date default today, ratio default 3.0 | see below |
+
+Demo controls never touch `live`: both demo routes return 400 `demo controls are for simulated schools` for it, and an unknown school is 404. `POST /api/demo/crowd` acts on the school's current demo date (the `X-Demo-Date` header): each simulated student votes for one of today's options (weighted by that entree's past popularity, so vegetarian options get a real share), packs a tray for the next school day (each group picked or skipped), and about a third also guess. Device ids are `sim-<school>-<date>-<index>`, the index continuing from that day's earlier simulated votes and skipping any id a real device already used. Every action records the usual `spin`, `vote`, `tray` or `guess` event. `count` must be an integer 1 to 40 (400 `count must be 1 to 40`). One request counts as one write for rate limits. 404 `no voting today` when the date has no vote or no next school day.
 
 Events: the server keeps the newest 300 in memory (lost on restart). `kind` is one of `spin`, `vote`, `guess`, `tray`, `staff_sign_in`, `staff_sign_in_failed`, `prep`, `savings`, `simulate`, `meter`, `rate_limited`. A tray event says that a player packed a tray for the target date, with picked count and tally total in `detail`. `at` is an ISO UTC time. `player` is a 6-character anonymous tag (an HMAC of the device id with the server secret), or null. `summary` is one plain sentence (for example "A player voted for Beef nachos"). `detail` holds small numbers (for example the new tally, or the prep total and item count). `ms` is how long the work took, or null. Events never hold device ids, passwords, tokens, IP addresses or user agents. Admin summary polls are not events.
 

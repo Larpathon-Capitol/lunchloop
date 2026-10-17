@@ -96,7 +96,7 @@ def test_spin_uses_csv_options_and_allergens(client):
     assert response.status_code == 200
     body = response.json()
     assert set(body) == {
-        "date", "target_date", "target_slot", "options", "already_voted", "simulated"
+        "date", "target_date", "target_slot", "options", "pool", "already_voted", "simulated"
     }
     assert_success(body)
     expected = option_row("2026-10-19")
@@ -106,10 +106,16 @@ def test_spin_uses_csv_options_and_allergens(client):
     assert body["target_slot"] == expected["target_slot"]
     assert [o["item_id"] for o in body["options"]] == [expected[f"option_{i}"] for i in range(1, 4)]
     for option in body["options"]:
-        assert set(option) == {"item_id", "name", "allergens"}
+        assert set(option) == {"item_id", "name", "allergens", "diet", "gluten_free", "dairy_free"}
         raw = items[option["item_id"]]["allergens"]
         assert option["name"] == items[option["item_id"]]["name"]
         assert option["allergens"] == [x for x in raw.split(";") if x]
+        assert option["diet"] == [x for x in items[option["item_id"]]["diet"].split(";") if x]
+        assert option["gluten_free"] is ("wheat" not in option["allergens"])
+        assert option["dairy_free"] is ("milk" not in option["allergens"])
+    entrees = sorted(item_id for item_id, row in items.items() if row["component"] == "meat_alternate")
+    assert [p["item_id"] for p in body["pool"]] == entrees
+    assert all(set(p) == {"item_id", "name", "diet", "gluten_free", "dairy_free"} for p in body["pool"])
     assert body["already_voted"] is False
     assert vote(client, "device-01", expected["option_1"]).status_code == 200
     after_vote = client.get("/api/spin?device=device-01")

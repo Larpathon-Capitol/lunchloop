@@ -1,8 +1,8 @@
-item_id,name,component,cost_per_serving,allergens,prep_floor
-chicken_tacos,Chicken tacos,meat_alternate,1.35,milk,0
-cheese_pizza,Cheese pizza,meat_alternate,1.10,wheat;milk;soybeans,0
-popcorn_chicken,Popcorn chicken,meat_alternate,1.25,wheat;soybeans,0
-wheat_roll,Whole wheat roll,grain,0.20,wheat,0
-side_salad,Side salad,vegetable,0.40,,150
-apple_slices,Apple slices,fruit,0.35,,150
-milk_1pct,1% milk,milk,0.30,milk,0
+item_id,name,component,cost_per_serving,allergens,prep_floor,diet
+chicken_tacos,Chicken tacos,meat_alternate,1.35,milk,0,
+cheese_pizza,Cheese pizza,meat_alternate,1.10,wheat;milk;soybeans,0,vegetarian
+popcorn_chicken,Popcorn chicken,meat_alternate,1.25,wheat;soybeans,0,
+wheat_roll,Whole wheat roll,grain,0.20,wheat,0,vegetarian
+side_salad,Side salad,vegetable,0.40,,150,vegetarian;vegan
+apple_slices,Apple slices,fruit,0.35,,150,vegetarian;vegan
+milk_1pct,1% milk,milk,0.30,milk,0,vegetarian

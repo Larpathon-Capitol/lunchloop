@@ -42,14 +42,14 @@ GROUPS_1020 = [
     {
         "component": "meat_alternate",
         "items": [
-            {"item_id": TACOS, "name": "Chicken tacos", "allergens": ["milk"]},
-            {"item_id": POPCORN, "name": "Popcorn chicken", "allergens": ["wheat", "soybeans"]},
+            {"item_id": TACOS, "name": "Chicken tacos", "allergens": ["milk"], "diet": [], "gluten_free": True, "dairy_free": False},
+            {"item_id": POPCORN, "name": "Popcorn chicken", "allergens": ["wheat", "soybeans"], "diet": [], "gluten_free": False, "dairy_free": True},
         ],
     },
-    {"component": "grain", "items": [{"item_id": ROLL, "name": "Whole wheat roll", "allergens": ["wheat"]}]},
-    {"component": "vegetable", "items": [{"item_id": SALAD, "name": "Side salad", "allergens": []}]},
-    {"component": "fruit", "items": [{"item_id": APPLE, "name": "Apple slices", "allergens": []}]},
-    {"component": "milk", "items": [{"item_id": MILK, "name": "1% milk", "allergens": ["milk"]}]},
+    {"component": "grain", "items": [{"item_id": ROLL, "name": "Whole wheat roll", "allergens": ["wheat"], "diet": ["vegetarian"], "gluten_free": False, "dairy_free": True}]},
+    {"component": "vegetable", "items": [{"item_id": SALAD, "name": "Side salad", "allergens": [], "diet": ["vegetarian", "vegan"], "gluten_free": True, "dairy_free": True}]},
+    {"component": "fruit", "items": [{"item_id": APPLE, "name": "Apple slices", "allergens": [], "diet": ["vegetarian", "vegan"], "gluten_free": True, "dairy_free": True}]},
+    {"component": "milk", "items": [{"item_id": MILK, "name": "1% milk", "allergens": ["milk"], "diet": ["vegetarian"], "gluten_free": True, "dairy_free": False}]},
 ]
 
 # Three devices, picks chosen so every count below can be checked by hand.

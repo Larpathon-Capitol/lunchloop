@@ -35,6 +35,10 @@ _PROTOTYPE_COSTS = {
     "dinner_roll": 0.18, "brown_rice": 0.15, "steamed_carrots": 0.25,
     "broccoli": 0.28, "fruit_cup": 0.40, "mandarin_oranges": 0.35,
     "chocolate_milk": 0.40, "milk_1pct": 0.30,
+    "bean_cheese_burrito": 0.92, "veggie_burger": 0.98,
+    "black_bean_quesadilla": 0.88, "chickpea_curry_rice": 0.95,
+    "falafel_wrap": 0.93, "teriyaki_tofu_bowl": 1.02,
+    "chicken_shawarma_wrap": 1.12, "orange_chicken": 1.08,
 }
 _COST_TARGETS = {"meat_alternate": 1.05, "grain": 0.13, "vegetable": 0.39,
                  "fruit": 0.36, "milk": 0.32}
@@ -51,7 +55,7 @@ def _scaled_cost(item_id, component):
 
 HISTORY_START = date(2026, 1, 12)
 HISTORY_END = date(2026, 10, 16)
-FUTURE_END = date(2026, 11, 13)
+FUTURE_END = date(2026, 12, 31)
 HOLIDAYS = {
     date(2026, 1, 19), date(2026, 2, 16),
     *[date(2026, 3, 16) + timedelta(days=i) for i in range(5)],
@@ -67,6 +71,14 @@ _ITEM_DEFINITIONS = [
     ("cheeseburger", "Cheeseburger", "meat_alternate", "milk;soybeans;wheat", 0, "ring", 0.300),
     ("popcorn_chicken", "Popcorn chicken", "meat_alternate", "wheat;soybeans", 0, "ring", 0.199),
     ("spicy_chicken_sandwich", "Spicy chicken sandwich", "meat_alternate", "soybeans;wheat", 0, "ring", 0.235),
+    ("bean_cheese_burrito", "Bean and cheese burrito", "meat_alternate", "milk;wheat", 0, "ring", 0.220),
+    ("veggie_burger", "Veggie burger", "meat_alternate", "soybeans;wheat", 0, "ring", 0.180),
+    ("black_bean_quesadilla", "Black bean quesadilla", "meat_alternate", "milk;wheat", 0, "ring", 0.190),
+    ("chickpea_curry_rice", "Chickpea curry with rice", "meat_alternate", "", 0, "ring", 0.160),
+    ("falafel_wrap", "Falafel wrap", "meat_alternate", "wheat;sesame", 0, "ring", 0.150),
+    ("teriyaki_tofu_bowl", "Teriyaki tofu bowl", "meat_alternate", "soybeans;wheat", 0, "ring", 0.140),
+    ("chicken_shawarma_wrap", "Chicken shawarma wrap", "meat_alternate", "wheat;milk", 0, "ring", 0.200),
+    ("orange_chicken", "Orange chicken", "meat_alternate", "wheat;soybeans", 0, "ring", 0.210),
     ("dinner_roll", "Dinner roll", "grain", "wheat", 0, "daily", 0.420),
     ("brown_rice", "Brown rice", "grain", "", 0, "Tue, Thu", 0.150),
     ("steamed_carrots", "Steamed carrots", "vegetable", "", 120, "daily", 0.295),
@@ -82,7 +94,32 @@ ITEMS = [(item_id, name, component, _scaled_cost(item_id, component), allergens,
 # Costs are rescaled from research targets. The first relative calibration came
 # from Ekansh Simgekar's prototype data; the prototype data is simulated.
 # cheese_pizza, chicken_nuggets, popcorn_chicken, chocolate_milk, fruit_cup, steamed_carrots.
-RING = [item[0] for item in ITEMS[:6]]
+RING = [item[0] for item in ITEMS if item[2] == "meat_alternate"]
+# Dietary tags in a fixed order. vegan always comes with vegetarian.
+DIET = {
+    "cheese_pizza": "vegetarian", "beef_nachos": "contains_beef", "cheeseburger": "contains_beef",
+    "spicy_chicken_sandwich": "spicy",
+    "bean_cheese_burrito": "vegetarian", "veggie_burger": "vegetarian",
+    "black_bean_quesadilla": "vegetarian", "chickpea_curry_rice": "vegetarian;vegan",
+    "falafel_wrap": "vegetarian;vegan", "teriyaki_tofu_bowl": "vegetarian;vegan",
+    "dinner_roll": "vegetarian", "brown_rice": "vegetarian;vegan", "steamed_carrots": "vegetarian;vegan",
+    "broccoli": "vegetarian;vegan", "fruit_cup": "vegetarian;vegan", "mandarin_oranges": "vegetarian;vegan",
+    "chocolate_milk": "vegetarian", "milk_1pct": "vegetarian",
+}
+VEGETARIAN_ENTREES = [item_id for item_id in RING if "vegetarian" in DIET.get(item_id, "").split(";")]
+MEAT_ENTREES = [item_id for item_id in RING if item_id not in VEGETARIAN_ENTREES]
+# The entree rotation alternates vegetarian and meat entrees, so any three
+# neighbours in it always include at least one vegetarian entree.
+ROTATION = [item_id for pair in zip(VEGETARIAN_ENTREES, MEAT_ENTREES) for item_id in pair]
+ENTREES_PER_DAY = 3
+# Each entree has only about 27 history days, so its sold-out share moves several
+# points with the rotation's phase. This step and phase are the ones (of the 196
+# tried) that keep every entree at or under the 35% sold-out cap while giving a
+# varied week. See data/sources.md.
+ROTATION_WEEKDAY_STEP = 4
+ROTATION_PHASE = 11
+VOTE_OPTIONS = 4
+VOTE_LAST_OPEN = date(2026, 12, 18)
 _WEEKDAY_ABSENCE_RELATIVE = (1.17, 1.0, 1.0, 1.0, 1.22)
 _weekday_mean = sum(_WEEKDAY_ABSENCE_RELATIVE) / len(_WEEKDAY_ABSENCE_RELATIVE)
 WEEKDAY_ATTENDANCE = tuple(value / _weekday_mean for value in _WEEKDAY_ABSENCE_RELATIVE)
@@ -123,10 +160,30 @@ def day_note(day, pre_break):
     return ""
 
 
+def _weekday_index(day):
+    """How many earlier school days fall on the same weekday as ``day``."""
+    return sum(1 for d in school_days(HISTORY_START, day - timedelta(days=1)) if d.weekday() == day.weekday())
+
+
+_ENTREE_CACHE = {}
+
+
+def entrees_for(day):
+    """The day's entrees in rotation order.
+
+    Each weekday walks the rotation on its own, three entrees per serving day,
+    so every entree comes back on every weekday about once every five weeks.
+    That keeps same-weekday history deep enough for the forecast engine.
+    Weekdays start four places apart, so one week shows about 12 of the 14 entrees.
+    """
+    if day not in _ENTREE_CACHE:
+        start = ENTREES_PER_DAY * _weekday_index(day) + ROTATION_WEEKDAY_STEP * day.weekday() + ROTATION_PHASE
+        _ENTREE_CACHE[day] = [ROTATION[(start + i) % len(ROTATION)] for i in range(ENTREES_PER_DAY)]
+    return _ENTREE_CACHE[day]
+
+
 def menu_for(day):
-    week = ((day - HISTORY_START).days // 7) % 3
-    offset = (2 * (5 * week + day.weekday())) % 6
-    entrees = {RING[(offset + i) % 6] for i in range(3)}
+    entrees = set(entrees_for(day))
     served = []
     for item_id, _, _, _, _, _, schedule, _ in ITEMS:
         if schedule == "ring" and item_id not in entrees:
@@ -139,7 +196,26 @@ def menu_for(day):
     return served
 
 
-# 0.763832 is the per-day sum of the three entree take rates, averaged over
+def vote_options_for(open_index, target):
+    """Four entree options for one open day.
+
+    Exactly one option is on the target day's menu: the target's special, which is
+    the entree the simulated vote ends up serving. The other three are off-menu
+    entrees that change from day to day. At least one option is vegetarian.
+    """
+    on_menu = entrees_for(target)
+    special = on_menu[0]
+    off_menu = [item_id for item_id in ROTATION if item_id not in on_menu]
+    start = (VOTE_OPTIONS - 1) * open_index
+    off_menu = [off_menu[(start + i) % len(off_menu)] for i in range(len(off_menu))]
+    fillers = off_menu[:VOTE_OPTIONS - 1]
+    if special not in VEGETARIAN_ENTREES and not any(item_id in VEGETARIAN_ENTREES for item_id in fillers):
+        fillers[-1] = next(item_id for item_id in off_menu if item_id in VEGETARIAN_ENTREES)
+    position = open_index % VOTE_OPTIONS
+    return fillers[:position] + [special] + fillers[position:]
+
+
+# 0.636192 is the per-day sum of the three entree take rates, averaged over
 # history days. The factor makes that sum 0.46 of students present.
 PARTICIPATION_FACTOR = 0.46 / _history_raw_entree_take_rate()
 
@@ -160,14 +236,14 @@ def effective_rate(rate):
 
 
 def _item_rows():
-    return [[item_id, name, component, f"{cost:.2f}", allergens, floor]
+    return [[item_id, name, component, f"{cost:.2f}", allergens, floor, DIET.get(item_id, "")]
             for item_id, name, component, cost, allergens, floor, _, _ in ITEMS]
 
 
 def write_items(out):
     with open(out / "items.csv", "w", newline="", encoding="utf-8") as handle:
         writer = csv.writer(handle, lineterminator="\n")
-        writer.writerow(["item_id", "name", "component", "cost_per_serving", "allergens", "prep_floor"])
+        writer.writerow(["item_id", "name", "component", "cost_per_serving", "allergens", "prep_floor", "diet"])
         writer.writerows(_item_rows())
 
 
@@ -239,7 +315,7 @@ def generate(seed=SEED, enroll=ENROLL):
                 histories[chosen["item_id"]][-1] = chosen["taken"]
         for row in rows:
             true_demand[(day.isoformat(), row["item_id"])] = row["demand"]
-        special = next(item_id for item_id in menu_for(day) if item_id in ("beef_nachos", "cheeseburger", "spicy_chicken_sandwich"))
+        special = entrees_for(day)[0]
         vote_id = None
         if day <= HISTORY_END and day.weekday() == 3:
             vote_id = special
@@ -253,10 +329,11 @@ def generate(seed=SEED, enroll=ENROLL):
 
     future_thursdays = [d for d in future_days if d.weekday() == 3]
     vote_rows = []
-    for open_day in future_days:
+    for open_index, open_day in enumerate(d for d in future_days if d <= VOTE_LAST_OPEN):
         targets = [d for d in future_thursdays if d >= open_day + timedelta(days=7)]
         if targets:
-            vote_rows.append([open_day.isoformat(), targets[0].isoformat(), "entree", "beef_nachos", "cheeseburger", "spicy_chicken_sandwich"])
+            options = vote_options_for(open_index, targets[0])
+            vote_rows.append([open_day.isoformat(), targets[0].isoformat(), "entree", *options])
     return {
         "items_rows": _item_rows(),
         "history_rows": history_rows,
@@ -291,7 +368,7 @@ def main():
             writer.writerows(rows)
     with open(out / "vote_options.csv", "w", newline="", encoding="utf-8") as handle:
         writer = csv.writer(handle, lineterminator="\n")
-        writer.writerow(["open_date", "target_date", "target_slot", "option_1", "option_2", "option_3"])
+        writer.writerow(["open_date", "target_date", "target_slot", "option_1", "option_2", "option_3", "option_4"])
         writer.writerows(generated["vote_rows"])
 
     summary_rows = generated["history_rows"]  # the summary describes history only

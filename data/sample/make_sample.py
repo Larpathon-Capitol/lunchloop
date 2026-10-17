@@ -29,6 +29,8 @@ ITEMS = [
     ("milk_1pct", "1% milk", "milk", 0.30, "milk", 0, 0.55),
 ]
 ENTREES = ["chicken_tacos", "cheese_pizza", "popcorn_chicken"]
+DIET = {"cheese_pizza": "vegetarian", "wheat_roll": "vegetarian", "side_salad": "vegetarian;vegan",
+        "apple_slices": "vegetarian;vegan", "milk_1pct": "vegetarian"}
 WEEKDAY_ATTENDANCE = {0: 0.93, 1: 0.95, 2: 0.95, 3: 0.94, 4: 0.91}
 
 
@@ -52,9 +54,9 @@ def main():
 
     with open(OUT / "items.csv", "w", newline="") as f:
         w = csv.writer(f)
-        w.writerow(["item_id", "name", "component", "cost_per_serving", "allergens", "prep_floor"])
+        w.writerow(["item_id", "name", "component", "cost_per_serving", "allergens", "prep_floor", "diet"])
         for item_id, name, comp, cost, allergens, floor, _ in ITEMS:
-            w.writerow([item_id, name, comp, f"{cost:.2f}", allergens, floor])
+            w.writerow([item_id, name, comp, f"{cost:.2f}", allergens, floor, DIET.get(item_id, "")])
 
     def rows_for(day):
         attendance = round(STUDENTS * WEEKDAY_ATTENDANCE[day.weekday()] * rng.uniform(0.97, 1.02))

@@ -7,6 +7,7 @@ import hmac
 import re
 import threading
 import time
+import random
 from typing import Any
 from datetime import datetime, timezone
 from pathlib import Path
@@ -79,6 +80,12 @@ class SimulateBody(BaseModel):
     attendance_multiplier: StrictFloat = 1.0
     price_multiplier: StrictFloat = 1.0
     ratio: StrictFloat = 3.0
+
+
+class CrowdBody(BaseModel):
+    model_config = ConfigDict(strict=True)
+    school: str = "demo"
+    count: Any = None
 
 
 class LoginBody(BaseModel):
@@ -154,7 +161,7 @@ def create_app(max_requests=3000, max_actions=300, body_limit=16 * 1024, request
         CORSMiddleware,
         allow_origins=origins,
         allow_methods=["GET", "POST", "OPTIONS"],
-        allow_headers=["*"],
+        allow_headers=["*", "X-Demo-Date"],
         allow_credentials=False,
     )
     application.add_middleware(SecurityHeadersMiddleware)
@@ -199,21 +206,25 @@ def create_app(max_requests=3000, max_actions=300, body_limit=16 * 1024, request
         return payload["s"]
 
     components = ("meat_alternate", "grain", "vegetable", "fruit", "milk")
+    diet_order = ("vegetarian", "vegan", "contains_pork", "contains_beef", "spicy")
+
+    def item_payload(item):
+        allergens = [value for value in (item["allergens"] or "").split(";") if value]
+        diet = [value for value in diet_order if value in (item["diet"] or "").split(";")]
+        return {"item_id": item["item_id"], "name": item["name"], "allergens": allergens,
+                "diet": diet, "gluten_free": "wheat" not in allergens,
+                "dairy_free": "milk" not in allergens}
 
     def tray_groups(connection, target_date):
         rows_for_day = connection.execute(
-            """SELECT menu.item_id, items.name, items.component, items.allergens
+            """SELECT menu.item_id, items.name, items.component, items.allergens, items.diet
                FROM menu JOIN items ON items.item_id=menu.item_id
                WHERE menu.date=? ORDER BY menu.rowid""",
             (target_date,),
         ).fetchall()
         grouped = {component: [] for component in components}
         for row in rows_for_day:
-            grouped[row["component"]].append({
-                "item_id": row["item_id"],
-                "name": row["name"],
-                "allergens": [value for value in (row["allergens"] or "").split(";") if value],
-            })
+            grouped[row["component"]].append(item_payload(row))
         return [
             {"component": component, "items": grouped[component]}
             for component in components if grouped[component]
@@ -292,7 +303,7 @@ def create_app(max_requests=3000, max_actions=300, body_limit=16 * 1024, request
             option = connection.execute("SELECT * FROM vote_options WHERE open_date=?", (current_date,)).fetchone()
             vote = None
             if option:
-                ids = [option[f"option_{n}"] for n in (1, 2, 3)]
+                ids = [option[f"option_{n}"] for n in (1, 2, 3, 4) if option[f"option_{n}"]]
                 options = []
                 total = connection.execute("SELECT COUNT(*) FROM votes WHERE school_id=? AND date=?", (selected, current_date)).fetchone()[0]
                 for item_id in ids:
@@ -353,23 +364,20 @@ def create_app(max_requests=3000, max_actions=300, body_limit=16 * 1024, request
             if option_row is None:
                 raise HTTPException(404, "no voting today")
             options = []
-            for option_number in (1, 2, 3):
+            for option_number in (1, 2, 3, 4):
                 item_id = option_row[f"option_{option_number}"]
+                if not item_id:
+                    continue
                 item = connection.execute(
-                    "SELECT item_id, name, allergens FROM items WHERE item_id=?",
+                    "SELECT item_id, name, allergens, diet FROM items WHERE item_id=?",
                     (item_id,),
                 ).fetchone()
-                options.append(
-                    {
-                        "item_id": item["item_id"],
-                        "name": item["name"],
-                        "allergens": [
-                            allergen
-                            for allergen in (item["allergens"] or "").split(";")
-                            if allergen
-                        ],
-                    }
-                )
+                options.append(item_payload(item))
+            pool = []
+            for item in connection.execute("SELECT item_id, name, allergens, diet FROM items WHERE component='meat_alternate' ORDER BY item_id"):
+                payload = item_payload(item)
+                payload.pop("allergens", None)
+                pool.append(payload)
             already_voted = bool(
                 player_device
                 and connection.execute(
@@ -384,6 +392,7 @@ def create_app(max_requests=3000, max_actions=300, body_limit=16 * 1024, request
             "target_date": option_row["target_date"],
             "target_slot": option_row["target_slot"],
             "options": options,
+            "pool": pool,
             "already_voted": already_voted,
             "simulated": True,
         }
@@ -467,8 +476,77 @@ def create_app(max_requests=3000, max_actions=300, body_limit=16 * 1024, request
             raise HTTPException(400, "bad input")
         if after_number < 0 or limit_number < 1 or limit_number > 100:
             raise HTTPException(400, "bad input")
-        rows, latest = request.app.state.events.after(after_number, limit_number)
+        scope = request.query_params.get("scope")
+        if scope not in (None, "live", "simulated"):
+            raise HTTPException(400, "bad input")
+        rows, latest = request.app.state.events.after(after_number, limit_number, scope)
         return {"events": rows, "latest_id": latest, "simulated": True}
+
+    @application.get("/api/demo/calendar")
+    def demo_calendar(request: Request, school: str | None = None):
+        selected = school_id(request, school)
+        if selected == "live":
+            raise HTTPException(400, "demo controls are for simulated schools")
+        settings = request.app.state.settings
+        with closing(connect(settings["db"])) as connection:
+            days = [row[0] for row in connection.execute("SELECT DISTINCT date FROM menu ORDER BY date")]
+        return {"today": today(request, settings), "school_days": days, "default_today": settings["today"], "simulated": True}
+
+    @application.post("/api/demo/crowd")
+    def demo_crowd(request: Request, body: CrowdBody):
+        selected = school_id(request, body.school)
+        if selected == "live":
+            raise HTTPException(400, "demo controls are for simulated schools")
+        if isinstance(body.count, bool) or not isinstance(body.count, int) or body.count < 1 or body.count > 40:
+            raise HTTPException(400, "count must be 1 to 40")
+        settings, current_date = request_context(request, selected)
+        with closing(connect(settings["db"])) as connection:
+            option = connection.execute("SELECT * FROM vote_options WHERE open_date=?", (current_date,)).fetchone()
+            target = next_day(connection, current_date)
+            if option is None or target is None:
+                raise HTTPException(404, "no voting today")
+            option_ids = [option[f"option_{n}"] for n in (1, 2, 3, 4) if option[f"option_{n}"]]
+            existing = connection.execute("SELECT COUNT(*) FROM votes WHERE school_id=? AND date=? AND device LIKE 'sim-%'", (selected, current_date)).fetchone()[0]
+            # Seeded by where this batch starts, so a repeat call adds different students.
+            rng = random.Random(f"{selected}:{current_date}:{existing}")
+            # Simulated students vote by each entree's past popularity (share of students
+            # present who took it), so vegetarian options get a real share too.
+            weights = []
+            for item_id in option_ids:
+                popularity = connection.execute("SELECT AVG(CAST(servings_taken AS REAL) / attendance) FROM meals WHERE item_id=? AND attendance > 0", (item_id,)).fetchone()[0]
+                weights.append(popularity if popularity else 0.2)
+            groups = tray_groups(connection, target[0])
+            meat = [row["item_id"] for row in connection.execute("SELECT item_id FROM menu WHERE date=? AND item_id IN (SELECT item_id FROM items WHERE component='meat_alternate')", (target[0],))]
+            added = 0
+            index = existing
+            while added < body.count:
+                fake = f"sim-{selected}-{current_date}-{index:03d}"
+                index += 1
+                # A real device may already use this id; skip it rather than fail.
+                if any(connection.execute(f"SELECT 1 FROM {table} WHERE school_id=? AND device=? AND date=?", (selected, fake, current_date)).fetchone() for table in ("votes", "trays", "guesses")):
+                    continue
+                choice = rng.choices(option_ids, weights)[0]
+                connection.execute("INSERT INTO votes(school_id,device,date,item_id) VALUES(?,?,?,?)", (selected, fake, current_date, choice))
+                record(request, "spin", selected, fake, "A simulated player opened today's vote", {"date": current_date})
+                record(request, "vote", selected, fake, "A simulated player voted", {"item_id": choice})
+                picks = {}
+                for group in groups:
+                    items = group["items"]
+                    picks[group["component"]] = items[rng.randrange(len(items))]["item_id"] if items and rng.random() > 0.2 else None
+                if not any(value is not None for value in picks.values()) and groups:
+                    picks[groups[0]["component"]] = groups[0]["items"][0]["item_id"]
+                for group in groups:
+                    connection.execute("INSERT INTO trays(school_id,device,date,target_date,component,item_id) VALUES(?,?,?,?,?,?)", (selected, fake, current_date, target[0], group["component"], picks[group["component"]]))
+                record(request, "tray", selected, fake, f"A simulated player packed a tray for {target[0]}", {"picked": sum(value is not None for value in picks.values())})
+                if meat and rng.random() < 0.35:
+                    guess_item = rng.choice(meat)
+                    connection.execute("INSERT INTO guesses(school_id,device,date,target_date,item_id) VALUES(?,?,?,?,?)", (selected, fake, current_date, target[0], guess_item))
+                    record(request, "guess", selected, fake, "A simulated player made a guess", {"item_id": guess_item})
+                added += 1
+            connection.commit()
+            votes = connection.execute("SELECT COUNT(*) FROM votes WHERE school_id=? AND date=?", (selected, current_date)).fetchone()[0]
+            trays = connection.execute("SELECT COUNT(DISTINCT device) FROM trays WHERE school_id=? AND date=?", (selected, current_date)).fetchone()[0]
+        return {"ok": True, "added": added, "date": current_date, "totals": {"votes": votes, "trays": trays}, "simulated": True}
 
     @application.get("/api/trace/forecast")
     def trace(request: Request, item_id: str, date_value: str | None = Query(None, alias="date"), ratio: float = 3.0):
@@ -502,7 +580,7 @@ def create_app(max_requests=3000, max_actions=300, body_limit=16 * 1024, request
             ).fetchone()
             if not item_row:
                 raise HTTPException(404, "unknown item")
-            option_ids = [option_row[f"option_{number}"] for number in (1, 2, 3)]
+            option_ids = [option_row[f"option_{number}"] for number in (1, 2, 3, 4) if option_row[f"option_{number}"]]
             if body.item_id not in option_ids:
                 raise HTTPException(400, "item is not an option")
             try:
@@ -640,6 +718,12 @@ def create_app(max_requests=3000, max_actions=300, body_limit=16 * 1024, request
             raise HTTPException(400, str(error)) from error
         if not isinstance(result, dict):
             raise HTTPException(500, "engine returned an unexpected result")
+        if function_name == "prep_list":
+            with closing(connect(request_settings["db"])) as connection:
+                for item in result.get("items", []):
+                    row = connection.execute("SELECT allergens, diet FROM items WHERE item_id=?", (item.get("item_id"),)).fetchone()
+                    if row:
+                        item.update(item_payload({"item_id": item.get("item_id"), "name": item.get("name", ""), "allergens": row["allergens"], "diet": row["diet"]}))
         result["simulated"] = True
         kind = {"prep_list": "prep", "backtest": "savings", "simulate": "simulate", "meter": "meter"}.get(function_name)
         if kind:

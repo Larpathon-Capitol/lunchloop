@@ -23,13 +23,13 @@ The labels mean:
 
 ## Calendar
 
-The history is 2026-01-12 through 2026-10-16. The future menu is 2026-10-19 through 2026-11-13. School days are weekdays except the listed holidays. These dates are a local simulated calendar.
+The history is 2026-01-12 through 2026-10-16. The future menu is 2026-10-19 through 2026-12-31. School days are weekdays except the listed holidays. These dates are a local simulated calendar.
 
 | Constant | Value | Label |
 | --- | --- | --- |
 | `HISTORY_START` | 2026-01-12 | **ASSUMPTION.** Start of the simulated term. |
 | `HISTORY_END` | 2026-10-16 | **CONFIRMED by the frozen backend contract.** |
-| `FUTURE_END` | 2026-11-13 | **ASSUMPTION.** Four school weeks after history. |
+| `FUTURE_END` | 2026-12-31 | **ASSUMPTION.** Votes open every school day through 2026-12-18, and each targets a Thursday at least a week later, so the menu runs to 2026-12-31. There is no winter break in this calendar. |
 | Holidays | Jan 19, Feb 16, Mar 16 to 20, Apr 3, May 23 to Aug 23, Sep 7, Oct 12 | **ASSUMPTION.** A simple school calendar for the demo. |
 | Early release | Feb 26, May 21, Sep 24, Nov 6 | **ASSUMPTION.** |
 | Testing days | Apr 7, Apr 8, May 12, Oct 14 | **ASSUMPTION.** |
@@ -59,9 +59,11 @@ The research recommendation is a median daily participation of 42% of enrollment
 
 | Constant | Value | Label |
 | --- | --- | --- |
-| `PARTICIPATION_FACTOR` | 0.6022266676 | **ESTIMATE**. It is 0.46 divided by 0.763832, the per-day **sum** of the three raw entree take rates averaged over history days. It multiplies every item rate, so item popularity stays in the same relative order. |
+| `PARTICIPATION_FACTOR` | 0.7230521604 | **ESTIMATE**. It is 0.46 divided by 0.636192, the per-day **sum** of the three raw entree take rates averaged over history days. It multiplies every item rate, so item popularity stays in the same relative order. |
 | Take rate meaning | Share of students present who take an item before day and item noise | **ASSUMPTION.** |
 | Entrees per day | 3 | **ASSUMPTION.** |
+| Entree rotation | 14 entrees, vegetarian and meat alternating, so any three neighbours include a vegetarian entree. Each weekday walks the rotation three places per serving day; weekdays start four places apart; phase 11. | **ASSUMPTION.** Every entree gets about 27 history days and at least four on each weekday before 2026-09-21. With so few days per entree its sold-out share moves several points with the phase, so the phase was picked (of 196 step and phase pairs) to keep every entree at or under 35%. |
+| New entree rates and costs | bean and cheese burrito 0.22, veggie burger 0.18, black bean quesadilla 0.19, chickpea curry 0.16, falafel wrap 0.15, teriyaki tofu bowl 0.14, chicken shawarma wrap 0.20, orange chicken 0.21 | **ASSUMPTION.** Simulated menu choices, not calibrated from any source. |
 | Produce floors | Carrots 120, broccoli 80, fruit cup 150, mandarin oranges 70 | **ASSUMPTION.** Other items have floor 0. |
 
 Costs are **ESTIMATES**. The inputs are **CONFIRMED**: Boston's 2010-11 component costs were entree $0.56, grain $0.07, vegetable $0.21, fruit $0.19, and milk $0.17 ([Boston table](https://pmc.ncbi.nlm.nih.gov/articles/PMC3788640/)); USDA reported $1.69 mean food cost per reimbursable lunch ([USDA report](https://fns-prod.azureedge.us/sites/default/files/resource-files/SNMCS-Volume3.pdf#page=63)); and food-away-from-home inflation was 1.4398x from 2015 to 2024 ([CPI table](https://www.govinfo.gov/content/pkg/ECONI-2025-01/pdf/ECONI-2025-01.pdf#page=24)). We scale each original component's relative item costs so its mean is the target for a $2.25 lunch. That $2.25 target is a pick inside the $2.14 to $2.43 range worked out from the same [CPI table](https://www.govinfo.gov/content/pkg/ECONI-2025-01/pdf/ECONI-2025-01.pdf#page=24), then we round to cents.
@@ -76,7 +78,7 @@ Costs are **ESTIMATES**. The inputs are **CONFIRMED**: Boston's 2010-11 componen
 
 ## Menu and demand
 
-The three-week rotation, daily sides, pizza Friday effect, calendar notes, and noise are **ASSUMPTIONS**. Demand is:
+The entree rotation, daily sides, pizza Friday effect, calendar notes, and noise are **ASSUMPTIONS**. Demand is:
 
 `round(attendance * effective take rate * weekday factor * note factor * day noise * item noise)`.
 
@@ -88,11 +90,11 @@ The usual amount is the item's average servings taken over its last 20 served da
 
 - fruit and vegetable: 1.20. **ASSUMPTION.** The cited studies report production leftovers of 10.2% to 28.7% and 15.31% unserved food in a case study. That is context, not a measured over-prep standard ([school meal leftovers study](https://pubmed.ncbi.nlm.nih.gov/24747044/), [case study](https://pdfs.semanticscholar.org/9cf7/12fceb42ac0eaa1b26de9b6eef2675efdf5e.pdf#page=5)).
 - meat alternate and grain: 1.075. **ASSUMPTION.** The cited Colorado abstract reports under 5% overproduced in the school kitchens it studied. It does not establish a margin for this simulation ([abstract](https://www.sciencedirect.com/science/article/abs/pii/S2212267218313947)).
-- milk: 1.12. **ASSUMPTION.** The rule says fluid milk must be offered daily with at least two options, but it does not set an over-prep margin ([7 CFR 210.10](https://www.ecfr.gov/current/title-7/subtitle-B/chapter-II/subchapter-A/part-210/section-210.10): "Fluid milk must be offered daily" and "Schools must offer students a variety (at least two different options) of fluid milk at lunch daily."). The value 1.12 comes from the original prototype and is kept as an assumption. At 1.025, at least one milk runs out on 75.2% of history days (56.0% of milk item-days). We judged a kitchen that must offer milk every day would not run out that often, so 1.12 is kept. At 1.12 it happens on 9.6% of days (5.2% of milk item-days). The command is in [README.md](README.md#two-choices-that-raise-the-simulated-saving).
+- milk: 1.12. **ASSUMPTION.** The rule says fluid milk must be offered daily with at least two options, but it does not set an over-prep margin ([7 CFR 210.10](https://www.ecfr.gov/current/title-7/subtitle-B/chapter-II/subchapter-A/part-210/section-210.10): "Fluid milk must be offered daily" and "Schools must offer students a variety (at least two different options) of fluid milk at lunch daily."). The value 1.12 comes from the original prototype and is kept as an assumption. At 1.025, at least one milk runs out on 73.6% of history days (54.8% of milk item-days). We judged a kitchen that must offer milk every day would not run out that often, so 1.12 is kept. At 1.12 it happens on 8.8% of days (4.8% of milk item-days). The command is in [README.md](README.md#two-choices-that-raise-the-simulated-saving).
 
 **ASSUMPTION:** Unopened milk cartons and sealed fruit cups are counted as waste in this simulation. Some of them may be stored and served again, which would make the waste dollars too high. A Finnish food-service study reports that caterers reuse some overproduced food on later days, but it does not show what US school kitchens do with unopened items ([study](https://projects.luke.fi/ravintolafoorumi/wp-content/uploads/sites/4/2019/09/Silvennoinen_WM_2019.pdf#page=6)).
 
-The generated history has a 22.6% combined sold-out rate for entree and grain item-days.
+The generated history has a 20.1% combined sold-out rate for entree and grain item-days.
 
 There is no authoritative universal over-prep standard. The search for one found nothing, so that result is **BLOCKED**: [ICN search result](https://theicn.org/resources/120/financial-management-a-course-for-school-nutrition-managers/103050/financial-management-managers-instructors-manual.pdf).
 
@@ -104,12 +106,12 @@ These two choices raise the simulated saving. The figures are simulated, pooled 
 
 | Choice | Effect |
 | --- | --- |
-| Milk usual amount of 1.12 instead of 1.025 | Net saving is $40.90 per school day at 1.12 and about $35.05 at 1.025 (`python tools/eval_truth.py --seeds 5 --prep-ratio milk=1.025`). |
-| Packaged items counted as waste (milk cartons, fruit cup, mandarin oranges) | They are about 78% of the pooled net saving ($32.03 of $40.90). Without them it is about $9 per day ($8.87). |
+| Milk usual amount of 1.12 instead of 1.025 | Net saving is $53.09 per school day at 1.12 and about $45.84 at 1.025 (`python tools/eval_truth.py --seeds 5 --prep-ratio milk=1.025`). |
+| Packaged items counted as waste (milk cartons, fruit cup, mandarin oranges) | They are about 71% of the pooled net saving ($37.93 of $53.09). Without them it is about $15 per day ($15.16). |
 
 ## Votes
 
-History Thursdays give the selected special a simulated share from 0.36 through 0.52. Future vote options always list beef nachos, cheeseburger, and spicy chicken sandwich. These are **ASSUMPTIONS** for the demo. Future entree ties are broken by lowering the later item by one latent serving so the guessing game has one winner.
+History Thursdays give the selected special a simulated share from 0.36 through 0.52. Future vote options are four entrees. Exactly one is on the target Thursday's menu (its first rotation entree, the one the vote ends up serving); the other three are off-menu entrees that change each school day. At least one option is vegetarian, and the on-menu option moves through the four positions. These are **ASSUMPTIONS** for the demo. Future entree ties are broken by lowering the later item by one latent serving so the guessing game has one winner.
 
 ## Data contract and true demand
 

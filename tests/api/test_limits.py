@@ -389,4 +389,4 @@ def test_first_rate_limit_is_logged_soon_after_boot(monkeypatch):
     with TestClient(app) as client:
         client.get("/api/health")
         assert client.get("/api/health").status_code == 429
-    assert [e["kind"] for e in app.state.events.events].count("rate_limited") == 1
+    assert [e["kind"] for e in app.state.events.after(0, 10_000)[0]].count("rate_limited") == 1

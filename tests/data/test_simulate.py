@@ -17,8 +17,14 @@ from data import simulate as sim
 ROOT = Path(__file__).resolve().parents[2]
 FILES = ["items.csv", "meals.csv", "future_meals.csv", "menu.csv", "vote_options.csv"]
 COMPONENTS = {"meat_alternate", "grain", "vegetable", "fruit", "milk"}
-RING = ["cheese_pizza", "beef_nachos", "chicken_nuggets", "cheeseburger", "popcorn_chicken", "spicy_chicken_sandwich"]  # mirrors data/sources.md
-FLOORS = {"cheese_pizza": 0, "beef_nachos": 0, "chicken_nuggets": 0, "cheeseburger": 0, "popcorn_chicken": 0, "spicy_chicken_sandwich": 0, "dinner_roll": 0, "brown_rice": 0, "steamed_carrots": 120, "broccoli": 80, "fruit_cup": 150, "mandarin_oranges": 70, "chocolate_milk": 0, "milk_1pct": 0}  # mirrors data/sources.md
+RING = ["cheese_pizza", "beef_nachos", "chicken_nuggets", "cheeseburger", "popcorn_chicken", "spicy_chicken_sandwich",
+        "bean_cheese_burrito", "veggie_burger", "black_bean_quesadilla", "chickpea_curry_rice", "falafel_wrap",
+        "teriyaki_tofu_bowl", "chicken_shawarma_wrap", "orange_chicken"]  # mirrors data/sources.md
+VEGETARIAN_ENTREES = {"cheese_pizza", "bean_cheese_burrito", "veggie_burger", "black_bean_quesadilla",
+                      "chickpea_curry_rice", "falafel_wrap", "teriyaki_tofu_bowl"}  # mirrors data/sources.md
+FLOORS = {"cheese_pizza": 0, "beef_nachos": 0, "chicken_nuggets": 0, "cheeseburger": 0, "popcorn_chicken": 0, "spicy_chicken_sandwich": 0,
+          "bean_cheese_burrito": 0, "veggie_burger": 0, "black_bean_quesadilla": 0, "chickpea_curry_rice": 0, "falafel_wrap": 0,
+          "teriyaki_tofu_bowl": 0, "chicken_shawarma_wrap": 0, "orange_chicken": 0, "dinner_roll": 0, "brown_rice": 0, "steamed_carrots": 120, "broccoli": 80, "fruit_cup": 150, "mandarin_oranges": 70, "chocolate_milk": 0, "milk_1pct": 0}  # mirrors data/sources.md
 HOLIDAYS = {"2026-01-19", "2026-02-16", *{f"2026-03-{d:02d}" for d in range(16, 21)}, "2026-04-03", *{(date(2026, 5, 23) + timedelta(days=i)).isoformat() for i in range((date(2026, 8, 23) - date(2026, 5, 23)).days + 1)}, "2026-09-07", "2026-10-12"}  # mirrors data/sources.md
 
 PRE_BREAK = {"2026-01-16", "2026-02-13", "2026-03-13", "2026-04-02", "2026-05-22", "2026-09-04", "2026-10-09"}  # mirrors data/sources.md
@@ -121,13 +127,14 @@ def test_take_rates(data):
 
 def test_row_counts(data):
     assert len(data["meals.csv"]) == 1198
-    assert len(data["future_meals.csv"]) == 192
-    assert len(data["items.csv"]) == 14
+    assert len(data["future_meals.csv"]) == 518
+    assert len(data["items.csv"]) == 22
 
 
 def test_items(data):
     rows = data["items.csv"]
-    assert 12 <= len(rows) <= 15, "item count is outside the allowed range"
+    assert 20 <= len(rows) <= 23, "item count is outside the allowed range"
+    assert {r["item_id"] for r in rows if r["component"] == "meat_alternate"} == set(RING), "entrees do not match the rotation"
     assert {r["component"] for r in rows} == COMPONENTS, "items do not cover all components"
     ids = {r["item_id"] for r in rows}
     assert {"cheese_pizza", "chicken_nuggets", "popcorn_chicken", "chocolate_milk", "fruit_cup", "steamed_carrots"} <= ids, "Ekansh's required item ids are missing"
@@ -152,6 +159,7 @@ def test_menu(data):
     for d in dates:
         rs = [r for r in menu if r["date"] == d]
         assert len([r for r in rs if r["item_id"] in RING]) == 3, f"{d} does not have exactly three entrees"
+        assert any(r["item_id"] in VEGETARIAN_ENTREES for r in rs), f"{d} has no vegetarian entree"
         assert {r["item_id"] for r in rs} >= {"dinner_roll", "steamed_carrots", "fruit_cup", "chocolate_milk", "milk_1pct"}, f"{d} is missing a required daily item"
         assert len([r for r in rs if r["item_id"] in {"chocolate_milk", "milk_1pct"}]) >= 2, f"{d} has fewer than two milk rows"
         assert len({r["item_id"] for r in rs}) == len(rs), f"{d} repeats an item"
@@ -204,15 +212,22 @@ def test_votes(data):
     assert all(r["item_id"] in RING and date.fromisoformat(r["date"]).weekday() == 3 and 1/3 <= float(r["vote_share"]) <= 1 for r in nonempty), "vote shares appear on invalid rows"
     assert {r["date"] for r in nonempty} == thursdays and len(nonempty) == len(thursdays), "there is not exactly one vote winner per history Thursday"
     assert all(not r["vote_share"] for r in data["future_meals.csv"]), "future rows contain vote shares"
-    items = {r["item_id"] for r in data["items.csv"]}
     menu = data["menu.csv"]
+    names = ("option_1", "option_2", "option_3", "option_4")
+    open_dates = [r["open_date"] for r in data["vote_options.csv"]]
+    assert open_dates == [d for d in sorted({r["date"] for r in data["future_meals.csv"]}) if d <= "2026-12-18"], "not every school day from 2026-10-19 through 2026-12-18 opens a vote"
+    previous = None
     for r in data["vote_options.csv"]:
-        assert (r["target_slot"], r["option_1"], r["option_2"], r["option_3"]) == ("entree", "beef_nachos", "cheeseburger", "spicy_chicken_sandwich"), "vote options differ from the spec"
-        assert len({r["option_1"], r["option_2"], r["option_3"]}) == 3 and {r["option_1"], r["option_2"], r["option_3"]} <= items, "vote options are not three known distinct items"
+        options = {r[name] for name in names}
+        assert r["target_slot"] == "entree", "vote target slot is not the entree"
+        assert len(options) == 4 and options <= set(RING), "vote options are not four known distinct entrees"
+        assert options & VEGETARIAN_ENTREES, f"{r['open_date']} has no vegetarian option"
+        assert options != previous, f"{r['open_date']} repeats the previous day's options"
+        previous = options
         assert r["open_date"] >= "2026-10-19" and r["target_date"] > r["open_date"] and (date.fromisoformat(r["target_date"]) - date.fromisoformat(r["open_date"])).days >= 7, "vote option dates violate the voting window"
         assert date.fromisoformat(r["target_date"]).weekday() == 3, "vote target is not a Thursday"
         served = {x["item_id"] for x in menu if x["date"] == r["target_date"]}
-        assert len(served & {r["option_1"], r["option_2"], r["option_3"]}) == 1, "vote target menu does not contain exactly one option"
+        assert len(served & options) == 1, "vote target menu does not contain exactly one option"
 
 
 def test_called_it_unique(data):

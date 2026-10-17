@@ -41,7 +41,7 @@ def init_db(path, data_dir):
             DROP TABLE IF EXISTS vote_options;
             CREATE TABLE items(
                 item_id TEXT PRIMARY KEY, name TEXT, component TEXT,
-                cost_per_serving REAL, allergens TEXT, prep_floor INTEGER
+                cost_per_serving REAL, allergens TEXT, prep_floor INTEGER, diet TEXT
             );
             CREATE TABLE meals(
                 date TEXT, item_id TEXT, component TEXT, attendance INTEGER,
@@ -52,7 +52,7 @@ def init_db(path, data_dir):
             CREATE TABLE menu(date TEXT, item_id TEXT, day_note TEXT);
             CREATE TABLE vote_options(
                 open_date TEXT PRIMARY KEY, target_date TEXT, target_slot TEXT,
-                option_1 TEXT, option_2 TEXT, option_3 TEXT
+                option_1 TEXT, option_2 TEXT, option_3 TEXT, option_4 TEXT
             );
             """
         )
