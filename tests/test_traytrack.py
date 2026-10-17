@@ -10,7 +10,7 @@ import pytest
 
 from prediction import (load_data, predict_demand, service_level, newsvendor_buffer,
                         calculate_costs, expected_costs, evaluate_methods, mae_report,
-                        split_dates, compute_data_driven_buffers, TEST_DAYS)
+                        split_dates, compute_data_driven_buffers, TEST_DAYS, USE_WEEKDAY_SHRINK)
 
 
 @pytest.fixture(scope="module")
@@ -47,14 +47,25 @@ def test_forecast_scales_with_attendance():
     assert predict_demand(hist, "X", "main", 200, target_date="2026-10-05")["predicted_demand"] == 50
 
 
-def test_weekday_shrinkage_hand_calc():
-    # 10 weekdays: Fridays (2 of them) serve 200, others 100, attendance 400.
+def test_weekday_candidate_hand_calc():
+    # The (not shipped) weekday candidate. 10 weekdays: Fridays (2) serve 200, others 100.
     served = [200 if d.weekday() == 4 else 100 for d in pd.bdate_range("2026-09-07", periods=10)]
     hist = make_history(served)
     overall = sum(served) / (400 * 10)          # 0.3
     weight = 2 / (2 + 4)                        # 2 past Fridays, k = 4
     expected = round((weight * 0.5 + (1 - weight) * overall) * 400)  # 133
-    assert predict_demand(hist, "X", "main", 400, target_date="2026-09-25")["predicted_demand"] == expected
+    assert predict_demand(hist, "X", "main", 400, target_date="2026-09-25",
+                          weekday_shrink=True)["predicted_demand"] == expected
+    # Shipped forecast is the all-time average: 0.3 x 400 = 120, whatever the weekday.
+    assert predict_demand(hist, "X", "main", 400, target_date="2026-09-25")["predicted_demand"] == 120
+
+
+def test_forecast_ship_gate(df):
+    # Only a forecast change that beats the baseline on held-out test data may ship.
+    r = mae_report(df)
+    assert USE_WEEKDAY_SHRINK == r["new_beats_old_on_test"] == r["candidate_adopted"]
+    if not USE_WEEKDAY_SHRINK:
+        assert r["shipped_mae_servings_per_day"] == r["old_method"]["overall_mae_servings_per_day"]
 
 
 # ---- buffers -------------------------------------------------------------------
@@ -156,11 +167,23 @@ def test_no_future_leakage(df, evaluation):
             assert r[col] == part[k][col], (k, col)
 
 
-def test_higher_penalty_never_adds_shortage(df):
-    a = evaluate_methods(df, shortage_penalty_multiplier=1.5)["overall"]
-    b = evaluate_methods(df, shortage_penalty_multiplier=5.0)["overall"]
-    assert b["estimated_shortage_servings"] <= a["estimated_shortage_servings"]
-    assert b["estimated_surplus_servings"] >= a["estimated_surplus_servings"]
+def test_penalties_1x_3x_5x_trade_surplus_for_shortage(df):
+    runs = [evaluate_methods(df, shortage_penalty_multiplier=m)["overall"] for m in (1.0, 3.0, 5.0)]
+    shortages = [o["estimated_shortage_servings"] for o in runs]
+    surpluses = [o["estimated_surplus_servings"] for o in runs]
+    assert shortages == sorted(shortages, reverse=True)
+    assert surpluses == sorted(surpluses)
+    # The usual amount doesn't depend on the multiplier's buffer, only its shortage price.
+    assert len({o["baseline_surplus_servings"] for o in runs}) == 1
+
+
+def test_buffer_rule_comparison_is_consistent(evaluation):
+    o, rules = evaluation["overall"], evaluation["buffer_rules"]["test"]
+    assert rules["newsvendor_shipped"]["total_cost"] == pytest.approx(o["lunchloop_total_cost"], abs=0.05)
+    assert rules["usual_amount"]["total_cost"] == pytest.approx(o["baseline_total_cost"], abs=0.05)
+    assert rules["newsvendor_shipped"]["shortage_servings"] == o["estimated_shortage_servings"]
+    # More buffer can only mean fewer shortages on the same forecast.
+    assert rules["no_buffer"]["shortage_servings"] >= rules["newsvendor_shipped"]["shortage_servings"]
 
 
 def test_accuracy_report_is_honest_about_the_comparison(df):

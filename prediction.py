@@ -168,22 +168,27 @@ def predict_attendance(df, target_date=None):
 
 
 WEEKDAY_SHRINK_K = 4  # a weekday's own rate gets weight n / (n + 4) after n past occurrences
+# Ship gate: the weekday-shrunk candidate is used only if it beats the all-time average on
+# the held-out test window (mae_report()). It does not (test MAE 7.53 vs 7.26), so it stays
+# off; tests/test_traytrack.py fails if this flag ever disagrees with the gate result.
+USE_WEEKDAY_SHRINK = False
 
 
-def _estimate_serve_rate(hist, target_date=None):
+def _estimate_serve_rate(hist, target_date=None, weekday_shrink=None):
     """The rate estimate behind predict_demand(), once a food has enough history.
 
-    All-history rate (served / attendance), nudged toward that weekday's own rate by
-    n / (n + WEEKDAY_SHRINK_K), where n = past occurrences of the weekday. With few Fridays
-    the Friday rate is mostly ignored (it's noise); with many it dominates (a real
-    "pizza Friday" pattern). This replaced a hard cascade (last 8 same-weekdays, else last
-    25 days, else all history) that chased noise: it scored worse than the plain all-time
-    average in the walk-forward backtest. k=4 was picked on the validation window only
-    (see split_dates()), never on the held-out test window.
+    Shipped method: the all-history rate (served / attendance). The CANDIDATE (used when
+    weekday_shrink is True) nudges it toward that weekday's own rate by
+    n / (n + WEEKDAY_SHRINK_K), where n = past occurrences of the weekday. The candidate's k
+    was picked on the validation window only; it beat the all-time average there but not on
+    the held-out test window, so it is not shipped (see USE_WEEKDAY_SHRINK). An earlier hard
+    cascade (last 8 same-weekdays, else last 25 days, else all history) did worse than both.
     """
+    if weekday_shrink is None:
+        weekday_shrink = USE_WEEKDAY_SHRINK
     rate = hist["quantity_served"].sum() / hist["attendance"].sum()
     note = f"Based on all {len(hist)} past days: {rate:.1%} of attending students took it."
-    if target_date is None or rate == 0:
+    if not weekday_shrink or target_date is None or rate == 0:
         return rate, "history_scaled_by_attendance", note
     day_name = pd.Timestamp(target_date).strftime("%A")
     same = hist[hist["date"].dt.weekday == pd.Timestamp(target_date).weekday()]
@@ -198,13 +203,14 @@ def _estimate_serve_rate(hist, target_date=None):
         "students are expected to take it.")
 
 
-def predict_demand(df, food_item, food_category=None, expected_attendance=None, target_date=None):
+def predict_demand(df, food_item, food_category=None, expected_attendance=None, target_date=None,
+                   weekday_shrink=None):
     """Predict how many servings of one food students will want.
 
     Example: 120 served out of 200 attending, expected attendance 250
              -> (120 / 200) x 250 = 150 servings.
-    Pass target_date to let the estimate use the matching weekday's history
-    (e.g. Fridays) instead of just an all-time average. Returns a dict (never negative).
+    weekday_shrink=True runs the weekday candidate (needs target_date); None uses the
+    shipped setting, USE_WEEKDAY_SHRINK. Returns a dict (never negative).
     """
     hist = df[df["food_item"] == food_item].sort_values("date")
     # Sold-out days are KEPT. Served there is capped by what was prepared, so it is a lower
@@ -215,7 +221,7 @@ def predict_demand(df, food_item, food_category=None, expected_attendance=None, 
     attendance = typical_attendance if expected_attendance is None else max(0, expected_attendance)
 
     if len(hist) >= MIN_RECORDS and hist["attendance"].sum() > 0:
-        rate, method, note = _estimate_serve_rate(hist, target_date)
+        rate, method, note = _estimate_serve_rate(hist, target_date, weekday_shrink)
         predicted = rate * attendance
         confidence = "ok"
         if expected_attendance is None:
@@ -270,8 +276,9 @@ def _walk_forward_predictions(df, min_warmup_days=MIN_BACKTEST_WARMUP_DAYS, test
     head count is known before cooking).
 
     Returns one row per scored (date, food_item): date, split ("validation"/"test"),
-    food_item, food_category, attendance, actual, sold_out, unit_cost, old_pred, new_pred,
-    baseline_prep.
+    food_item, food_category, attendance, actual, sold_out, unit_cost, old_pred (all-time
+    average), new_pred (the SHIPPED forecast, used for buffers and costs), cand_pred (the
+    weekday candidate, scored for the ship gate only), baseline_prep.
     """
     splits = split_dates(df, min_warmup_days, test_days)
     test_set = set(splits["test"])
@@ -291,6 +298,8 @@ def _walk_forward_predictions(df, min_warmup_days=MIN_BACKTEST_WARMUP_DAYS, test
                 "unit_cost": float(row["unit_cost"]),
                 "old_pred": max(0, round(old_rate * attendance)),
                 "new_pred": predict_demand(past, item, cat, attendance, target_date=date)["predicted_demand"],
+                "cand_pred": predict_demand(past, item, cat, attendance, target_date=date,
+                                            weekday_shrink=True)["predicted_demand"],
                 "baseline_prep": math.ceil(item_hist["quantity_prepared"].sum()
                                            / item_hist["attendance"].sum() * max(0, attendance)),
             })
@@ -317,18 +326,21 @@ def _mae_summary(res, pred_col):
 
 
 def mae_report(df, min_warmup_days=MIN_BACKTEST_WARMUP_DAYS, test_days=TEST_DAYS):
-    """Prediction accuracy (servings/day) of the old all-time method vs. the current method,
-    scored on the HELD-OUT test window, with the validation window reported separately.
+    """The ship gate for the forecast: prediction accuracy (servings/day) of the all-time
+    average ("old_method", the baseline) vs. the weekday candidate ("new_method"), scored on
+    the HELD-OUT test window, with the validation window reported separately.
 
     Also reports a 95% bootstrap interval (resampling whole test days, fixed seed) for
     "new MAE minus old MAE", so a small difference isn't mistaken for a real one.
+    candidate_adopted says whether the shipped forecast uses the candidate (it should only
+    when new_beats_old_on_test is True).
     """
     res = _walk_forward_predictions(df, min_warmup_days, test_days)
     if res.empty:
         return {"n_predictions": 0, "old_method": None, "new_method": None}
     test, val = res[res["split"] == "test"], res[res["split"] == "validation"]
 
-    diff = (test["new_pred"] - test["actual"]).abs() - (test["old_pred"] - test["actual"]).abs()
+    diff = (test["cand_pred"] - test["actual"]).abs() - (test["old_pred"] - test["actual"]).abs()
     per_day = diff.groupby(test["date"]).sum().to_numpy()
     counts = test.groupby("date").size().to_numpy()
     idx = np.random.default_rng(0).integers(0, len(per_day), size=(2000, len(per_day)))
@@ -338,20 +350,24 @@ def mae_report(df, min_warmup_days=MIN_BACKTEST_WARMUP_DAYS, test_days=TEST_DAYS
     return {"n_predictions": int(len(test)),
             "window": {"test_start": str(test["date"].min().date()), "test_end": str(test["date"].max().date()),
                        "test_days": int(test["date"].nunique())},
-            "old_method": _mae_summary(test, "old_pred"), "new_method": _mae_summary(test, "new_pred"),
+            "old_method": _mae_summary(test, "old_pred"), "new_method": _mae_summary(test, "cand_pred"),
             "new_minus_old_mae": round(float(diff.mean()), 2),
             "new_minus_old_mae_95ci": [round(float(lo), 2), round(float(hi), 2)],
             "new_beats_old_on_test": bool(diff.mean() < 0),
+            "candidate_adopted": USE_WEEKDAY_SHRINK,
+            "shipped_method": "weekday_shrunk" if USE_WEEKDAY_SHRINK else "all_time_average",
+            "shipped_mae_servings_per_day": round(float((test["new_pred"] - test["actual"]).abs().mean()), 2),
             "validation": None if val.empty else {
                 "n_predictions": int(len(val)),
                 "start": str(val["date"].min().date()), "end": str(val["date"].max().date()),
                 "old_mae": round(float((val["old_pred"] - val["actual"]).abs().mean()), 2),
-                "new_mae": round(float((val["new_pred"] - val["actual"]).abs().mean()), 2)},
-            "note": "Walk-forward: each prediction uses only data from before that day. Model "
-                    "settings were chosen on the validation window; the test window (the last "
-                    f"{test_days} school days) was only used to report this result. 'old' = "
-                    "all-time average share; 'new' = that share nudged toward the same weekday's "
-                    "share by n/(n+4). Actual served on sold-out days is a lower bound on demand.",
+                "new_mae": round(float((val["cand_pred"] - val["actual"]).abs().mean()), 2)},
+            "note": "Walk-forward: each prediction uses only data from before that day. The "
+                    "candidate's setting was chosen on the validation window; the test window (the "
+                    f"last {test_days} school days) is the ship gate. 'old' = all-time average "
+                    "share (the baseline); 'new' = candidate: that share nudged toward the same "
+                    "weekday's share by n/(n+4). The candidate ships only if it beats 'old' on the "
+                    "test window. Actual served on sold-out days is a lower bound on demand.",
             "circularity_caveat": "This dataset is SYNTHETIC, generated with explicit weekday "
                     "and seasonal patterns (e.g. a 'pizza Friday' bump) by the same project that "
                     "built 'new_method' to look for that kind of pattern. Treat this as a "
@@ -570,7 +586,7 @@ def evaluate_methods(df, min_warmup_days=MIN_BACKTEST_WARMUP_DAYS,
 
     wf["rel_error"] = (wf["actual"] - wf["new_pred"]) / wf["new_pred"].replace(0, np.nan)
     waste_rates = BENCHMARKS["usda_plate_waste_by_category"]
-    records = []
+    records, rule_totals = [], {}
     for row in wf.itertuples():
         prior = wf[(wf["date"] < row.date) & wf["rel_error"].notna()]
         errors, source = _pick_errors(prior.loc[prior["food_item"] == row.food_item, "rel_error"].to_numpy(),
@@ -582,6 +598,18 @@ def evaluate_methods(df, min_warmup_days=MIN_BACKTEST_WARMUP_DAYS,
             prep = math.ceil(row.new_pred * (1 + buf))
         costs = calculate_costs(row.actual, prep, row.unit_cost, row.baseline_prep, m)
         rate = waste_rates.get(row.food_category)
+        fixed_prep = calculate_prep_quantity(row.new_pred, row.food_category)[0]
+        # Alternative buffer rules on the same forecast, for comparison only (not shipped).
+        rule_preps = {
+            "usual_amount": row.baseline_prep, "no_buffer": row.new_pred,
+            "fixed_10_15pct": fixed_prep,
+            "p90_previous": fixed_prep if errors is None else
+                math.ceil(row.new_pred * (1 + float(np.clip(np.quantile(errors, 0.9), 0.05, MAX_BUFFER)))),
+            "newsvendor_shipped": prep}
+        for rule, rule_prep in rule_preps.items():
+            c = calculate_costs(row.actual, rule_prep, row.unit_cost, None, m)
+            t = rule_totals.setdefault((row.split, rule), [0.0, 0, 0])
+            t[0] += c["estimated_total_cost"]; t[1] += c["estimated_surplus"]; t[2] += c["estimated_shortage"]
         records.append({
             "date": str(row.date.date()), "split": row.split, "food_item": row.food_item,
             "food_category": row.food_category, "attendance": row.attendance,
@@ -630,6 +658,14 @@ def evaluate_methods(df, min_warmup_days=MIN_BACKTEST_WARMUP_DAYS,
         "daily": res.to_dict("records"),
         "per_food": {item: agg(sub) for item, sub in test.groupby("food_item")},
         "overall": overall, "validation": agg(val) if len(val) else None,
+        "buffer_rules": {split: {rule: {"total_cost": round(t[0], 2), "surplus_servings": int(t[1]),
+                                        "shortage_servings": int(t[2])}
+                                 for (sp, rule), t in rule_totals.items() if sp == split}
+                         for split in ("validation", "test")},
+        "buffer_rules_note": "Same forecast, same days, different prep rules. newsvendor_shipped is "
+                "what TrayTrack uses. no_buffer breaks the +10% fruit/vegetable/milk floor and "
+                "runs short most often, so it is not a valid choice even when it is cheapest. "
+                "p90_previous is the earlier 90th-percentile rule (no protected floor).",
         "synthetic_data": True,
         "note": "Baseline and TrayTrack are scored on the SAME held-out test days against the "
                 "ACTUAL served counts, using only data from before each day (forecast, buffer "

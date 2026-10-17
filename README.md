@@ -37,17 +37,20 @@ curl -X POST http://127.0.0.1:8000/plan -H "Content-Type: application/json" \
 ```
 
 The dashboard shows, all computed live from the CSV: history per food with its buffer,
-forecast accuracy on the held-out test window (old vs. current method, with an uncertainty
-interval), the held-out cost comparison against the usual amount (food cost, shortage cost,
-surplus, shortage and plate waste as separate rows), and next month's forecast.
+forecast accuracy on the held-out test window (baseline vs. candidate, with an uncertainty
+interval and which one shipped), the held-out cost comparison against the usual amount (food
+cost, shortage cost, surplus, shortage and plate waste as separate rows), the same comparison
+at 1x, 3x and 5x shortage cost, every buffer rule side by side, and next month's forecast.
 
 ### Endpoints
 
 - `GET /summary`: plain historical averages per food, straight from the CSV.
-- `GET /accuracy`: forecast error on the held-out test window, old method vs. current
-  method, plus the validation window and a 95% bootstrap interval for the difference.
+- `GET /accuracy`: the forecast ship gate. Error on the held-out test window, all-time
+  average (baseline) vs. weekday candidate, plus the validation window, a 95% bootstrap
+  interval for the difference, and which method shipped.
 - `GET /evaluate`: held-out cost comparison, TrayTrack vs. the usual amount, scored against
-  actual servings. Optional `?shortage_penalty_multiplier=`.
+  actual servings, plus `buffer_rules` (every prep rule on the same forecast and days).
+  Optional `?shortage_penalty_multiplier=`.
 - `GET /plan/sensitivity?expected_attendance=410`: one day planned at 1x, 1.5x, 2x, 3x and
   5x shortage cost. Each multiplier gets its own buffers.
 - `GET /buffers`: per-food newsvendor buffers, their target and backtest short-day rate,
@@ -95,17 +98,17 @@ Labor Day). It is **synthetic**:
 
 ## How the forecast works
 
-`predict_demand()`: the food's share of attending students (served / attendance over all
-its past days), nudged toward that weekday's own share:
+`predict_demand()` (shipped): the food's share of attending students, served / attendance
+over all its past days, times expected attendance.
 
-```
-share = w x weekday_share + (1 - w) x all_days_share,   w = n / (n + 4)
-forecast = share x expected attendance
-```
+**Ship rule: a forecast change is kept only if it beats this baseline on the held-out test
+window.** Two changes were tried and neither passed, so neither ships:
 
-where `n` is how many past days fell on that weekday. With 2 past Fridays the Friday share
-gets 33% weight; with 12 it gets 75%. This replaced a hard cascade (last 8 same weekdays,
-else last 25 days, else all history) that chased noise.
+- The earlier hard cascade (last 8 same weekdays, else last 25 days, else all history).
+- A weekday candidate, `share = w x weekday_share + (1 - w) x all_days_share` with
+  `w = n / (n + 4)` (`n` = past days on that weekday), with `4` chosen on the validation
+  window. It is still in the code behind `USE_WEEKDAY_SHRINK = False` so `/accuracy` can
+  keep scoring it; a test fails if that flag ever disagrees with the gate result.
 
 Sold-out days are **kept**. Served on a sold-out day is capped, so it understates demand,
 but those are the high-demand days: the old code dropped them, which biased the estimate
@@ -177,8 +180,8 @@ School days are split in time order. Nothing is shuffled:
 | Window | Days | Used for |
 |---|---|---|
 | warm-up | Aug 31 to Sep 14 (10) | never scored |
-| validation | Sep 15 to Sep 25 (9) | choosing model settings (the `4` above) |
-| **test** | **Sep 28 to Oct 16 (15)** | **reporting only; nothing was tuned on it** |
+| validation | Sep 15 to Sep 25 (9) | choosing settings (the candidate's `4`) |
+| **test** | **Sep 28 to Oct 16 (15)** | **the ship gate and the reported results; no setting was tuned on it** |
 
 Every scored prediction uses only data from strictly before that day: forecast, buffer
 (errors from earlier days only) and baseline alike. A test checks this by truncating the
@@ -189,36 +192,49 @@ actual count for every method (it assumes a morning head count before cooking).
 
 **Forecast accuracy, test window** (MAE, servings per food per day, 90 predictions):
 
-| Method | Validation MAE | Test MAE |
-|---|---|---|
-| old: all-time average share | 6.02 | 7.26 |
-| previous cascade (removed) | 5.96 | 8.00 |
-| current: weekday-shrunk share | 5.69 | 7.53 |
+| Method | Validation MAE | Test MAE | Ships? |
+|---|---|---|---|
+| all-time average share (baseline) | 6.02 | 7.26 | **yes** |
+| previous cascade | 5.96 | 8.00 | no, worse than baseline |
+| weekday candidate | 5.69 | 7.53 | no, worse than baseline |
 
-The current method beat the old one on validation, which is why it was picked, but **it
-does not beat the old method on the held-out test window**: +0.28 servings/day worse, with
-a 95% bootstrap interval of -0.09 to +0.67. That means no clear difference either way. It
-does clearly beat the previous cascade (8.00). With 34 days of history there just isn't
-enough data for weekday structure to pay off reliably. The test window was scored once and
-not used to re-tune, so the result stays as it is.
+**The prediction model did not improve.** The weekday candidate won on validation but lost
+on held-out test days (+0.28 servings/day, 95% bootstrap interval -0.09 to +0.67, so no
+clear difference either way). Per the ship rule, TrayTrack forecasts with the plain
+all-time average. With 34 days of history there isn't enough data for weekday structure to
+pay off reliably. The test window was not used to re-tune anything.
 
 **Cost, test window, TrayTrack vs. usual amount** (total = food + shortage cost):
 
-| Shortage cost | Service level | Usual total | TrayTrack total | Savings | Surplus servings (usual / TT) | Shortage servings (usual / TT) | Validation savings |
+| Shortage cost | Buffer target | Usual total | TrayTrack total | Savings (test) | Savings (validation) | Surplus servings (usual / TT) | Shortage servings (usual / TT) |
 |---|---|---|---|---|---|---|---|
-| 1x | 0% | $6,142.39 | $5,806.76 | $335.63 (5.5%) | 1501 / 974 | 26 / 142 | $108.67 (2.9%) |
-| 1.5x | 33% | $6,151.41 | $5,858.79 | $292.62 (4.8%) | 1501 / 976 | 26 / 141 | $83.87 (2.3%) |
-| 2x | 50% | $6,160.44 | $5,916.40 | $244.04 (4.0%) | 1501 / 1010 | 26 / 116 | $59.05 (1.6%) |
-| **3x (default)** | **67%** | **$6,178.49** | **$5,982.40** | **$196.09 (3.2%)** | **1501 / 1088** | **26 / 67** | **$23.86 (0.6%)** |
-| 5x | 80% | $6,214.59 | $6,053.23 | $161.36 (2.6%) | 1501 / 1181 | 26 / 38 | $2.44 (0.1%) |
+| 1x | 0% of days | $6,142.39 | $5,803.72 | $338.67 (5.5%) | $105.48 (2.8%) | 1501 / 958 | 26 / 136 |
+| **3x (default)** | **67% of days** | **$6,178.49** | **$6,017.16** | **$161.33 (2.6%)** | **$17.43 (0.5%)** | **1501 / 1072** | **26 / 88** |
+| 5x | 80% of days | $6,214.59 | $6,119.43 | $95.16 (1.5%) | $0.26 (0.0%) | 1501 / 1184 | 26 / 52 |
 
-How to read it: in this simulated school, TrayTrack cuts unserved surplus by 21 to 35%, but
-it **runs short more often** than the usual amount at every setting (at 3x: 67 vs. 26
+How to read it: in this simulated school, TrayTrack cuts unserved surplus by 21 to 36%, but
+it **runs short more often** than the usual amount at every setting (at 3x: 88 vs. 26
 servings short). That trade comes out cheaper on these test days. The savings shrink as
-shortages are priced higher, and on the validation window they were much smaller (0.6% at
-3x, 0.1% at 5x). So the honest summary is "a few percent, sensitive to how bad you think
-running out is", not a robust win. These numbers are not asserted anywhere; they are
-recomputed from the CSV on every call.
+shortages are priced higher, and on the validation window they were much smaller (0.5% at
+3x, essentially 0 at 5x). The honest summary is "a few percent, sensitive to how bad you
+think running out is", not a robust win.
+
+**Buffer rules, same forecast, test window** (total cost; surplus / shortage servings at 3x):
+
+| Prep rule | 1x | 3x | 5x | Surplus / shortage (3x) |
+|---|---|---|---|---|
+| TrayTrack newsvendor (shipped) | **$5,803.72** | **$6,017.16** | $6,119.43 | 1072 / 88 |
+| previous 90th-percentile buffer | $6,013.74 | $6,058.04 | **$6,102.34** | 1155 / 34 |
+| fixed +10% / +15% | $6,179.70 | $6,222.00 | $6,264.30 | 1623 / 27 |
+| cooking the usual amount | $6,142.39 | $6,178.49 | $6,214.59 | 1501 / 26 |
+| no buffer (breaks the fruit/veg floor, not allowed) | $5,610.12 | $5,874.28 | $6,138.44 | 423 / 230 |
+
+The newsvendor rule is cheapest among allowed rules at 1x and 3x, but **not at 5x**, where
+the previous 90th-percentile rule wins (and it also wins at 3x and 5x on the validation
+window). A version that picked the service level from past costs was tried and did worse at
+3x and 5x on both windows, so it was dropped. No buffer at all is cheapest at 1x and 3x
+only because a 3x penalty still undervalues 230 short servings; it also breaks the fruit and
+vegetable floor. All these numbers are recomputed from the CSV on every `/evaluate` call.
 
 ## Input validation
 
@@ -242,6 +258,9 @@ recomputed from the CSV on every call.
 - The baseline is a ratio proxy, not a recorded "usual" decision.
 - The backtest short-day rate in `/buffers` is in-sample; the out-of-sample rate is in
   `/evaluate` (`lunchloop_days_short`).
+- The test window was used as the ship gate for the forecast, and the buffer-rule table was
+  read after the fact; with only 15 test days, rerun everything on new days before trusting
+  any ranking.
 - Attendance is treated as known before cooking in the evaluation.
 
 ## Changes in this version
@@ -258,14 +277,18 @@ recomputed from the CSV on every call.
    buffers to avoid leakage. Now each test day's buffer uses only errors from earlier days.
 5. **Baseline.** The recorded prep was generated from served counts, so it is not used.
 6. **Sold-out days were dropped from the forecast**, biasing it low. Now kept.
-7. **Forecast**: the cascade was replaced by weekday shrinkage, chosen on validation only.
+7. **Forecast**: a ship gate now decides. Neither the old cascade nor the weekday candidate
+   beat the all-time average on held-out days, so the all-time average ships.
 8. **No held-out split.** Added a warm-up / validation / test split by date.
 9. **Dashboard**: added the held-out comparison; the cost-chart tooltip said "surplus
    cost" while showing total cost; the buffer table showed `NaN%` (wrong field name); the
    accuracy note had a hard-coded "~34 days" claim.
 10. **Tests**: added a pytest suite (hand calculations, limiting cases, leakage, no
-    double counting, monotonicity, API input checks). Removed the committed `__pycache__`
-    and the stale `sens.json` (saved output from the old cost model).
+    double counting, 1x/3x/5x monotonicity, the forecast ship gate, buffer-rule
+    consistency, API input checks). Removed the committed `__pycache__` and the stale
+    `sens.json` (saved output from the old cost model).
+11. **Dashboard, second pass**: shows the ship gate result, a 1x/3x/5x table and every
+    buffer rule side by side; the "cheapest rule" sentence is computed, not typed.
 
 ## Sources
 

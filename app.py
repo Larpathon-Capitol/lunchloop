@@ -267,6 +267,21 @@ DASHBOARD_HTML = """
   </section>
 
   <section class="card">
+    <h2>How bad is running out? 1x, 3x and 5x shortage cost</h2>
+    <p class="sub" id="pen-sub" style="margin-bottom:14px">Loading&hellip;</p>
+    <table id="pen-table" style="display:none">
+      <thead><tr><th>Shortage cost</th><th>Buffer target</th><th>Usual total $</th><th>TrayTrack total $</th>
+        <th>Savings (test)</th><th>Savings (validation)</th><th>Surplus (usual / TT)</th><th>Shortage (usual / TT)</th></tr></thead>
+      <tbody id="pen-rows"></tbody>
+    </table>
+    <table id="rules-table" style="margin-top:20px; display:none">
+      <thead><tr><th>Prep rule, same forecast (test window)</th><th>1x</th><th>3x</th><th>5x</th><th>Surplus / shortage</th></tr></thead>
+      <tbody id="rules-rows"></tbody>
+    </table>
+    <p class="note" id="pen-note"></p>
+  </section>
+
+  <section class="card">
     <h2 id="month-title">Next month&rsquo;s prediction</h2>
     <p class="sub" id="month-sub" style="margin-bottom:14px">Loading&hellip;</p>
     <p class="note" id="month-range" style="margin-top:0"></p>
@@ -368,29 +383,31 @@ async function loadAccuracy() {
     const oldMae = a.old_method.overall_mae_servings_per_day;
     const newMae = a.new_method.overall_mae_servings_per_day;
     const change = Math.round((1 - newMae / oldMae) * 100);
-    const changeLabel = change >= 0 ? 'error reduction vs. old' : 'error INCREASE vs. old';
+    const changeLabel = change >= 0 ? 'error reduction vs. baseline' : 'error INCREASE vs. baseline';
     const w = a.window;
     document.getElementById('accuracy-sub').textContent =
       `Held-out test window ${w.test_start} to ${w.test_end} (${w.test_days} school days, ` +
       `${a.n_predictions} day-food predictions). Each prediction uses only data from before ` +
       `that day; no setting was tuned on these days.`;
     document.getElementById('accuracy-totals').innerHTML = `
-      <div><b>${oldMae.toFixed(1)}</b>old method: MAE (servings/day)</div>
-      <div><b>${newMae.toFixed(1)}</b>current method: MAE (servings/day)</div>
-      <div><b style="color:${change >= 0 ? 'var(--good)' : '#d03b3b'}">${Math.abs(change)}%</b>${changeLabel}</div>
-      <div><b>${a.new_method.overall_mape_pct}%</b>current method: mean % error</div>`;
+      <div><b>${oldMae.toFixed(1)}</b>all-time average (baseline): MAE, servings/day</div>
+      <div><b>${newMae.toFixed(1)}</b>weekday candidate: MAE, servings/day</div>
+      <div><b style="color:${change >= 0 ? 'var(--good)' : '#d03b3b'}">${Math.abs(change)}%</b>candidate ${changeLabel}</div>
+      <div><b>${a.shipped_mae_servings_per_day.toFixed(1)}</b>shipped forecast (${a.shipped_method.replace(/_/g, ' ')}): MAE</div>`;
     const ci = a.new_minus_old_mae_95ci;
     const v = a.validation;
     document.getElementById('accuracy-note').innerHTML =
-      '"old" = all-time average share of attending students. "current" = that share nudged ' +
-      'toward the same weekday\\'s share by n/(n+4). ' +
-      `Current minus old MAE on the test window: <b>${a.new_minus_old_mae}</b> servings/day ` +
+      'Baseline = all-time average share of attending students. Candidate = that share nudged ' +
+      'toward the same weekday share by n/(n+4). Ship rule: the candidate is used only if it ' +
+      'beats the baseline on the held-out test window. ' +
+      `Candidate minus baseline MAE: <b>${a.new_minus_old_mae}</b> servings/day ` +
       `(95% bootstrap interval ${ci[0]} to ${ci[1]}; an interval that includes 0 means no ` +
       'clear difference). ' +
-      (a.new_beats_old_on_test ? 'Current beats old on the held-out test window.'
-        : '<b>Current does NOT beat old on the held-out test window.</b>') +
+      (a.new_beats_old_on_test ? 'The candidate beats the baseline on held-out data.'
+        : '<b>The candidate does NOT beat the baseline on held-out data, so it is not shipped.</b>') +
+      ` Shipped: ${a.candidate_adopted ? 'weekday candidate' : 'all-time average'}.` +
       (v ? ` On the earlier validation window (${v.start} to ${v.end}), used to choose the ` +
-        `setting, MAE was old ${v.old_mae} vs. current ${v.new_mae}.` : '') +
+        `candidate setting, MAE was baseline ${v.old_mae} vs. candidate ${v.new_mae}.` : '') +
       '<br><br><b style="color:#d03b3b">Caveat:</b> ' + a.circularity_caveat;
   } catch (e) {
     document.getElementById('accuracy-sub').innerHTML =
@@ -648,9 +665,77 @@ async function loadEvaluation() {
 }
 
 
+const PENALTIES = [1, 3, 5];
+const RULE_LABELS = {
+  newsvendor_shipped: 'TrayTrack newsvendor buffer (shipped)',
+  p90_previous: 'Previous 90th-percentile buffer',
+  fixed_10_15pct: 'Fixed +10% / +15% buffer',
+  usual_amount: 'Cooking the usual amount',
+  no_buffer: 'No buffer (breaks fruit/veg floor)',
+};
+
+async function loadPenalties() {
+  try {
+    const evals = await Promise.all(PENALTIES.map(m =>
+      fetch('/evaluate?shortage_penalty_multiplier=' + m).then(r => {
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return r.json();
+      })));
+    if (!evals[0].overall || !evals[0].overall.n) {
+      document.getElementById('pen-sub').textContent = 'Not enough history yet to run a held-out test.';
+      return;
+    }
+    document.getElementById('pen-sub').innerHTML =
+      '<b>Simulated school.</b> Same held-out test days, scored against actual servings. A higher ' +
+      'shortage cost makes TrayTrack prepare more (buffer target = 1 - 1/cost), trading ' +
+      'leftovers for fewer shortages.';
+    const pct = v => v === null ? 'n/a' : v + '%';
+    const tbody = document.getElementById('pen-rows');
+    evals.forEach((e, i) => {
+      const o = e.overall, v = e.validation;
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${PENALTIES[i]}x</td><td>${Math.round(o.service_level_target * 100)}% of days</td>` +
+        `<td>${fmtMoney(o.baseline_total_cost)}</td><td>${fmtMoney(o.lunchloop_total_cost)}</td>` +
+        `<td>${fmtMoney(o.estimated_savings_vs_baseline)} (${pct(o.estimated_savings_pct_vs_baseline)})</td>` +
+        `<td>${v ? fmtMoney(v.estimated_savings_vs_baseline) + ' (' + pct(v.estimated_savings_pct_vs_baseline) + ')' : '&mdash;'}</td>` +
+        `<td>${o.baseline_surplus_servings} / ${o.estimated_surplus_servings}</td>` +
+        `<td>${o.baseline_shortage_servings} / ${o.estimated_shortage_servings}</td>`;
+      tbody.appendChild(tr);
+    });
+    document.getElementById('pen-table').style.display = '';
+
+    const rb = document.getElementById('rules-rows');
+    for (const [rule, label] of Object.entries(RULE_LABELS)) {
+      const cells = evals.map(e => e.buffer_rules.test[rule]);
+      const best = evals.map(e => Math.min(...Object.entries(e.buffer_rules.test)
+        .filter(([k]) => k !== 'no_buffer').map(([, r]) => r.total_cost)));
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${label}</td>` + cells.map((c, i) =>
+        `<td>${c.total_cost === best[i] ? '<b>' + fmtMoney(c.total_cost) + '</b>' : fmtMoney(c.total_cost)}</td>`).join('') +
+        `<td>${cells[1].surplus_servings} / ${cells[1].shortage_servings} (at 3x)</td>`;
+      rb.appendChild(tr);
+    }
+    document.getElementById('rules-table').style.display = '';
+    const winners = evals.map((e, i) => {
+      const [rule] = Object.entries(e.buffer_rules.test).filter(([k]) => k !== 'no_buffer')
+        .sort((a, b) => a[1].total_cost - b[1].total_cost)[0];
+      return `${PENALTIES[i]}x: ${RULE_LABELS[rule]}`;
+    });
+    document.getElementById('pen-note').innerHTML =
+      `Bold = cheapest valid rule on these test days (${winners.join('; ')}). ` +
+      'Compare the test and validation savings columns: where validation savings are much ' +
+      'smaller, the test result may not hold up on new days. ' + evals[0].buffer_rules_note;
+  } catch (err) {
+    document.getElementById('pen-sub').innerHTML =
+      '<span class="err">Could not load /evaluate: ' + err.message + '</span>';
+  }
+}
+
+
 loadHistory();
 loadAccuracy();
 loadEvaluation();
+loadPenalties();
 loadMonthPlan();
 </script>
 </body>

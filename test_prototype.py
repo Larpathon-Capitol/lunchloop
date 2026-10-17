@@ -99,7 +99,7 @@ pred = predict_demand(soldout_hist, "Y", "main", 200)
 assert pred["predicted_demand"] == 62, "the sold-out day (100 served) should be kept as a lower bound"
 assert "sold out" in pred["note"] and "lower bound" in pred["note"]
 
-# Weekday shrinkage: with 6 past Fridays (weight 6/10), a strong Friday-specific pattern
+# Weekday candidate (not shipped, see USE_WEEKDAY_SHRINK): with 6 past Fridays (weight 6/10), a strong Friday-specific pattern
 # should mostly come through. Overall rate 0.375, Friday rate 0.8 -> 0.63 x 400 = 252.
 weekday_hist = pd.DataFrame({
     "date": pd.date_range("2026-09-07", periods=40, freq="D"),  # every day, not just weekdays
@@ -112,7 +112,8 @@ weekday_hist["quantity_prepared"] = weekday_hist["quantity_served"]
 weekday_hist["quantity_leftover"] = 0
 weekday_hist.loc[weekday_hist["quantity_served"] == weekday_hist["quantity_prepared"].max(), "quantity_prepared"] += 1
 weekday_hist["quantity_leftover"] = weekday_hist["quantity_prepared"] - weekday_hist["quantity_served"]
-friday_pred = predict_demand(weekday_hist, "Pizza", "main", 400, target_date="2026-10-16")  # a Friday
+friday_pred = predict_demand(weekday_hist, "Pizza", "main", 400, target_date="2026-10-16",
+                             weekday_shrink=True)  # a Friday; the (not shipped) weekday candidate
 assert friday_pred["method"] == "weekday_shrunk"
 assert friday_pred["predicted_demand"] > 250, "should pick up the Friday-specific spike"
 
