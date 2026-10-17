@@ -1,6 +1,6 @@
 """LunchLoop forecast engine. See docs/backend-contract.md for the exact contract."""
 
-from ._data import UnknownDateError, UnknownItemError
+from ._data import UnknownDateError, UnknownItemError, validate as _validate
 from ._forecast import explain as _explain, forecast as _forecast
 from ._kitchen import meal_check as _meal_check, prep_list as _prep_list, simulate as _simulate
 from ._backtest import backtest as _backtest, meter as _meter
@@ -32,3 +32,7 @@ def simulate(date=None, attendance_multiplier=1.0, price_multiplier=1.0, ratio=3
 
 def meter(date=None, data_dir=None):
     return _meter(date, data_dir)
+
+
+def validate(data_dir=None):
+    return _validate(data_dir)

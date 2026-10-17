@@ -32,10 +32,20 @@ def _fixture(tmp_path: Path):
     _write_csv(
         tmp_path / "items.csv",
         ITEMS_HEADER,
-        [{
-            "item_id": "stew", "name": "Bean stew", "component": "meat_alternate",
-            "cost_per_serving": "1.25", "allergens": "soybeans", "prep_floor": "0",
-        }],
+        [
+            {
+                "item_id": "stew", "name": "Bean stew", "component": "meat_alternate",
+                "cost_per_serving": "1.25", "allergens": "soybeans", "prep_floor": "0",
+            },
+            {
+                "item_id": "fruit", "name": "Fresh fruit", "component": "fruit",
+                "cost_per_serving": "0.50", "allergens": "", "prep_floor": "0",
+            },
+            {
+                "item_id": "fruit-history", "name": "Fruit history", "component": "fruit",
+                "cost_per_serving": "0.50", "allergens": "", "prep_floor": "0",
+            },
+        ],
     )
     values = [50, 60, 40, 50, 60, 40]
     rows = []
@@ -90,6 +100,35 @@ def test_simulate_expected_leftover_matches_normal_monte_carlo(tmp_path):
     assert monte_carlo == pytest.approx(analytic, rel=0.01)
     # The public result is rounded to one decimal place by the contract.
     assert result["totals"]["expected_leftover_servings"] == pytest.approx(analytic, abs=0.05)
+
+
+def test_simulate_no_history_uses_fallback_spread_for_expected_leftover(tmp_path):
+    _fixture(tmp_path)
+    _write_csv(
+        tmp_path / "menu.csv",
+        MENU_HEADER,
+        [{"date": "2026-10-19", "item_id": "fruit", "day_note": ""}],
+    )
+    with open(tmp_path / "meals.csv", "a", newline="") as handle:
+        handle.write("2026-10-07,fruit-history,fruit,100,100,60,1.00,,,0,\n")
+        handle.write("2026-10-08,fruit-history,fruit,100,100,80,1.00,,,0,\n")
+
+    result = simulate("2026-10-19", ratio=3.0, data_dir=str(tmp_path))
+    item = result["items"][0]
+    assert item["predicted"] == 70
+    assert item["buffer"] > 0
+
+    prep = item["prep"]
+    predicted = item["predicted"]
+    sigma = 0.1 * predicted
+    z = (prep - predicted) / sigma
+    phi = math.exp(-z * z / 2) / math.sqrt(2 * math.pi)
+    phi_cdf = (1 + math.erf(z / math.sqrt(2))) / 2
+    expected = (prep - predicted) * phi_cdf + sigma * phi
+    zero_sigma = max(prep - predicted, 0)
+
+    assert result["totals"]["expected_leftover_servings"] == pytest.approx(round(expected, 1))
+    assert expected > zero_sigma
 
 
 @pytest.mark.parametrize("field", ["attendance_multiplier", "price_multiplier"])
