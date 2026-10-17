@@ -5,7 +5,7 @@ Everything in this folder is simulated. There is no real school behind it. This 
 The labels mean:
 
 - **CONFIRMED:** a number or range checked in the linked source.
-- **ESTIMATE:** a value calculated from confirmed inputs or selected as a midpoint. It is still a simulation choice.
+- **ESTIMATE:** a value calculated from confirmed inputs or picked from a confirmed range. It is still a simulation choice.
 - **ASSUMPTION:** a value chosen for a useful, repeatable simulation. It is not a measured school policy.
 - **Calibrated from Ekansh Simgekar's prototype data:** a relative rate or effect kept from the original simulated prototype. The prototype is simulated and private.
 - **BLOCKED:** the research search did not find an authoritative value.
@@ -37,14 +37,14 @@ The history is 2026-01-12 through 2026-10-16. The future menu is 2026-10-19 thro
 
 ## Attendance
 
-The simulated school is a large Texas high school of about 2,750 students. The UIL 6A conference begins at 2,215 students for 2026 to 2028. That cutoff is **CONFIRMED** in [T01-12](https://www.uiltexas.org/athletics/conference-cutoffs). The choice of 2,750 is an **ESTIMATE** in the middle of the recommended 6A range.
+The simulated school is a large Texas high school of about 2,750 students. The UIL 6A conference begins at 2,215 students for 2026 to 2028. That cutoff is **CONFIRMED** on the [UIL conference cutoffs page](https://www.uiltexas.org/athletics/conference-cutoffs). The choice of 2,750 is an **ESTIMATE**: a size well above the cutoff, picked to stand for a large 6A school.
 
 | Constant | Value | Label and source |
 | --- | --- | --- |
-| `ENROLL` | 2750 | **ESTIMATE** for a mid-size 6A school. Input: **CONFIRMED** T01-12. |
+| `ENROLL` | 2750 | **ESTIMATE** for a large 6A school. Input: the **CONFIRMED** UIL 6A cutoff above. |
 | `BASE_ABSENCE` | 0.083 | **CONFIRMED** TEA El Paso ISD 2024-25 attendance rate of 91.7%. [TEA report](https://rptsvr1.tea.texas.gov/cgi/sas/broker?_debug=0&_program=perfrept.perfmast.sas&_service=marykay&ccyy=2025&id=071902&lev=D&prgopt=reports/tapr/attendgrad.sas) |
-| `WEEKDAY_ATTENDANCE` | Monday 1.085343; Tue to Thu 0.927644; Friday 1.131725 | **ESTIMATE** normalized so Monday absence is 17% above and Friday absence is 22% above the Wednesday level while the five-day mean factor is 1.0. The relationships were measured against Wednesday in Rhode Island during 2016 to 2019 in T08-5 and T08-6: [attendance study](https://files.eric.ed.gov/fulltext/ED677930.pdf#page=7). |
-| Pre-break absence multiplier | 1.9 | **ASSUMPTION** that keeps the original prototype behavior. **CONFIRMED** research says absence exceeded 10% before major breaks in T08-9: [attendance study](https://files.eric.ed.gov/fulltext/ED677930.pdf#page=7). |
+| `WEEKDAY_ATTENDANCE` | Monday 1.085343; Tue to Thu 0.927644; Friday 1.131725 | **ESTIMATE** normalized so Monday absence is 17% above and Friday absence is 22% above the Wednesday level while the five-day mean factor is 1.0. The relationships were measured against Wednesday in Rhode Island during 2016 to 2019 in this [attendance study](https://files.eric.ed.gov/fulltext/ED677930.pdf#page=7). |
+| Pre-break absence multiplier | 1.9 | **ASSUMPTION** that keeps the original prototype behavior. **CONFIRMED** research says absence exceeded 10% before major breaks in the same [attendance study](https://files.eric.ed.gov/fulltext/ED677930.pdf#page=7). |
 | Rainy absence multiplier | 1.25 | **ASSUMPTION.** |
 | Testing absence multiplier | 0.7 | **ASSUMPTION.** |
 | Attendance floor | `round(850 * enroll / 1200)`, 1,948 at 2,750 | **ESTIMATE** scaled from the original 850-student floor. |
@@ -55,7 +55,7 @@ The simulated school is a large Texas high school of about 2,750 students. The U
 
 The item list, components, floors, allergens, and relative popularity are simulated menu choices. Six relative rates and three relative effects remain **calibrated from Ekansh Simgekar's original prototype data**: cheese pizza, chicken nuggets, popcorn chicken, chocolate milk, fruit cup, and steamed carrots. The prototype is simulated. No rows were copied.
 
-The research recommendation is a median daily participation of 42% of enrollment at Texas high schools with at least 2,000 students. CEP campuses were 55.8% and non-CEP campuses were 37.3% in the same analysis. Those values are **CONFIRMED** in T13-2, T13-5, and T13-6: [Texas participation data](https://data.texas.gov/resource/i9vs-cqmu.json?%24where=programyear%3D%272024-2025%27&%24limit=5000&%24offset=0) and [CEP breakdown](https://data.texas.gov/resource/5ejx-uftk.json?%24where=programyear%3D%272024-2025%27&%24limit=5000&%24offset=0). In LunchLoop terms the 42% median is about 46% of students present because 42% divided by 91.7% is about 46%.
+The research recommendation is a median daily participation of 42% of enrollment at Texas high schools with at least 2,000 students. CEP campuses were 55.8% and non-CEP campuses were 37.3% in the same analysis. Those values are **CONFIRMED** in the Texas Education Agency data: [Texas participation data](https://data.texas.gov/resource/i9vs-cqmu.json?%24where=programyear%3D%272024-2025%27&%24limit=5000&%24offset=0) and [CEP breakdown](https://data.texas.gov/resource/5ejx-uftk.json?%24where=programyear%3D%272024-2025%27&%24limit=5000&%24offset=0). In LunchLoop terms the 42% median is about 46% of students present because 42% divided by 91.7% is about 46%.
 
 | Constant | Value | Label |
 | --- | --- | --- |
@@ -64,7 +64,7 @@ The research recommendation is a median daily participation of 42% of enrollment
 | Entrees per day | 3 | **ASSUMPTION.** |
 | Produce floors | Carrots 120, broccoli 80, fruit cup 150, mandarin oranges 70 | **ASSUMPTION.** Other items have floor 0. |
 
-Costs are **ESTIMATES**. The inputs are **CONFIRMED**: Boston's 2010-11 component costs in T11b-24 were entree $0.56, grain $0.07, vegetable $0.21, fruit $0.19, and milk $0.17 ([Boston table](https://pmc.ncbi.nlm.nih.gov/articles/PMC3788640/)); USDA reported $1.69 mean food cost per reimbursable lunch in T04-8 ([USDA report](https://fns-prod.azureedge.us/sites/default/files/resource-files/SNMCS-Volume3.pdf#page=63)); and food-away-from-home inflation was 1.4398x from 2015 to 2024 in T12-4 ([CPI table](https://www.govinfo.gov/content/pkg/ECONI-2025-01/pdf/ECONI-2025-01.pdf#page=24)). We scale each original component's relative item costs so its mean is the target for a $2.25 lunch. That $2.25 target is a pick inside the $2.14 to $2.43 range from T12-6 ([CPI table](https://www.govinfo.gov/content/pkg/ECONI-2025-01/pdf/ECONI-2025-01.pdf#page=24)) and T12-4 ([CPI table](https://www.govinfo.gov/content/pkg/ECONI-2025-01/pdf/ECONI-2025-01.pdf#page=24)), then we round to cents.
+Costs are **ESTIMATES**. The inputs are **CONFIRMED**: Boston's 2010-11 component costs were entree $0.56, grain $0.07, vegetable $0.21, fruit $0.19, and milk $0.17 ([Boston table](https://pmc.ncbi.nlm.nih.gov/articles/PMC3788640/)); USDA reported $1.69 mean food cost per reimbursable lunch ([USDA report](https://fns-prod.azureedge.us/sites/default/files/resource-files/SNMCS-Volume3.pdf#page=63)); and food-away-from-home inflation was 1.4398x from 2015 to 2024 ([CPI table](https://www.govinfo.gov/content/pkg/ECONI-2025-01/pdf/ECONI-2025-01.pdf#page=24)). We scale each original component's relative item costs so its mean is the target for a $2.25 lunch. That $2.25 target is a pick inside the $2.14 to $2.43 range worked out from the same [CPI table](https://www.govinfo.gov/content/pkg/ECONI-2025-01/pdf/ECONI-2025-01.pdf#page=24), then we round to cents.
 
 | Component | Item costs in the current files | Target mean |
 | --- | --- | --- |
@@ -84,19 +84,28 @@ The day noise is 3%, the item noise is 6%, and both factors are clamped to 0.75 
 
 ## Kitchen usual amount
 
-The old flat 1.12 ratio is replaced by component ratios. Entree, grain, fruit, and vegetable values are **ESTIMATES** selected as midpoints of measured ranges. The measurements are **CONFIRMED** in T05a-1, T05a-2, T05a-3, T05a-9, and T05b-4:
+The usual amount is the item's average servings taken over its last 20 served days, times a fixed over-prep for its food group. Entrees and grains are 7.5%, fruit and vegetables 20%, milk 12%. Each value is an **ASSUMPTION** for this simulation. The cited studies give context about leftovers and overproduction. There is no published over-prep standard.
 
-- fruit and vegetable: 1.20, a pick inside the 10% to 30% over-prep range, based on measured production leftovers from 10.2% to 28.7% and the 15.31% case study ([T05a-1](https://pubmed.ncbi.nlm.nih.gov/24747044/), [T05a-2](https://pubmed.ncbi.nlm.nih.gov/24747044/), [T05a-9](https://pdfs.semanticscholar.org/9cf7/12fceb42ac0eaa1b26de9b6eef2675efdf5e.pdf#page=5)).
-- meat alternate and grain: 1.075, the midpoint of the 5% to 10% working range. The Colorado figure of under 5% overproduced describes 14 school kitchens in the paper abstract ([T05a-3](https://www.sciencedirect.com/science/article/abs/pii/S2212267218313947)).
-- milk: 1.12. **ASSUMPTION:** milk must be offered with every lunch, and schools must offer at least two fluid milk options daily ([7 CFR 210.10](https://www.ecfr.gov/current/title-7/subtitle-B/chapter-II/subchapter-A/part-210/section-210.10): "Fluid milk must be offered daily" and "Schools must offer students a variety (at least two different options) of fluid milk at lunch daily."). Research measured 0% to 5% over-prep for milk. At 1.025 the simulated milk sells out on 56% of days, which a kitchen required to offer milk daily would not allow, so the original prototype value 1.12 is kept. This choice raises the simulated savings.
+- fruit and vegetable: 1.20. **ASSUMPTION.** The cited studies report production leftovers of 10.2% to 28.7% and 15.31% unserved food in a case study. That is context, not a measured over-prep standard ([school meal leftovers study](https://pubmed.ncbi.nlm.nih.gov/24747044/), [case study](https://pdfs.semanticscholar.org/9cf7/12fceb42ac0eaa1b26de9b6eef2675efdf5e.pdf#page=5)).
+- meat alternate and grain: 1.075. **ASSUMPTION.** The cited Colorado abstract reports under 5% overproduced in the school kitchens it studied. It does not establish a margin for this simulation ([abstract](https://www.sciencedirect.com/science/article/abs/pii/S2212267218313947)).
+- milk: 1.12. **ASSUMPTION.** The rule says fluid milk must be offered daily with at least two options, but it does not set an over-prep margin ([7 CFR 210.10](https://www.ecfr.gov/current/title-7/subtitle-B/chapter-II/subchapter-A/part-210/section-210.10): "Fluid milk must be offered daily" and "Schools must offer students a variety (at least two different options) of fluid milk at lunch daily."). The value 1.12 comes from the original prototype and is kept as an assumption. At 1.025, at least one milk runs out on 75.2% of history days (56.0% of milk item-days). We judged a kitchen that must offer milk every day would not run out that often, so 1.12 is kept. At 1.12 it happens on 9.6% of days (5.2% of milk item-days). The command is in [README.md](README.md#two-choices-that-raise-the-simulated-saving).
 
-**ASSUMPTION:** Unopened milk cartons and sealed fruit cups usually go back to the cooler, so counting them as waste overstates waste dollars. A Finnish food-service study reports caterers reuse overproduced food on later days ([study](https://projects.luke.fi/ravintolafoorumi/wp-content/uploads/sites/4/2019/09/Silvennoinen_WM_2019.pdf#page=6)).
+**ASSUMPTION:** Unopened milk cartons and sealed fruit cups are counted as waste in this simulation. Some of them may be stored and served again, which would make the waste dollars too high. A Finnish food-service study reports that caterers reuse some overproduced food on later days, but it does not show what US school kitchens do with unopened items ([study](https://projects.luke.fi/ravintolafoorumi/wp-content/uploads/sites/4/2019/09/Silvennoinen_WM_2019.pdf#page=6)).
 
 The generated history has a 22.6% combined sold-out rate for entree and grain item-days.
 
-There is no authoritative universal over-prep standard. That result is **BLOCKED** in T06-12: [ICN search result](https://theicn.org/resources/120/financial-management-a-course-for-school-nutrition-managers/103050/financial-management-managers-instructors-manual.pdf).
+There is no authoritative universal over-prep standard. The search for one found nothing, so that result is **BLOCKED**: [ICN search result](https://theicn.org/resources/120/financial-management-a-course-for-school-nutrition-managers/103050/financial-management-managers-instructors-manual.pdf).
 
-The usual amount uses the item's last 20 served days and its component ratio. The first-ever amount uses `component_ratio * ENROLL * (1 - BASE_ABSENCE) * effective_take_rate`. Prep rounds to the nearest five and respects the produce floor.
+The first-ever amount for an item with no history uses `component_ratio * ENROLL * (1 - BASE_ABSENCE) * effective_take_rate`. Prep rounds to the nearest five and respects the produce floor.
+
+## How big the two biases are
+
+These two choices raise the simulated saving. The figures are simulated, pooled over 5 seeds (95 school days), scored against true demand, and printed by `python tools/eval_truth.py --seeds 5`.
+
+| Choice | Effect |
+| --- | --- |
+| Milk usual amount of 1.12 instead of 1.025 | Net saving is $40.90 per school day at 1.12 and about $35.05 at 1.025 (`python tools/eval_truth.py --seeds 5 --prep-ratio milk=1.025`). |
+| Packaged items counted as waste (milk cartons, fruit cup, mandarin oranges) | They are about 78% of the pooled net saving ($32.03 of $40.90). Without them it is about $9 per day ($8.87). |
 
 ## Votes
 
