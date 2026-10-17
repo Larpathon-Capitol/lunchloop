@@ -29,6 +29,22 @@ const NAMES: Record<string, string> = {
   mandarin_oranges: 'Mandarin oranges',
   chocolate_milk: 'Chocolate milk',
   milk_1pct: '1% milk',
+  milk_fat_free: 'Fat-free milk',
+  bean_cheese_burrito: 'Bean and cheese burrito',
+  veggie_burger: 'Veggie burger',
+  black_bean_quesadilla: 'Black bean quesadilla',
+  chickpea_curry_rice: 'Chickpea curry with rice',
+  falafel_wrap: 'Falafel wrap',
+  teriyaki_tofu_bowl: 'Teriyaki tofu bowl',
+  chicken_shawarma_wrap: 'Chicken shawarma wrap',
+  orange_chicken: 'Orange chicken',
+  whole_wheat_tortilla: 'Whole wheat tortilla',
+  whole_wheat_pita: 'Whole wheat pita',
+  side_salad: 'Side salad',
+  black_beans: 'Seasoned black beans',
+  seasoned_corn: 'Seasoned corn',
+  apple_slices: 'Apple slices',
+  banana: 'Banana',
 }
 
 const FALLBACKS: Component[] = ['meat_alternate', 'grain', 'vegetable', 'fruit', 'milk']
