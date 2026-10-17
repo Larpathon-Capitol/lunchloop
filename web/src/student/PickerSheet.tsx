@@ -1,15 +1,14 @@
-// The picker for one food group: Ume's nudge, each of tomorrow's foods in that group as a
-// big row, and a gentle "Skip this one". Picks can change any time before packing.
+// The picker for one food group: each of tomorrow's foods in that group as a big row, and a
+// gentle "Skip this one". Picks can change any time before packing.
 import { motion } from 'framer-motion'
 import { useState } from 'react'
 import type { Component, TrayGroup } from '../shared/api'
 import { copy } from '../shared/copy'
 import { allergenName } from '../shared/format'
 import { Allergen, Check, Info, Skip, foodGroupIcon } from '../shared/icons'
-import { encourageLine } from '../mascot'
 import { press } from '../shared/motion'
 import { FoodGlyph } from './FoodGlyph'
-import { GLAZE, groupName, umeGroup } from './groups'
+import { GLAZE, groupName } from './groups'
 import { Sheet } from './Sheet'
 
 const t = copy.student.picker
@@ -91,8 +90,6 @@ function Content({ group, current, onPick }: { group: TrayGroup; current: string
 
 function Head({ component }: { component: Component }) {
   const Icon = foodGroupIcon(component)
-  // One nudge per opening, so it doesn't change while the sheet re-renders.
-  const [line] = useState(() => encourageLine(umeGroup(component)))
   return (
     <>
       <span className="glyph-disc glyph-disc--solid" style={{ background: GLAZE[component] }}>
@@ -102,7 +99,6 @@ function Head({ component }: { component: Component }) {
         <h2 id="picker-title" className="sheet__title">
           {groupName(component)}
         </h2>
-        <span className="sheet__line">{line}</span>
       </span>
     </>
   )

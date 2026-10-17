@@ -17,6 +17,7 @@ export const student = {
     dayToday: (day: string) => `${day}: today, not played yet`,
     dayTodayDone: (day: string) => `${day}: today, played`,
     dayQuiet: (day: string) => `${day}`,
+    dayAhead: (day: string) => `${day}: still ahead`,
   },
 
   groups: {
@@ -159,10 +160,11 @@ export const student = {
     streak: 'day streak',
     pets: (n: number) => (n === 1 ? 'pet for Ume' : 'pets for Ume'),
     list: {
-      streak_3: { name: 'Three day streak', seal: '3 days', how: 'Keep a 3 day streak' },
-      streak_7: { name: 'Seven day streak', seal: '7 days', how: 'Keep a 7 day streak' },
-      called_it_5: { name: 'Called it five times', seal: 'Caller', how: 'Call the top entree 5 times' },
-    },
+      streak_3: { name: 'Three day streak', seal: '3 days', days: 3 },
+      streak_7: { name: 'Seven day streak', seal: '7 days', days: 7 },
+      called_it_5: { name: 'Called it five times', seal: 'Caller' },
+    } as Record<'streak_3' | 'streak_7' | 'called_it_5', { name: string; seal: string; days?: number }>,
+    daysOf: (n: number, of: number) => `${n} of ${of} days`,
     rule: 'A day counts when you pack a tray or vote.',
   },
 

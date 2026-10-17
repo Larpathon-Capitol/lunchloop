@@ -7,7 +7,7 @@ import { copy } from '../copy'
 import { useReducedMotion } from '../motion'
 import { setMuted, useMuted } from '../sound'
 import { Logo } from './Logo'
-import { NorenCurtain } from './Noren'
+import { Cloth, NorenCurtain } from './Noren'
 import { useNoren } from './norenStore'
 import { Loading } from './Notice'
 
@@ -50,6 +50,21 @@ function MuteButton() {
     >
       {muted ? <SoundOff width={22} height={22} /> : <SoundOn width={22} height={22} />}
     </button>
+  )
+}
+
+/**
+ * The game header's cloth: indigo weave, and a hem along the bottom split into three panels like
+ * a noren hanging in a doorway. Decorative; the bar's own background carries the color.
+ */
+function NorenBand() {
+  return (
+    <>
+      <Cloth />
+      <svg className="shell__hem" viewBox="0 0 300 10" preserveAspectRatio="none" aria-hidden="true" focusable="false">
+        <path d="M0 0H300V6Q251 10.5 202.6 6.8L200 0.6L197.4 6.8Q150 10.5 102.6 6.8L100 0.6L97.4 6.8Q49 10.5 0 6Z" />
+      </svg>
+    </>
   )
 }
 
@@ -112,6 +127,7 @@ export function Shell() {
         {copy.app.skipToMain}
       </a>
       <header className={`shell__bar shell__bar--${mode}`}>
+        {inGame && <NorenBand />}
         <div className="shell__inner">
           {brand}
           {liveGame && <p className="shell__live">{copy.app.liveLabel}</p>}
@@ -141,7 +157,18 @@ export function Shell() {
         animate={{ opacity: 1 }}
         transition={{ duration: 0.2, ease: [0.2, 0, 0, 1] }}
       >
-        <Suspense fallback={<Loading />}>
+        {/* Home and the game load under the noren curtain: nothing visible to collide with the tray. */}
+        <Suspense
+          fallback={
+            mode === 'staff' ? (
+              <Loading />
+            ) : (
+              <p className="visually-hidden" role="status" aria-live="polite">
+                {copy.loading}
+              </p>
+            )
+          }
+        >
           <Outlet />
         </Suspense>
       </motion.main>

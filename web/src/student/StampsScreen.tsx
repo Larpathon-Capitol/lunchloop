@@ -1,9 +1,9 @@
 // Stamps: a page from a stamp book. Earned stamps are inked vermilion; the rest are a faint
-// pencil outline that says what it takes. Totals sit at the foot of the page.
+// pencil outline, with streak progress under them. Totals sit at the foot of the page.
 import { HankoStamp, NumberRoll } from '../celebrate'
-import { usePetCount } from '../mascot'
+import { UmeInline, usePetCount } from '../mascot'
 import { copy } from '../shared/copy'
-import { Blossom, Coin, Hand, Seal } from '../shared/icons'
+import { Blossom, Coin, Hand } from '../shared/icons'
 import { ErrorNotice } from '../shared/ui/Notice'
 import { PanelSkeleton } from './VoteScreen'
 import { useStudent } from './state'
@@ -34,10 +34,8 @@ export function StampsScreen() {
   return (
     <div className="tabscreen">
       <header className="tabscreen__head">
-        <span className="tabscreen__icon">
-          <Seal />
-        </span>
         <h1 className="tabscreen__title">{t.title}</h1>
+        <UmeInline size={48} />
       </header>
       {meError && <ErrorNotice error={meError} onRetry={refreshMe} />}
       {!me && !meError && (
@@ -59,7 +57,11 @@ export function StampsScreen() {
                   </span>
                   <span className="stamp__text">
                     <span className="stamp__name">{info.name}</span>
-                    <span className="stamp__state">{earned ? t.earned : info.how}</span>
+                    {earned ? (
+                      <span className="stamp__state">{t.earned}</span>
+                    ) : info.days ? (
+                      <span className="stamp__state num">{t.daysOf(Math.min(me.streak, info.days), info.days)}</span>
+                    ) : null}
                   </span>
                 </li>
               )

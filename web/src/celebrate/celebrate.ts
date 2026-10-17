@@ -64,11 +64,14 @@ export function celebratePacked(opts: CelebratePackedOptions): Promise<void> {
   let resolveMilestone: () => void = () => {}
   const draw = () => root.render(createElement(CelebrationScene, { x, y, size, state, onMilestoneClose: () => resolveMilestone() }))
 
+  // Reduced motion: no waiting on decorative beats. Every step lands at once (state and
+  // announcements only, no petals or sounds); only a milestone still waits for its close.
+  const calm = typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
   const started = performance.now()
   const sleepUntil = (ms: number) =>
     new Promise<void>((resolve) => {
       const left = ms - (performance.now() - started)
-      if (left <= 0 || signal.aborted) return resolve()
+      if (calm || left <= 0 || signal.aborted) return resolve()
       const id = window.setTimeout(resolve, left)
       signal.addEventListener('abort', () => (window.clearTimeout(id), resolve()), { once: true })
     })
@@ -82,7 +85,7 @@ export function celebratePacked(opts: CelebratePackedOptions): Promise<void> {
 
       await sleepUntil(T.petals)
       if (signal.aborted) return
-      burstPetals({ x, y }, { count: 32 })
+      if (!calm) burstPetals({ x, y }, { count: 32 })
       step('petals')
 
       await sleepUntil(T.xp)
@@ -90,16 +93,16 @@ export function celebratePacked(opts: CelebratePackedOptions): Promise<void> {
       if (opts.xpGained > 0) {
         state.xp = opts.xpGained
         draw()
-        sound.pluck(5)
+        if (!calm) sound.pluck(5)
       }
       step('xp')
 
       await sleepUntil(T.streak)
       if (signal.aborted) return
       if (opts.streak > 0) {
-        state.streak = { from: Math.max(0, opts.streak - 1), to: opts.streak }
+        state.streak = opts.streak
         draw()
-        sound.pluck(7)
+        if (!calm) sound.pluck(7)
       }
       step('streak')
 
@@ -114,6 +117,9 @@ export function celebratePacked(opts: CelebratePackedOptions): Promise<void> {
         draw()
         step('milestone')
         await closed
+      } else if (calm) {
+        // The page keeps its own seal and counters; the overlay just goes.
+        return
       } else {
         await sleepUntil(T.hold)
         if (signal.aborted) return

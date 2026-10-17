@@ -103,15 +103,23 @@
   right: 23px;
 }
 
-/* ---- The dock ---- */
+/* ---- The dock: wide screens only, in the right gutter beside the page ---- */
 .ume-dock {
+  display: none;
   position: fixed;
   z-index: 40;
-  left: var(--s3);
-  bottom: calc(var(--ume-dock-bottom, 76px) + env(safe-area-inset-bottom, 0px));
+  right: var(--s6);
+  bottom: calc(var(--ume-dock-bottom-desktop, var(--s6)) + env(safe-area-inset-bottom, 0px));
   pointer-events: none;
   /* Clip only the bottom edge, so Ume can peek up from it while the bubble stays free. */
   clip-path: inset(-400px -400px 0 -400px);
+}
+
+/* Keep in step with DOCK_QUERY in dock.ts. */
+@media (min-width: 1400px) {
+  .ume-dock {
+    display: block;
+  }
 }
 
 .ume-dock[data-free='true'] {
@@ -122,12 +130,75 @@
   pointer-events: auto;
 }
 
-@media (min-width: 720px) {
-  .ume-dock {
-    left: auto;
-    right: var(--s6);
-    bottom: calc(var(--ume-dock-bottom-desktop, var(--s6)) + env(safe-area-inset-bottom, 0px));
-  }
+/* The bubble stays inside the gutter, so it never crosses the page. */
+.ume-dock .ume-bubble {
+  max-width: calc((100vw - var(--max-width)) / 2 - var(--s6) - var(--s2));
+}
+
+/* ---- Inline: Ume in the layout, the bubble in reserved space beside it ---- */
+.ume-inline {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--s3);
+  min-height: var(--ume-inline-size);
+}
+
+.ume-inline__ume {
+  flex: none;
+  display: block;
+  width: var(--ume-inline-size);
+  height: var(--ume-inline-size);
+}
+
+.ume-inline__col {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: var(--s1);
+  align-content: end;
+  min-height: var(--ume-inline-size);
+}
+
+.ume-inline__say {
+  display: flex;
+  align-items: flex-end;
+  min-height: 40px;
+}
+
+.ume-inline__col:only-child .ume-inline__say,
+.ume-inline__say:only-child {
+  min-height: var(--ume-inline-size);
+  align-items: center;
+}
+
+.ume-inline__bubble {
+  position: relative;
+  max-width: 100%;
+  margin: 0;
+  padding: var(--s2) var(--s3);
+  background: var(--shoji);
+  color: var(--sumi);
+  border: var(--hairline);
+  border-radius: var(--radius);
+  font-family: var(--font-ui);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  line-height: 1.35;
+  transform-origin: 0 100%;
+}
+
+/* The tail points back at Ume. */
+.ume-inline__bubble::before {
+  content: '';
+  position: absolute;
+  left: -6px;
+  bottom: 12px;
+  width: 10px;
+  height: 10px;
+  background: var(--shoji);
+  border-left: var(--hairline);
+  border-bottom: var(--hairline);
+  transform: rotate(45deg);
 }
 
 .ume-bubble-anchor {

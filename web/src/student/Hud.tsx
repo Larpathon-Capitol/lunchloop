@@ -1,10 +1,10 @@
-// The game's heads-up strip: streak, XP, and the last five school days as small circles.
-// Active days get a vermilion blossom; today pulses gently until it's played. Other days stay
-// plain paper, never red, never "missed".
+// The game's heads-up strip: streak, XP, and this school week (Monday to Friday) as small circles.
+// Played days this week get a vermilion blossom; today is ringed and pulses gently until it's
+// played; days still ahead stay quiet. Nothing is ever red or "missed".
 import { motion, useReducedMotion } from 'framer-motion'
 import { NumberRoll } from '../celebrate'
 import { copy } from '../shared/copy'
-import { fmtDay, lastSchoolDays, previousSchoolDay } from '../shared/format'
+import { fmtDay, previousSchoolDay, schoolWeek } from '../shared/format'
 import { Blossom, Coin } from '../shared/icons'
 import { popSpring } from './springs'
 
@@ -43,7 +43,7 @@ interface Props {
 
 export function Hud({ today, streak, xp, doneToday, bump }: Props) {
   const reduce = useReducedMotion()
-  const days = today ? lastSchoolDays(today, 5) : []
+  const days = today ? schoolWeek(today) : []
   const active = today && streak !== null ? activeDays(today, streak, doneToday) : new Set<string>()
   return (
     <section className="hud" aria-label={t.label}>
@@ -70,12 +70,15 @@ export function Hud({ today, streak, xp, doneToday, bump }: Props) {
       <ol className="week" aria-label={t.week}>
         {days.map((day) => {
           const isToday = day === today
-          const on = active.has(day)
+          const future = !!today && day > today
+          const on = !future && active.has(day)
           const name = fmtDay(day, { weekday: 'long', month: 'short', day: 'numeric' })
-          const label = isToday ? (doneToday ? t.dayTodayDone(name) : t.dayToday(name)) : on ? t.dayActive(name) : t.dayQuiet(name)
+          const label = isToday ? (doneToday ? t.dayTodayDone(name) : t.dayToday(name)) : on ? t.dayActive(name) : future ? t.dayAhead(name) : t.dayQuiet(name)
           return (
             <li key={day} className="week__day" aria-label={label}>
-              <span className={`week__dot${on ? ' week__dot--on' : ''}${isToday && !doneToday ? ' week__dot--today' : ''}`}>
+              <span
+                className={`week__dot${on ? ' week__dot--on' : ''}${isToday ? ' week__dot--today' : ''}${isToday && !doneToday ? ' week__dot--waiting' : ''}${future ? ' week__dot--future' : ''}`}
+              >
                 {on && (
                   <motion.span
                     key={`${day}-${bump}`}
@@ -88,7 +91,7 @@ export function Hud({ today, streak, xp, doneToday, bump }: Props) {
                   </motion.span>
                 )}
               </span>
-              <span className="week__name" aria-hidden="true">
+              <span className={`week__name${isToday ? ' week__name--today' : ''}`} aria-hidden="true">
                 {fmtDay(day, { weekday: 'narrow' })}
               </span>
             </li>

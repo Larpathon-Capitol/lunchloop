@@ -10,11 +10,13 @@ export type UmeState = {
   mood: UmeMood
   line: string | null
   lineId: number
+  /** When the line was said (performance.now()), so a view that mounts a moment later can still show it. */
+  lineAt: number
   hopId: number
   move: UmeMove | null
 }
 
-let state: UmeState = { mood: 'idle', line: null, lineId: 0, hopId: 0, move: null }
+let state: UmeState = { mood: 'idle', line: null, lineId: 0, lineAt: 0, hopId: 0, move: null }
 const listeners = new Set<() => void>()
 let moodTimer: ReturnType<typeof setTimeout> | undefined
 
@@ -60,14 +62,14 @@ export const ume = {
   react(mood: UmeMood, line?: string, holdMs?: number) {
     clearTimeout(moodTimer)
     const patch: Partial<UmeState> = { mood }
-    if (line) Object.assign(patch, { line, lineId: state.lineId + 1 })
+    if (line) Object.assign(patch, { line, lineId: state.lineId + 1, lineAt: performance.now() })
     set(patch)
     const ms = holdMs ?? MOMENT_MS[mood]
     if (ms) moodTimer = setTimeout(() => set({ mood: 'idle' }), ms)
   },
   /** Show a speech bubble without changing mood. */
   say(line: string) {
-    set({ line, lineId: state.lineId + 1 })
+    set({ line, lineId: state.lineId + 1, lineAt: performance.now() })
   },
   /** Spring Ume onto the top edge of an element (say, the tray rim), then back to the dock. */
   moveTo(target: Element | RectLike, holdMs = 2600) {

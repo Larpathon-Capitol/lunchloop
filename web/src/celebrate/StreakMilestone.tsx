@@ -5,6 +5,7 @@ import { sound } from '../shared/sound'
 import { burstPetals } from './burst'
 import { celebrateCopy } from './copy'
 import { driftPetals } from './drift'
+import { PlumSprig } from '../shared/art/PlumSprig'
 import { NumberRoll } from './NumberRoll'
 import './celebrate.css'
 
@@ -15,58 +16,6 @@ export interface StreakMilestoneProps {
   silent?: boolean
 }
 
-const BRUSH = [0.7, 0, 0.2, 1] as const
-
-// A plum branch entering from the top right corner. Twig starts sit on the trunk.
-const TRUNK = 'M410 -10 C350 18 300 48 252 92 C215 126 150 148 96 186 C66 207 44 232 30 262'
-const TWIGS = [
-  { d: 'M326 35 C336 80 330 122 304 156', delay: 0.45 },
-  { d: 'M252 92 C238 66 205 52 170 56', delay: 0.6 },
-  { d: 'M180 137 C178 175 160 215 126 245', delay: 0.8 },
-  { d: 'M129 165 C112 150 84 142 56 148', delay: 0.9 },
-]
-// x, y, radius, rest rotation. Listed in the order the branch reaches them.
-const BLOSSOMS = [
-  { x: 362, y: 14, r: 15, rot: 8 },
-  { x: 304, y: 156, r: 17, rot: -12 },
-  { x: 252, y: 92, r: 13, rot: 20 },
-  { x: 170, y: 56, r: 19, rot: -6 },
-  { x: 128, y: 168, r: 12, rot: 14 },
-  { x: 126, y: 245, r: 18, rot: -18 },
-  { x: 56, y: 148, r: 15, rot: 6 },
-  { x: 30, y: 262, r: 16, rot: -10 },
-]
-const BUDS = [
-  { x: 332, y: 100, r: 5 },
-  { x: 214, y: 66, r: 4.5 },
-  { x: 160, y: 205, r: 5 },
-  { x: 74, y: 214, r: 4.5 },
-]
-
-function Blossom({ r, rot, delay, reduce }: { r: number; rot: number; delay: number; reduce: boolean }) {
-  return (
-    <motion.g
-      style={{ transformBox: 'fill-box', transformOrigin: 'center' }}
-      initial={reduce ? false : { scale: 0, rotate: rot - 50 }}
-      animate={{ scale: 1, rotate: rot }}
-      transition={{ type: 'spring', duration: 0.7, bounce: 0.5, delay }}
-    >
-      {[0, 72, 144, 216, 288].map((a) => (
-        <ellipse
-          key={a}
-          cx="0"
-          cy={-r * 0.58}
-          rx={r * 0.44}
-          ry={r * 0.56}
-          transform={`rotate(${a})`}
-          strokeWidth="1.1"
-          style={{ fill: 'var(--sakura)', stroke: 'var(--ume)' }}
-        />
-      ))}
-      <circle r={r * 0.2} style={{ fill: 'var(--kin-light)' }} />
-    </motion.g>
-  )
-}
 
 function useFocusTrap(ref: React.RefObject<HTMLElement | null>) {
   useEffect(() => {
@@ -205,50 +154,7 @@ export function StreakMilestone({ streak, onClose, silent = false }: StreakMiles
         if (performance.now() - openedAt.current > 500) close(true)
       }}
     >
-      <svg className="milestone-branch" viewBox="0 0 390 430" aria-hidden="true">
-        <motion.path
-          d={TRUNK}
-          fill="none"
-          strokeWidth="7"
-          strokeLinecap="round"
-          style={{ stroke: 'var(--on-ai-soft)' }}
-          opacity="0.55"
-          initial={reduce ? false : { pathLength: 0 }}
-          animate={{ pathLength: 1 }}
-          transition={{ duration: 1.1, ease: BRUSH }}
-        />
-        {TWIGS.map((t) => (
-          <motion.path
-            key={t.d}
-            d={t.d}
-            fill="none"
-            strokeWidth="3.6"
-            strokeLinecap="round"
-            style={{ stroke: 'var(--on-ai-soft)' }}
-            opacity="0.55"
-            initial={reduce ? false : { pathLength: 0 }}
-            animate={{ pathLength: 1 }}
-            transition={{ duration: 0.7, ease: BRUSH, delay: t.delay }}
-          />
-        ))}
-        {BUDS.map((b, i) => (
-          <motion.circle
-            key={`${b.x}-${b.y}`}
-            cx={b.x}
-            cy={b.y}
-            r={b.r}
-            style={{ fill: 'var(--ume)', transformBox: 'fill-box', transformOrigin: 'center' }}
-            initial={reduce ? false : { scale: 0 }}
-            animate={{ scale: 1 }}
-            transition={{ type: 'spring', duration: 0.5, bounce: 0.4, delay: delay(0.9 + i * 0.15) }}
-          />
-        ))}
-        {BLOSSOMS.map((b, i) => (
-          <g key={`${b.x}-${b.y}`} transform={`translate(${b.x} ${b.y})`}>
-            <Blossom r={b.r} rot={b.rot} delay={delay(0.55 + i * 0.17)} reduce={reduce} />
-          </g>
-        ))}
-      </svg>
+      <PlumSprig variant="branch" ground="ai" grow className="milestone-branch" />
 
       <div className="milestone-body">
         <div ref={numberRef} className="milestone-number">

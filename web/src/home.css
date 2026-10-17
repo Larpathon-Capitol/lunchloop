@@ -36,7 +36,7 @@
 .home__ume.is-on {
   opacity: 1;
   pointer-events: auto;
-  transition: opacity 400ms var(--ease-out) 900ms;
+  transition: opacity 400ms var(--ease-out) 250ms;
 }
 
 .home__copy {

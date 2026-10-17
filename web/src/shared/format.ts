@@ -52,14 +52,13 @@ export function isWeekend(iso: string) {
   return day === 0 || day === 6
 }
 
-/** The last `count` weekdays ending on `today` (or before it, when today is a weekend), oldest first. */
-export function lastSchoolDays(today: string, count: number) {
-  const out: string[] = []
-  for (let i = 0; out.length < count && i < count * 3; i++) {
-    const day = addDays(today, -i)
-    if (!isWeekend(day)) out.unshift(day)
-  }
-  return out
+/** Monday to Friday of the week `today` falls in. On a weekend, the school week just finished. */
+export function schoolWeek(today: string) {
+  const [y, m, d] = today.split('-').map(Number)
+  const dow = new Date(y, m - 1, d).getDay() // 0 Sunday ... 6 Saturday
+  const back = dow === 0 ? 6 : dow - 1
+  const monday = addDays(today, -back)
+  return [0, 1, 2, 3, 4].map((i) => addDays(monday, i))
 }
 
 /** The weekday before `iso`. */

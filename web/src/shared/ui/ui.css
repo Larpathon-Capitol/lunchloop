@@ -124,13 +124,39 @@ a.btn {
   background: transparent;
 }
 
-/* Game: a compact paper bar. */
+/* Game: a slim band of indigo noren cloth with a split hem, the same cloth as the hero. */
 .shell__bar--game {
-  background: var(--washi);
-  border-bottom: var(--hairline);
+  background: var(--ai);
+  color: var(--on-ai);
 }
 .shell__bar--game .shell__inner {
+  position: relative;
   height: 52px;
+}
+.shell__hem {
+  position: absolute;
+  left: 0;
+  top: 100%;
+  width: 100%;
+  height: 10px;
+  display: block;
+  fill: var(--ai);
+  pointer-events: none;
+}
+.shell__bar--game .shell__brand,
+.shell__bar--game .shell__mute {
+  color: var(--on-ai);
+}
+.shell__bar--game .shell__live {
+  color: var(--on-ai-soft);
+}
+.shell__bar--game .shell__mute:hover {
+  color: var(--on-ai);
+  background: color-mix(in srgb, var(--on-ai) 12%, transparent);
+}
+.shell__bar--game :focus-visible,
+.shell__bar--home :focus-visible {
+  box-shadow: 0 0 0 3px var(--ai), 0 0 0 5px var(--on-ai);
 }
 
 /* Staff pages: paper bar with the nav. */

@@ -3,11 +3,11 @@ import { motion, useReducedMotion } from 'framer-motion'
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { BrushProgress, XpToast, burstPetals } from '../celebrate'
-import { lines, pickLine, ume } from '../mascot'
+import { UmeInline, lines, pickLine, ume } from '../mascot'
 import { api, ApiError, type Spin, type SpinOption, type VoteResult } from '../shared/api'
 import { copy } from '../shared/copy'
 import { fmtDay } from '../shared/format'
-import { Ballot, Check } from '../shared/icons'
+import { Check } from '../shared/icons'
 import { press } from '../shared/motion'
 import { sound } from '../shared/sound'
 import { useGameBase } from '../shared/studentSchool'
@@ -39,7 +39,8 @@ export function VoteScreen() {
   }, [spinData, lastVote, device])
 
   const onVoted = (r: VoteResult, chosen: SpinOption, date: string) => {
-    const gained = me ? r.xp - me.xp : null
+    // /api/me may still be loading: then assume the standard 10 XP; refreshMe() below catches up.
+    const gained = me ? r.xp - me.xp : 10
     const beforeStreak = me?.streak ?? 0
     rememberVote({ date, device, chosen, result: r, gained })
     if (me) setMe({ ...me, streak: r.streak, xp: r.xp, voted_today: true })
@@ -51,10 +52,8 @@ export function VoteScreen() {
   return (
     <div className="tabscreen">
       <header className="tabscreen__head">
-        <span className="tabscreen__icon">
-          <Ballot />
-        </span>
         <h1 className="tabscreen__title">{t.tabs.vote}</h1>
+        <UmeInline size={48} />
       </header>
 
       {spin.state === 'loading' && <PanelSkeleton />}

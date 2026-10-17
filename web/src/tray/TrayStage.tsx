@@ -2,7 +2,7 @@ import { Canvas, useFrame, useThree, type ThreeEvent } from '@react-three/fiber'
 import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react'
 import * as THREE from 'three'
 import { copy } from '../shared/copy'
-import { useNoren } from '../shared/ui/norenStore'
+import { noren, useNoren } from '../shared/ui/norenStore'
 import { FoodDrop } from './foods'
 import { compartmentCenter, compartmentSize, COMPARTMENTS, TRAY, type Compartment } from './geometry'
 import { readTokenColors, type GroupId } from './groups'
@@ -25,6 +25,12 @@ const PICK_TILT = THREE.MathUtils.degToRad(2.5)
 const SHADOW_Y = -0.9
 /** How long a missing slot is tolerated before the tray hides (covers route changes and lazy screens). */
 const SLOT_GRACE_MS = 450
+/** While the noren curtain holds for the next screen, the tray waits longer for its new slot. */
+const NOREN_GRACE_MS = 1300
+/** Camera elevation (radians above the horizon) in the pick view. */
+const PICK_ELEVATION = 0.98
+/** Pick view: the tray's outline stays inside this much of the slot (about 6% margin per side). */
+const PICK_FILL = 0.88
 
 // Springs: [stiffness, damping]. Mass is 1.
 const SLOT: [number, number] = [105, 19] // about 1s, a hair of overshoot
@@ -59,6 +65,65 @@ function step(s: Spring, target: number, [k, c]: [number, number], dt: number, e
 }
 
 const lerp = THREE.MathUtils.lerp
+
+/**
+ * The tray's outer outline in tray space (x right, y up, z toward the viewer): the rounded
+ * corners sampled at the rim top and at the base, so the fit sees the true silhouette.
+ */
+const OUTLINE: THREE.Vector3[] = (() => {
+  const pts: THREE.Vector3[] = []
+  const r = TRAY.radius
+  const hx = TRAY.width / 2 + TRAY.bevel
+  const hz = TRAY.depth / 2 + TRAY.bevel
+  const top = TRAY.body + TRAY.rimHeight + TRAY.bevel
+  for (const [sx, sz] of [[1, 1], [-1, 1], [-1, -1], [1, -1]] as const) {
+    for (let i = 0; i <= 4; i++) {
+      const a = (i / 4) * (Math.PI / 2)
+      const x = sx * (hx - r + Math.cos(a) * r)
+      const z = sz * (hz - r + Math.sin(a) * r)
+      for (const y of [-0.06, top]) pts.push(new THREE.Vector3(x, y, z))
+    }
+  }
+  return pts
+})()
+
+const fitCam = new THREE.PerspectiveCamera(FOV, 1, 0.1, 60)
+const fitPt = new THREE.Vector3()
+const fitCache = new Map<string, number>()
+const UP = new THREE.Vector3(0, 1, 0)
+
+/**
+ * Camera distance for the pick view. Projects the outline through the real perspective (the near
+ * edge widens as the camera comes closer) and backs off until every point sits inside the slot.
+ */
+function pickDistance(aspect: number, portrait: boolean) {
+  const key = `${aspect.toFixed(3)}${portrait ? 'p' : 'l'}`
+  const hit = fitCache.get(key)
+  if (hit !== undefined) return hit
+  fitCam.aspect = aspect
+  fitCam.updateProjectionMatrix()
+  const turn = portrait ? -Math.PI / 2 : 0
+  const fits = (d: number) => {
+    fitCam.position.set(0, Math.sin(PICK_ELEVATION) * d, Math.cos(PICK_ELEVATION) * d)
+    fitCam.lookAt(0, -0.02, 0.06)
+    fitCam.updateMatrixWorld()
+    for (const p of OUTLINE) {
+      fitPt.copy(p).applyAxisAngle(UP, turn).project(fitCam)
+      if (Math.abs(fitPt.x) > PICK_FILL || Math.abs(fitPt.y) > PICK_FILL) return false
+    }
+    return true
+  }
+  let lo = 1.5
+  let hi = 40
+  for (let i = 0; i < 22; i++) {
+    const mid = (lo + hi) / 2
+    if (fits(mid)) hi = mid
+    else lo = mid
+  }
+  if (fitCache.size > 200) fitCache.clear()
+  fitCache.set(key, hi)
+  return hi
+}
 
 function fitDistance(aspect: number, w: number, h: number) {
   const v = THREE.MathUtils.degToRad(FOV) / 2
@@ -116,6 +181,7 @@ function Rig({ wrap, reduced }: RigProps) {
   const { camera, invalidate, size } = useThree()
   const tray = useRef<THREE.Group>(null)
   const shadow = useRef<THREE.Mesh>(null)
+  const floorShade = useRef(0)
   const shadowTexture = useMemo(() => buildShadowTexture('#141b2e'), [])
   useEffect(() => () => shadowTexture.dispose(), [shadowTexture])
   const colors = useMemo(() => readTokenColors(), [])
@@ -151,7 +217,7 @@ function Rig({ wrap, reduced }: RigProps) {
       invalidate()
       if (!trayStore.get().slot) {
         clearTimeout(timer)
-        timer = setTimeout(() => invalidate(), SLOT_GRACE_MS + 30)
+        timer = setTimeout(() => invalidate(), (noren.get() ? NOREN_GRACE_MS : SLOT_GRACE_MS) + 30)
       }
     })
     const offBus = stageBus.subscribe(() => invalidate())
@@ -264,7 +330,8 @@ function Rig({ wrap, reduced }: RigProps) {
     } else if (st.lastSlot && !st.slotGoneAt) {
       st.slotGoneAt = now
     }
-    const slotLive = !!store.slot || (!!st.lastSlot && now - st.slotGoneAt < SLOT_GRACE_MS)
+    const grace = noren.get() ? NOREN_GRACE_MS : SLOT_GRACE_MS
+    const slotLive = !!store.slot || (!!st.lastSlot && now - st.slotGoneAt < grace)
     const want = slotLive && store.phase !== 'away' ? 1 : 0
     const target = st.lastSlot
 
@@ -286,6 +353,7 @@ function Rig({ wrap, reduced }: RigProps) {
     moving = step(st.presence, want, PRESENCE, dt, 1e-3, reduced) || moving
     moving = step(st.pose, poseTarget(store.phase, st.pose.x), POSE, dt, 1e-4, reduced) || moving
     const p = THREE.MathUtils.clamp(st.pose.x, -0.1, 1.1)
+    floorShade.current = p
     const pres = Math.max(0, Math.min(1, st.presence.x))
 
     // Show or hide the whole canvas; nothing to draw means no frames at all.
@@ -329,11 +397,9 @@ function Rig({ wrap, reduced }: RigProps) {
 
     // Camera: frames the tray inside the slot. The projection is the slot's own view, shifted so
     // the slot lands at its place on the full-screen canvas.
-    const elevation = lerp(0.32, 0.98, p)
+    const elevation = lerp(0.32, PICK_ELEVATION, p)
     const heroDist = fitDistance(aspect, TRAY.width * 1.24, TRAY.depth * 1.5)
-    const across = portrait ? TRAY.depth : TRAY.width
-    const along = portrait ? TRAY.width : TRAY.depth
-    const pickDist = fitDistance(aspect, across * 1.16, (along * Math.sin(elevation) + 0.3) * 1.08)
+    const pickDist = pickDistance(aspect, portrait)
     const dist = lerp(heroDist, pickDist, p)
     const cam = camera as THREE.PerspectiveCamera
     cam.position.set(0, Math.sin(elevation) * dist, Math.cos(elevation) * dist)
@@ -389,6 +455,7 @@ function Rig({ wrap, reduced }: RigProps) {
           available={available}
           lit={lit}
           reduced={reduced}
+          floorShade={floorShade}
           onOver={over}
           onOut={out}
           onSelect={select}

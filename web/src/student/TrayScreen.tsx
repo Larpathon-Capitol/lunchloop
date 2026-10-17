@@ -4,10 +4,11 @@ import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import { useEffect, useRef, useState } from 'react'
 import { api, ApiError, type Component, type Tray, type TrayPicks } from '../shared/api'
 import { BrushProgress, HankoStamp, isStreakMilestone, useCelebrate } from '../celebrate'
-import { lines, pickLine, ume } from '../mascot'
+import { UmeInline, lines, pickLine, ume } from '../mascot'
 import { copy } from '../shared/copy'
 import { fmtLongDay } from '../shared/format'
 import { Skip, foodGroupIcon } from '../shared/icons'
+import { PlumSprig } from '../shared/art/PlumSprig'
 import { press } from '../shared/motion'
 import { sound } from '../shared/sound'
 import { ErrorNotice } from '../shared/ui/Notice'
@@ -54,30 +55,6 @@ export function TrayScreen() {
   )
 }
 
-/** A small plum branch beside the heading on wide screens. Decoration only. */
-function Sprig() {
-  const flowers = [
-    { x: 118, y: 18, r: 11 },
-    { x: 70, y: 40, r: 13 },
-    { x: 30, y: 22, r: 9 },
-  ]
-  return (
-    <svg className="sprig" viewBox="0 0 150 64" aria-hidden="true">
-      <path className="sprig__twig" d="M148 6C120 14 98 30 72 40S30 52 4 60M98 30c-6-10-14-15-26-17M52 46c-8-8-14-18-20-24" />
-      {flowers.map((f) => (
-        <g key={f.x} transform={`translate(${f.x} ${f.y})`}>
-          {[0, 72, 144, 216, 288].map((a) => (
-            <ellipse key={a} cx="0" cy={-f.r * 0.58} rx={f.r * 0.44} ry={f.r * 0.56} transform={`rotate(${a})`} className="sprig__petal" />
-          ))}
-          <circle r={f.r * 0.2} className="sprig__heart" />
-        </g>
-      ))}
-      <circle cx="136" cy="9" r="3.5" className="sprig__bud" />
-      <circle cx="90" cy="22" r="3" className="sprig__bud" />
-    </svg>
-  )
-}
-
 function NoMenu() {
   return (
     <section className="empty-state">
@@ -87,7 +64,7 @@ function NoMenu() {
   )
 }
 
-/** A quiet line drawing of an empty tray, for the no-menu state and the loading skeleton. */
+/** A quiet line drawing of an empty tray, for the no-menu state. */
 function EmptyTray() {
   return (
     <svg className="empty-tray" viewBox="0 0 160 100" aria-hidden="true">
@@ -113,8 +90,9 @@ function TraySkeleton() {
         <span className="skel skel--title" />
         <span className="skel skel--line" />
       </div>
+      {/* The real slot, so the 3D tray lands where it will stay once the menu arrives. */}
       <div className="pack__stage" aria-hidden="true">
-        <EmptyTray />
+        <TraySlot className="pack__slot" />
       </div>
       <div className="pack__side" aria-hidden="true">
         <ul className="chips">
@@ -202,7 +180,8 @@ function Packing({ data }: { data: Tray }) {
       const r = await api.postTray(device, sent)
       if (!alive.current) return
       const before = me
-      const gained = before ? r.xp - before.xp : 0
+      // /api/me may still be loading: then assume the standard 10 XP and reload me after.
+      const gained = before ? r.xp - before.xp : 10
       const milestone = isStreakMilestone(r.streak) && r.streak > (before?.streak ?? 0)
       setTray({ ...data, picks: sent, tally: r.tally })
       trayStore.set({ phase: 'packed', picks: sent, focus: null })
@@ -214,10 +193,10 @@ function Packing({ data }: { data: Tray }) {
         xpGained: gained,
         isMilestone: milestone,
         onStep: (step) => {
-          if (!before) return
-          if (step === 'xp') setMe({ ...before, xp: r.xp })
+          if (step === 'xp' && before) setMe({ ...before, xp: r.xp })
           if (step === 'streak') {
-            setMe({ ...before, xp: r.xp, streak: r.streak, packed_today: true })
+            if (before) setMe({ ...before, xp: r.xp, streak: r.streak, packed_today: true })
+            else void refreshMe()
             bumpHud()
           }
         },
@@ -246,7 +225,7 @@ function Packing({ data }: { data: Tray }) {
       <header className="pack__head">
         <h1 className="pack__title">{packed ? t.headingPacked : t.heading}</h1>
         <p className="pack__day">{t.forDay(fmtLongDay(data.target_date))}</p>
-        <Sprig />
+        <PlumSprig variant="corner" className="pack__plum" />
       </header>
 
       <div className="pack__stage" ref={stageRef}>
@@ -285,7 +264,11 @@ function Packing({ data }: { data: Tray }) {
               </>
             )
             return (
-              <li key={g.component} className={`chip chip--${kind}`}>
+              <li
+                key={g.component}
+                className={`chip chip--${kind}${open === g.component ? ' chip--focus' : ''}`}
+                style={{ ['--glaze' as string]: GLAZE[g.component] }}
+              >
                 {packed ? (
                   <span className="chip__body">{inner}</span>
                 ) : (
@@ -308,12 +291,15 @@ function Packing({ data }: { data: Tray }) {
           })}
         </ul>
 
-        {!packed && (
-          <div className="pack__progress">
-            <BrushProgress value={groups.length ? decided / groups.length : 0} height={16} label={t.progress} />
-            <p className="pack__count num">{t.progressText(decided, groups.length)}</p>
-          </div>
-        )}
+        {/* Ume sits in the layout here, beside the progress line, with room above it for a line. */}
+        <UmeInline size={56} className="pack__ume">
+          {!packed && (
+            <div className="pack__progress">
+              <BrushProgress value={groups.length ? decided / groups.length : 0} height={16} label={t.progress} />
+              <p className="pack__count num">{t.progressText(decided, groups.length)}</p>
+            </div>
+          )}
+        </UmeInline>
 
         {error && (
           <p className="pack__error" role="alert">

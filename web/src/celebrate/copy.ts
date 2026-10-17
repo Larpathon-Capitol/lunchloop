@@ -15,9 +15,9 @@ export const celebrateCopy = {
   /** One short line for a milestone streak. */
   milestoneLine(streak: number): string {
     if (streak === 3) return 'Three days in a row. Nice start.'
-    if (streak === 7) return 'A full week of packed trays.'
+    if (streak === 7) return 'Seven days in a row. A full week.'
     const word = NUMBER_WORDS[streak]
     if (streak === 10) return 'Ten days. The kitchen can plan around you.'
-    return word ? `${word} days of packed trays.` : `${streak} days of packed trays.`
+    return word ? `${word} days in a row.` : `${streak} days in a row.`
   },
 }

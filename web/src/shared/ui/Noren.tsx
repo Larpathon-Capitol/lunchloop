@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion'
-import { useId } from 'react'
+import { useEffect, useId, useState } from 'react'
+import { trayStore } from '../../tray/store'
 import { noren, useNoren } from './norenStore'
 
 /**
@@ -30,30 +31,75 @@ export function Cloth() {
 }
 
 const part = { type: 'spring', stiffness: 150, damping: 23, mass: 1 } as const
+/** The curtain never holds longer than this, even if the next screen is slow. */
+const HOLD_MAX_MS = 1200
+/** A beat after the new screen's tray slot appears, so its content has painted. */
+const SETTLE_MS = 60
+
+/**
+ * Resolves once the screen behind the curtain has mounted its own <TraySlot>, or after
+ * HOLD_MAX_MS. The home slot is still registered when the curtain starts, so the new slot only
+ * counts after the old one has gone away.
+ */
+function useNextSlotReady() {
+  const [ready, setReady] = useState(false)
+  useEffect(() => {
+    let sawGap = !trayStore.get().slot
+    let settle = 0
+    const finish = () => {
+      window.clearTimeout(settle)
+      settle = window.setTimeout(() => setReady(true), SETTLE_MS)
+    }
+    const check = () => {
+      const slot = trayStore.get().slot
+      if (!slot) sawGap = true
+      else if (sawGap) {
+        off()
+        finish()
+      }
+    }
+    const off = trayStore.subscribe(check)
+    const cap = window.setTimeout(() => setReady(true), HOLD_MAX_MS)
+    return () => {
+      off()
+      window.clearTimeout(cap)
+      window.clearTimeout(settle)
+    }
+  }, [])
+  return ready
+}
 
 /**
  * The curtain between the hero and the game: two cloth panels that start closed (looking exactly
- * like the hero field) and slide apart, left and right, revealing the page underneath.
+ * like the hero field), hold until the game screen has its tray slot in place, then slide apart
+ * left and right, so the tray glides onto real content.
  */
 export function NorenCurtain() {
   const run = useNoren()
   if (!run) return null
+  return <Curtain key={run} />
+}
+
+function Curtain() {
+  const ready = useNextSlotReady()
   return (
-    <div className="noren" aria-hidden="true" key={run}>
+    <div className="noren" aria-hidden="true">
       <motion.div
         className="noren__panel noren__panel--left"
         initial={{ x: '0%' }}
-        animate={{ x: '-104%' }}
-        transition={{ ...part, delay: 0.12 }}
+        animate={{ x: ready ? '-104%' : '0%' }}
+        transition={part}
       >
         <Cloth />
       </motion.div>
       <motion.div
         className="noren__panel noren__panel--right"
         initial={{ x: '0%' }}
-        animate={{ x: '104%' }}
-        transition={{ ...part, delay: 0.12 }}
-        onAnimationComplete={() => noren.done()}
+        animate={{ x: ready ? '104%' : '0%' }}
+        transition={part}
+        onAnimationComplete={() => {
+          if (ready) noren.done()
+        }}
       >
         <Cloth />
       </motion.div>

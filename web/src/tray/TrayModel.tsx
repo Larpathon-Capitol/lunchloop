@@ -120,19 +120,40 @@ interface TrayModelProps {
   /** Compartments with the full glaze rim showing (hovered, focused). */
   lit?: readonly GroupId[]
   reduced: boolean
+  /**
+   * 0 in the hero, 1 in the top-down game view. The floors dim as it rises: the game camera looks
+   * straight at the bright panel behind the tray, and dark floors keep the wells reading as deep.
+   * Mutable, read every frame, so the stage can drive it without re-rendering.
+   */
+  floorShade?: { readonly current: number }
   onOver: WellHandler
   onOut: WellHandler
   onSelect: WellHandler
 }
 
 /**
+ * Floor reflection strength in the hero and in the game view. three.js only honors a material's
+ * envMapIntensity when the material holds the env map itself, so the floor borrows the scene's.
+ */
+const FLOOR_ENV_HERO = 1
+const FLOOR_ENV_GAME = 0.4
+
+/**
  * The tray in its own local space: centered on x/z, floor of the wells at y = TRAY.floor.
  * Food goes in separately, as children of the same parent group.
  */
-export function TrayModel({ colors, picking, available, lit, reduced, onOver, onOut, onSelect }: TrayModelProps) {
+export function TrayModel({ colors, picking, available, lit, reduced, floorShade, onOver, onOut, onSelect }: TrayModelProps) {
   const geo = useMemo(() => buildTrayGeometries(), [])
   useEffect(() => () => disposeTrayGeometries(geo), [geo])
   const steel = useSteel()
+  useFrame(({ scene }) => {
+    if (steel.floor.envMap !== scene.environment) {
+      steel.floor.envMap = scene.environment
+      steel.floor.needsUpdate = true
+    }
+    const t = THREE.MathUtils.clamp(floorShade?.current ?? 0, 0, 1)
+    steel.floor.envMapIntensity = THREE.MathUtils.lerp(FLOOR_ENV_HERO, FLOOR_ENV_GAME, t)
+  })
 
   return (
     <group rotation-x={-Math.PI / 2}>

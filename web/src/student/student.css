@@ -191,13 +191,10 @@
 }
 
 /* Paper panels: raised washi, one level only. */
+/* A tab's main section. It sits straight on the washi ground: no card around it. */
 .paper {
   display: grid;
   gap: var(--s4);
-  padding: var(--s5);
-  border-radius: var(--radius);
-  background: var(--shoji);
-  box-shadow: var(--lift);
 }
 .paper__lead {
   color: var(--nezumi);
@@ -328,12 +325,21 @@
 }
 .week__dot--today {
   box-shadow: inset 0 0 0 2px var(--sumi);
+}
+.week__dot--today.week__dot--on {
+  box-shadow: 0 0 0 2px var(--washi), 0 0 0 3.5px var(--sumi);
+}
+.week__dot--waiting {
   animation: today-breathe 2.4s var(--ease) infinite;
 }
 @keyframes today-breathe {
   50% {
     transform: scale(1.1);
   }
+}
+.week__dot--future {
+  background: transparent;
+  box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--line) 70%, transparent);
 }
 .week__ink {
   display: grid;
@@ -351,6 +357,10 @@
   font-size: 11px;
   line-height: 1;
   color: var(--nezumi);
+}
+.week__name--today {
+  color: var(--sumi);
+  font-weight: 700;
 }
 
 /* ---------- Tabs ---------- */
@@ -476,21 +486,13 @@
 }
 .tabscreen__head {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: var(--s3);
+  gap: var(--s3) var(--s4);
 }
-.tabscreen__icon {
-  display: grid;
-  place-items: center;
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
-  background: var(--ai);
-  color: var(--on-ai);
-}
-.tabscreen__icon svg {
-  width: 24px;
-  height: 24px;
+/* Ume sits beside the heading when there is room for a line, else on its own row under it. */
+.tabscreen__head .ume-inline {
+  flex: 1 1 200px;
 }
 .tabscreen__title {
   font-family: var(--font-display);
@@ -514,33 +516,19 @@
 }
 .pack__head {
   position: relative;
+  isolation: isolate;
   display: grid;
   gap: var(--s1);
 }
-.sprig {
-  display: none;
+/* One painted plum branch per screen: it hangs into the top right corner of the tray header. */
+.pack__plum {
   position: absolute;
-  right: 0;
-  top: -4px;
-  width: 190px;
-}
-.sprig__twig {
-  fill: none;
-  stroke: var(--sumi);
-  stroke-width: 2.2;
-  stroke-linecap: round;
-  opacity: 0.75;
-}
-.sprig__petal {
-  fill: var(--sakura);
-  stroke: var(--ume);
-  stroke-width: 1;
-}
-.sprig__heart {
-  fill: var(--kin-light);
-}
-.sprig__bud {
-  fill: var(--ume);
+  z-index: -1;
+  top: calc(var(--s2) * -1);
+  right: calc(var(--s4) * -1);
+  width: 104px;
+  height: auto;
+  pointer-events: none;
 }
 .pack__title {
   font-family: var(--font-display);
@@ -578,14 +566,41 @@
   align-content: start;
 }
 
-/* The five group chips: a row of tiles on phones, a list beside the tray on laptops. */
+/* The five food groups as one bento strip: a single paper box divided by hairlines like tray
+   compartments. A row of cells on phones, a column beside the tray on laptops. A picked group
+   gets a short glaze mark at its foot; the open group gets a vermilion one. */
 .chips {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: var(--s2);
   margin: 0;
   padding: 0;
   list-style: none;
+  border: var(--hairline);
+  border-radius: var(--radius);
+  background: var(--shoji);
+}
+.chip {
+  position: relative;
+  display: grid;
+  min-width: 0;
+}
+.chip + .chip {
+  border-left: var(--hairline);
+}
+.chip--picked::after,
+.chip--focus::after {
+  content: '';
+  position: absolute;
+  left: 30%;
+  right: 30%;
+  bottom: 6px;
+  height: 3px;
+  border-radius: var(--radius-pill);
+  background: var(--glaze);
+  pointer-events: none;
+}
+.chip--focus::after {
+  background: var(--shu);
 }
 .chip__body {
   display: grid;
@@ -593,15 +608,32 @@
   align-content: start;
   gap: 6px;
   width: 100%;
-  min-height: 96px;
-  padding: var(--s3) 2px var(--s2);
+  min-height: 104px;
+  padding: var(--s3) 2px var(--s4);
   border: 0;
-  border-radius: var(--radius);
-  background: var(--shoji);
-  box-shadow: var(--lift);
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
   text-align: center;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
+  transition: background-color var(--t-fast) var(--ease);
+}
+.chip:first-child .chip__body {
+  border-radius: var(--radius) 0 0 var(--radius);
+}
+.chip:last-child .chip__body {
+  border-radius: 0 var(--radius) var(--radius) 0;
+}
+button.chip__body:hover {
+  background: var(--washi);
+}
+.chip__body:focus-visible {
+  position: relative;
+  z-index: 1;
+  outline: none;
+  box-shadow: var(--focus-ring);
 }
 span.chip__body {
   cursor: default;
@@ -658,11 +690,10 @@ span.chip__body {
 .chip--skel {
   display: grid;
   justify-items: center;
+  align-content: start;
   gap: var(--s2);
   min-height: 104px;
   padding-top: var(--s3);
-  border-radius: var(--radius);
-  background: var(--shoji);
 }
 
 .pack__progress {
@@ -749,18 +780,32 @@ span.chip__body {
   border-radius: 0;
   touch-action: auto;
 }
-/* The noren edge: three indigo cloth panels with narrow slits. */
+/* The noren edge: three indigo cloth panels with narrow slits, hanging from a rod, so the
+   cloth reads as whole wherever the panel's top edge sits. */
 .sheet__noren {
+  position: relative;
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 3px;
   flex: none;
-  height: 18px;
+  height: 26px;
+  margin: var(--s3) var(--s4) 0;
+  padding-top: 4px;
   background: var(--shoji);
+}
+.sheet__noren::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: calc(var(--s2) * -1);
+  right: calc(var(--s2) * -1);
+  height: 4px;
+  border-radius: var(--radius-pill);
+  background: var(--sumi);
 }
 .sheet__noren span {
   background: var(--ai);
-  border-radius: 0 0 3px 3px;
+  border-radius: 0 0 4px 4px;
 }
 .sheet__head {
   display: flex;
@@ -785,10 +830,6 @@ span.chip__body {
   font-size: var(--text-lg);
   font-weight: 800;
   line-height: 1.2;
-}
-.sheet__line {
-  color: var(--nezumi);
-  font-size: var(--text-sm);
 }
 .sheet__body {
   overflow-y: auto;
@@ -1008,14 +1049,12 @@ span.chip__body {
 .quests {
   display: grid;
   gap: var(--s3);
-  padding: var(--s5);
-  border-radius: var(--radius);
-  background: var(--shoji);
-  box-shadow: var(--lift);
   align-content: start;
 }
 .quests__list {
   display: grid;
+  border-top: var(--hairline);
+  border-bottom: var(--hairline);
   margin: 0;
   padding: 0;
   list-style: none;
@@ -1333,13 +1372,10 @@ span.chip__body {
   grid-template-columns: 1fr 1fr;
   gap: var(--s6) var(--s4);
   margin: 0;
-  padding: var(--s6) var(--s5);
+  padding: var(--s4) 0;
   list-style: none;
-  border-radius: var(--radius);
-  background: var(--shoji);
-  box-shadow: var(--lift);
-  /* Faint ruled lines, like a stamp book page. */
-  background-image: repeating-linear-gradient(to bottom, transparent 0 39px, var(--washi) 39px 40px);
+  border-top: var(--hairline);
+  border-bottom: var(--hairline);
 }
 .stamp {
   display: grid;
@@ -1504,6 +1540,24 @@ span.chip__body {
   stroke-width: 1.8;
 }
 
+/* Narrow phones: tighten the HUD so the week strip never runs off the edge. */
+@media (max-width: 419px) {
+  .hud {
+    gap: var(--s3);
+  }
+  .week {
+    gap: 4px;
+  }
+  .week__dot {
+    width: 24px;
+    height: 24px;
+  }
+  .week__blossom {
+    width: 16px;
+    height: 16px;
+  }
+}
+
 /* ---------- Laptops ---------- */
 
 @media (min-width: 960px) {
@@ -1535,8 +1589,10 @@ span.chip__body {
   .game__sim--foot {
     display: none;
   }
-  .sprig {
-    display: block;
+  .pack__plum {
+    top: calc(var(--s3) * -1);
+    right: var(--s4);
+    width: 200px;
   }
 
   .pack {
@@ -1575,6 +1631,19 @@ span.chip__body {
   .chips {
     grid-template-columns: 1fr;
   }
+  .chip + .chip {
+    border-left: 0;
+    border-top: var(--hairline);
+  }
+  .chip--picked::after,
+  .chip--focus::after {
+    left: 6px;
+    right: auto;
+    top: 30%;
+    bottom: 30%;
+    width: 3px;
+    height: auto;
+  }
   .chip__body,
   .chip--skel {
     display: flex;
@@ -1582,8 +1651,14 @@ span.chip__body {
     justify-items: start;
     gap: var(--s3);
     min-height: 64px;
-    padding: var(--s2) var(--s4);
+    padding: var(--s2) var(--s4) var(--s2) var(--s5);
     text-align: left;
+  }
+  .chip:first-child .chip__body {
+    border-radius: var(--radius) var(--radius) 0 0;
+  }
+  .chip:last-child .chip__body {
+    border-radius: 0 0 var(--radius) var(--radius);
   }
   .chip__group {
     font-size: var(--text-sm);
@@ -1597,7 +1672,7 @@ span.chip__body {
   .stampbook__page {
     grid-template-columns: 1.3fr 1fr 1fr;
     align-items: end;
-    padding: var(--s8);
+    padding: var(--s8) 0;
   }
   .stamp--0 {
     grid-column: auto;
@@ -1606,8 +1681,7 @@ span.chip__body {
 
 @media (prefers-reduced-motion: reduce) {
   .skel,
-  .week__dot--today,
-  .pack--loading .pack__stage .empty-tray {
+  .week__dot--waiting {
     animation: none;
   }
 }

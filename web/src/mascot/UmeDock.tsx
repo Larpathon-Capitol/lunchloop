@@ -1,27 +1,15 @@
-// The companion that lives in a corner of every page. Bottom right on desktop,
-// bottom left above the tab bar on mobile. Peeks from its edge while the user
-// scrolls down, and travels to elements when asked through ume.moveTo().
+// The companion in the bottom right corner of wide screens, in the gutter beside the page.
+// Peeks from its edge while the user scrolls down, and travels to elements when asked through
+// ume.moveTo(). Narrower screens get UmeInline inside the layout instead, so the dock renders
+// nothing there and never covers content.
 import { animate, motion, useMotionValue, useReducedMotion } from 'framer-motion'
-import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { useDocked } from './dock'
 import { Ume } from './Ume'
 import { useUmeState } from './store'
 
-const DESKTOP = '(min-width: 720px)'
-
-function useDesktop(): boolean {
-  return useSyncExternalStore(
-    (l) => {
-      const mq = window.matchMedia(DESKTOP)
-      mq.addEventListener('change', l)
-      return () => mq.removeEventListener('change', l)
-    },
-    () => window.matchMedia(DESKTOP).matches,
-    () => true,
-  )
-}
-
 export type UmeDockProps = {
-  /** Width in CSS pixels. Defaults to 76 on desktop and 60 on mobile. */
+  /** Width in CSS pixels. Defaults to 76. */
   size?: number
   hidden?: boolean
   onPet?: (count: number) => void
@@ -29,9 +17,9 @@ export type UmeDockProps = {
 
 export function UmeDock({ size, hidden = false, onPet }: UmeDockProps) {
   const state = useUmeState()
-  const desktop = useDesktop()
+  const docked = useDocked()
   const reduced = !!useReducedMotion()
-  const px = size ?? (desktop ? 76 : 60)
+  const px = size ?? 76
 
   const homeRef = useRef<HTMLDivElement>(null)
   const x = useMotionValue(0)
@@ -122,7 +110,7 @@ export function UmeDock({ size, hidden = false, onPet }: UmeDockProps) {
 
   const free = away && !!state.move
 
-  if (hidden) return null
+  if (hidden || !docked) return null
 
   return (
     <div className="ume-dock" data-free={free} ref={homeRef} style={{ width: px, height: px }}>
@@ -134,7 +122,7 @@ export function UmeDock({ size, hidden = false, onPet }: UmeDockProps) {
             say={state.line}
             sayKey={state.lineId}
             hopKey={state.hopId}
-            bubbleAlign={desktop ? 'end' : 'start'}
+            bubbleAlign="end"
             onPet={onPet}
           />
         </motion.div>

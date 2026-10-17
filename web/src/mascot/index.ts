@@ -1,5 +1,7 @@
 export { Ume, type UmeProps } from './Ume'
 export { UmeDock, type UmeDockProps } from './UmeDock'
+export { UmeInline, type UmeInlineProps } from './UmeInline'
+export { DOCK_QUERY, useDocked } from './dock'
 export { ume, useUmeState, usePetCount, getPetCount, registerPet, PET_MILESTONES } from './store'
 export { lines, pickLine, greetingLine, encourageLine, timeOfDay } from './lines'
 export { MOODS, type UmeMood, type FoodGroup, type Point, type RectLike } from './types'

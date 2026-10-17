@@ -77,7 +77,7 @@ export const lines = {
   ],
   trayPacked: [
     'Tray packed. See you at lunch.',
-    'All set. Tomorrow you says thanks.',
+    'All set. Future you says thanks.',
     'Packed and stamped. Nice work.',
     'That’s a tray I’d eat. If I could eat.',
     'Done. The kitchen knows what you want.',

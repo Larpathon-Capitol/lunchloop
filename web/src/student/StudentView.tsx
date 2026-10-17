@@ -163,9 +163,18 @@ function Game() {
   )
 }
 
+/**
+ * One provider per school. Moving between ?school=demo and ?school=live remounts it, so no
+ * player stats, tray, draft, catalog or vote from one school leak into the other.
+ */
 export function StudentView() {
+  const school = activeStudentSchool()
+  useEffect(() => {
+    // The 3D tray is shared with the page shell: clear the old school's picks and menu too.
+    trayStore.set({ picks: {}, available: COMPONENTS, focus: null })
+  }, [school])
   return (
-    <StudentProvider>
+    <StudentProvider key={school}>
       <Game />
     </StudentProvider>
   )

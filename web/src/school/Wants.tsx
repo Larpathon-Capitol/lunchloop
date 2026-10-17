@@ -10,7 +10,6 @@ import { SimulatedTag } from '../shared/ui/SimulatedTag'
 import { LiveCount } from './LiveCount'
 import type { SchoolSession } from './session'
 import { TrayPanel } from './TrayPanel'
-import type { TraySummary } from './trayTypes'
 import { useSummary } from './useSummary'
 
 const t = copy.school.wants
@@ -130,8 +129,7 @@ export function Wants({ session, onExpired }: { session: SchoolSession; onExpire
 
   const { data, stale } = summary
   const { vote, players, guesses } = data
-  // The tray summary arrives with the summary; shared/api.ts does not type it yet.
-  const tray = (data as AdminSummary & { tray?: TraySummary | null }).tray ?? null
+  const tray = data.tray ?? null
   const students = data.school.students
   const empty = !vote || vote.total === 0
   const ofPlayers = t.ofPlayers(fmtInt(players.total))

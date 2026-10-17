@@ -4,15 +4,36 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { driftPetals } from './celebrate'
 import { Ume } from './mascot'
+import { api } from './shared/api'
 import { copy } from './shared/copy'
+import { deviceId } from './shared/device'
 import { Tray as TrayIcon } from './shared/icons'
 import { useReducedMotion } from './shared/motion'
 import { sound } from './shared/sound'
+import { applyStudentSchool, schoolForStudentUrl } from './shared/studentSchool'
 import { Cloth } from './shared/ui/Noren'
 import { noren, useNoren } from './shared/ui/norenStore'
 import { stageBus, useTrayHovered } from './tray/stageBus'
 import { trayEvents, trayProjector, trayStore, TraySlot } from './tray/store'
 import './home.css'
+
+const loadGame = () => import('./student/StudentView')
+
+/**
+ * Warms the game the moment the student shows intent (hover, focus, press): its code, and the
+ * student's own record and tomorrow's tray, so the server has them hot when the game asks.
+ * Runs once per page load.
+ */
+let warmed = false
+function warmGame(search: string) {
+  void loadGame()
+  if (warmed) return
+  warmed = true
+  applyStudentSchool(schoolForStudentUrl(search))
+  const device = deviceId()
+  void api.me(device).catch(() => undefined)
+  void api.getTray(device).catch(() => undefined)
+}
 
 /** Headline lines rise out of their own masks, one after another. */
 const lineIn = (i: number) => ({ duration: 1, ease: [0.2, 0.72, 0.16, 1] as const, delay: 0.2 + 0.09 * i })
@@ -94,16 +115,30 @@ export function Home() {
   const hovered = useTrayHovered()
   const [leaving, setLeaving] = useState(false)
   const leavingRef = useRef(false)
+  // The handoff's pending timer and frame, so leaving home mid-transition cancels them.
+  const handoff = useRef<{ timer: number; frame: number }>({ timer: 0, frame: 0 })
 
   useEffect(() => {
     trayStore.set({ phase: 'hero', focus: null })
     // Warm the game's code now, so the route can swap in under the curtain without a wait.
-    void import('./student/StudentView')
+    void loadGame()
+    const h = handoff.current
+    return () => {
+      window.clearTimeout(h.timer)
+      cancelAnimationFrame(h.frame)
+    }
   }, [])
+
+  const warm = useCallback(() => warmGame(search), [search])
+  // Hovering or focusing the tray is intent too.
+  useEffect(() => {
+    if (hovered) warm()
+  }, [hovered, warm])
 
   const go = useCallback(() => {
     if (leavingRef.current) return
     leavingRef.current = true
+    warm()
     setLeaving(true)
     sound.tap()
     stageBus.setHovered(false)
@@ -113,12 +148,13 @@ export function Home() {
       navigate(to)
       return
     }
-    window.setTimeout(() => {
+    const h = handoff.current
+    h.timer = window.setTimeout(() => {
       // Curtain first, in its own commit; the route changes underneath it on the next frame.
       noren.part()
-      requestAnimationFrame(() => navigate(to))
+      h.frame = requestAnimationFrame(() => navigate(to))
     }, HANDOFF_MS)
-  }, [navigate, search, reduce])
+  }, [navigate, search, reduce, warm])
 
   useEffect(() => trayEvents.on((e) => e.type === 'enter' && go()), [go])
 
@@ -141,7 +177,14 @@ export function Home() {
         >
           <p className="home__lead">{copy.home.lead}</p>
           <div className="home__actions">
-            <button type="button" className="btn btn--primary home__cta" onClick={go}>
+            <button
+              type="button"
+              className="btn btn--primary home__cta"
+              onClick={go}
+              onPointerEnter={warm}
+              onPointerDown={warm}
+              onFocus={warm}
+            >
               {copy.home.studentCta}
             </button>
             <Link to="/school" className="home__staff">

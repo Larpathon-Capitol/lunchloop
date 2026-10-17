@@ -2,11 +2,11 @@
 // The API only accepts entrees (meat_alternate) on that day's menu, so those are the choices.
 import { motion, useReducedMotion } from 'framer-motion'
 import { useEffect, useRef, useState } from 'react'
-import { lines, pickLine, ume } from '../mascot'
+import { UmeInline, lines, pickLine, ume } from '../mascot'
 import { api, ApiError, type PrepItem } from '../shared/api'
 import { copy } from '../shared/copy'
 import { fmtDay } from '../shared/format'
-import { Crystal, Lock } from '../shared/icons'
+import { Lock } from '../shared/icons'
 import { press } from '../shared/motion'
 import { sound } from '../shared/sound'
 import { ErrorNotice } from '../shared/ui/Notice'
@@ -58,10 +58,8 @@ export function CallItScreen() {
 
   const header = (
     <header className="tabscreen__head">
-      <span className="tabscreen__icon">
-        <Crystal />
-      </span>
       <h1 className="tabscreen__title">{t.title}</h1>
+      <UmeInline size={48} />
     </header>
   )
 

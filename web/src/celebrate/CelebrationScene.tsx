@@ -9,7 +9,8 @@ import './celebrate.css'
 export interface SceneState {
   stamp: boolean
   xp: number | null
-  streak: { from: number; to: number } | null
+  /** The streak after this pack. Shown as the new value, so it always matches the header. */
+  streak: number | null
   milestone: number | null
 }
 
@@ -49,7 +50,7 @@ export function CelebrationScene({ x, y, size, state, onMilestoneClose }: SceneP
           )}
           <div style={{ position: 'absolute', left: 0, top: size / 2 + 12, transform: 'translateX(-50%)' }}>
             <AnimatePresence>
-              {state.streak && (
+              {state.streak !== null && (
                 <motion.span
                   key="chip"
                   className="celebrate-streak"
@@ -58,10 +59,10 @@ export function CelebrationScene({ x, y, size, state, onMilestoneClose }: SceneP
                   exit={{ opacity: 0, transition: { duration: 0.2 } }}
                   transition={{ type: 'spring', duration: 0.4, bounce: 0.35 }}
                   role="status"
-                  aria-label={celebrateCopy.streakNow(state.streak.to)}
+                  aria-label={celebrateCopy.streakNow(state.streak)}
                 >
                   <BlossomMark />
-                  <NumberRoll value={state.streak.to} from={state.streak.from} />
+                  <NumberRoll value={state.streak} />
                   <span aria-hidden="true">{celebrateCopy.streakLabel}</span>
                 </motion.span>
               )}

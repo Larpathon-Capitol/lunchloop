@@ -29,12 +29,12 @@ export function XpToast({ amount, onDone, sound: withSound = false, className }:
       animate={
         reduce
           ? { opacity: [0, 1, 1, 0] }
-          : { opacity: [0, 1, 1, 0], scale: [0.55, 1.12, 1, 1], y: [4, 0, -4, -24] }
+          : { opacity: [0, 1, 1, 0], scale: [0.55, 1.12, 1, 1], y: [4, 0, -6, -20] }
       }
       transition={
         reduce
-          ? { duration: 1.1, times: [0, 0.1, 0.8, 1] }
-          : { duration: 1.25, times: [0, 0.16, 0.5, 1], ease: ['easeOut', 'linear', [0.2, 0.72, 0.16, 1]] }
+          ? { duration: 1.4, times: [0, 0.08, 0.9, 1] }
+          : { duration: 1.6, times: [0, 0.12, 0.82, 1], ease: ['easeOut', 'linear', [0.4, 0, 0.9, 0.5]] }
       }
       onAnimationComplete={onDone}
     >

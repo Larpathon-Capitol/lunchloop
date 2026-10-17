@@ -204,6 +204,8 @@ export interface AdminSummary {
     winner: { item_id: string; name: string; votes: number }
   }[]
   past_winners: { date: string; item_id: string; name: string; vote_share: number }[]
+  /** Trays packed today for the next school day, or null when there is no tray menu. */
+  tray: TrayTally | null
   guesses: { target_date: string; total: number; items: { item_id: string; name: string; guesses: number }[] } | null
   players: { total: number; voted_today: number; voted_last_5_days: number }
   simulated: true

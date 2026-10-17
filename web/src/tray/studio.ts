@@ -27,6 +27,9 @@ const FORMERS: Former[] = [
   // Behind the tray and up high: what the top surface reflects in the pick view.
   { intensity: 1.8, color: '#ffffff', position: [0, 5, -6], scale: [11, 2.2] },
   { intensity: 4.5, color: '#ffffff', position: [0, 3.2, -6.5], scale: [14, 0.45] },
+  // A broad panel high behind the tray, about 45 to 68 degrees up: the top-down pick view looks
+  // straight at it in the rim, so the rim reads as bright polished steel on the pale page too.
+  { intensity: 1.7, color: '#ffffff', position: [0, 6.6, -4.5], scale: [14, 3.4] },
   // Long side strips give the rim and walls crisp edge highlights.
   { intensity: 3.2, color: '#ffffff', position: [-7, 1.5, 0], rotation: [0, Math.PI / 2, 0], scale: [12, 0.7] },
   { intensity: 2.2, color: '#fff1de', position: [7, 1.2, 0], rotation: [0, -Math.PI / 2, 0], scale: [12, 0.9] },
