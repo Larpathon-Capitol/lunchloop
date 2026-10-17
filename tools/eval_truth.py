@@ -29,12 +29,12 @@ from data.simulate import ENROLL, HEADER, SEED, generate  # noqa: E402
 from engine import backtest  # noqa: E402
 
 
-ITEMS_HEADER = ["item_id", "name", "component", "cost_per_serving", "allergens", "prep_floor"]
+ITEMS_HEADER = ["item_id", "name", "component", "cost_per_serving", "allergens", "prep_floor", "diet"]
 MENU_HEADER = ["date", "item_id", "day_note"]
-VOTES_HEADER = ["open_date", "target_date", "target_slot", "option_1", "option_2", "option_3"]
+VOTES_HEADER = ["open_date", "target_date", "target_slot", "option_1", "option_2", "option_3", "option_4"]
 
 # unopened or sealed items that usually go back to the cooler (an assumption, see data/sources.md)
-PACKAGED_ITEM_IDS = frozenset({"chocolate_milk", "milk_1pct", "fruit_cup", "mandarin_oranges"})
+PACKAGED_ITEM_IDS = frozenset({"chocolate_milk", "milk_1pct", "milk_fat_free", "fruit_cup", "mandarin_oranges", "apple_slices"})
 
 
 @contextmanager
@@ -217,7 +217,7 @@ def score_rows(
         })
         breakdown.append({
             "component": "packaged",
-            "label": "of which packaged items that usually go back to the cooler (milk cartons, fruit cup, mandarin oranges)",
+            "label": "of which packaged items that usually go back to the cooler (milk cartons, fruit cup, mandarin oranges, bagged apple slices)",
             "net_dollars_saved": packaged,
         })
         breakdown.append({

@@ -21,7 +21,7 @@
 }
 .b-head__sim {
   margin-top: var(--s1);
-  color: var(--slate);
+  color: var(--nezumi);
   max-width: 62ch;
 }
 .b-head .sim-tag {
@@ -31,7 +31,7 @@
 
 /* Panels: white surface on paper, no shadow */
 .b-panel {
-  background: var(--surface);
+  background: var(--shoji);
   border-radius: var(--radius);
   padding: var(--s6);
   min-width: 0;
@@ -41,7 +41,7 @@
 }
 .b-panel__lead {
   margin-top: var(--s1);
-  color: var(--slate);
+  color: var(--nezumi);
 }
 
 /* Live area. Phone: diagram, counts, then log. Desktop: log left, diagram right. */
@@ -76,7 +76,7 @@
   transition: opacity var(--t-med) var(--ease);
 }
 .b-map__edge--lit {
-  stroke: var(--ink);
+  stroke: var(--sumi);
   stroke-width: 2;
 }
 .b-map__edge--lit[data-on],
@@ -84,27 +84,27 @@
   opacity: 1;
 }
 .b-map__node {
-  fill: var(--surface);
+  fill: var(--shoji);
   stroke: var(--line);
   stroke-width: 1;
 }
 .b-map__node--lit {
   fill: none;
-  stroke: var(--ink);
+  stroke: var(--sumi);
   stroke-width: 2;
 }
 .b-map__dot {
-  fill: var(--ink);
+  fill: var(--sumi);
 }
 .b-map__label {
   font-family: var(--font-ui);
   font-size: var(--text-base);
   font-weight: 600;
-  fill: var(--ink);
+  fill: var(--sumi);
 }
 .b-map__caption {
   margin-top: var(--s3);
-  color: var(--slate);
+  color: var(--nezumi);
   min-height: calc(var(--text-base) * var(--leading) * 2);
 }
 
@@ -116,29 +116,35 @@
   font-family: var(--font-ui);
   font-size: var(--text-base);
   font-weight: 600;
-  color: var(--slate);
+  color: var(--nezumi);
 }
 .b-counts__list {
   margin: var(--s3) 0 0;
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  border-top: var(--hairline);
-}
-.b-counts__item {
   display: flex;
-  flex-direction: column-reverse;
+  flex-wrap: wrap;
+  gap: var(--s2);
+}
+/* A running tally as small inline pills ("12 votes"), not a wall of big numbers */
+.b-counts__item {
+  display: inline-flex;
+  flex-direction: row-reverse;
+  align-items: baseline;
   gap: var(--s1);
-  padding: var(--s3) 0;
-  border-bottom: var(--hairline);
+  padding: var(--s1) var(--s3);
+  border: var(--hairline);
+  border-radius: var(--radius-pill);
+  background: var(--pink-1);
 }
 .b-counts__label {
-  color: var(--slate);
+  color: var(--ink-soft);
+  font-size: var(--text-sm);
 }
 .b-counts__num {
   margin: 0;
-  font-family: var(--font-display);
-  font-size: var(--text-xl);
-  font-weight: 700;
+  font-family: var(--font-ui);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--text-sm);
+  font-weight: 800;
   line-height: var(--leading-tight);
 }
 .b-counts__num span {
@@ -161,13 +167,13 @@
   display: inline-flex;
   align-items: center;
   gap: var(--s2);
-  color: var(--slate);
+  color: var(--nezumi);
 }
 .b-status__dot {
   width: var(--s2);
   height: var(--s2);
   border-radius: 50%;
-  background: var(--slate);
+  background: var(--nezumi);
 }
 .b-status[data-status='live'] .b-status__dot {
   background: var(--ok);
@@ -183,7 +189,7 @@
   padding: var(--s6) 0;
   border-top: var(--hairline);
   border-bottom: var(--hairline);
-  color: var(--slate);
+  color: var(--nezumi);
 }
 .b-log__list {
   list-style: none;
@@ -203,11 +209,11 @@
   gap: var(--s1) var(--s3);
   padding: var(--s3) 0;
   border-bottom: var(--hairline);
-  background: var(--surface);
+  background: var(--shoji);
 }
 .b-row__time {
   grid-area: time;
-  color: var(--slate);
+  color: var(--nezumi);
   font-size: var(--text-sm);
   align-self: baseline;
 }
@@ -216,11 +222,19 @@
   font-weight: 600;
 }
 .b-row__count {
-  color: var(--slate);
+  color: var(--nezumi);
   font-weight: 400;
 }
 .b-row__kind[data-warn] {
   color: var(--warn);
+}
+/* Rows the server writes on its own sit back, so student taps stand out. */
+.b-row[data-engine] .b-row__kind {
+  font-weight: 500;
+  color: var(--ink-soft);
+}
+.b-row[data-engine] .b-row__summary {
+  color: var(--ink-soft);
 }
 .b-row__body {
   grid-area: body;
@@ -235,13 +249,13 @@
   display: flex;
   flex-wrap: wrap;
   gap: 0 var(--s4);
-  color: var(--slate);
+  color: var(--nezumi);
   font-size: var(--text-sm);
 }
 .b-row__ms {
   grid-area: ms;
   justify-self: end;
-  color: var(--slate);
+  color: var(--nezumi);
   font-size: var(--text-sm);
   align-self: baseline;
 }
@@ -254,7 +268,7 @@
 }
 .b-footnote {
   margin-top: var(--s4);
-  color: var(--slate);
+  color: var(--nezumi);
   font-size: var(--text-sm);
   max-width: 70ch;
 }
@@ -282,8 +296,8 @@
   padding: 0 var(--s3);
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  background: var(--surface);
-  color: var(--ink);
+  background: var(--shoji);
+  color: var(--sumi);
   font: inherit;
   max-width: 100%;
 }
@@ -307,10 +321,11 @@
   border-top: var(--hairline);
 }
 .b-step__n {
-  font-family: var(--font-display);
+  font-family: var(--font-ui);
+  font-variant-numeric: tabular-nums;
   font-weight: 700;
   font-size: var(--text-md);
-  color: var(--slate);
+  color: var(--nezumi);
   line-height: var(--leading-tight);
 }
 .b-step__body {
@@ -322,7 +337,7 @@
   font-size: var(--text-md);
 }
 .b-note {
-  color: var(--slate);
+  color: var(--nezumi);
   max-width: 65ch;
 }
 
@@ -339,10 +354,11 @@
   gap: var(--s3);
 }
 .b-eq__op {
-  font-family: var(--font-display);
+  font-family: var(--font-ui);
+  font-variant-numeric: tabular-nums;
   font-size: var(--text-xl);
   line-height: var(--leading-tight);
-  color: var(--slate);
+  color: var(--nezumi);
 }
 .b-eq__op:empty {
   display: none;
@@ -359,7 +375,8 @@
   text-align: left;
 }
 .b-eq__value {
-  font-family: var(--font-display);
+  font-family: var(--font-ui);
+  font-variant-numeric: tabular-nums;
   font-size: var(--text-xl);
   font-weight: 500;
   line-height: var(--leading-tight);
@@ -369,7 +386,7 @@
 }
 .b-eq__label {
   font-size: var(--text-sm);
-  color: var(--slate);
+  color: var(--nezumi);
   max-width: 18ch;
 }
 /* Phones: the math stacks like a sum on a receipt, one number per line */
@@ -424,7 +441,7 @@
 }
 .b-table thead th {
   font-size: var(--text-sm);
-  color: var(--slate);
+  color: var(--nezumi);
 }
 .b-table tfoot th,
 .b-table tfoot td {
@@ -435,7 +452,7 @@
   padding-left: var(--s3);
 }
 .b-table__op {
-  color: var(--slate);
+  color: var(--nezumi);
 }
 @media (max-width: 480px) {
   .b-table__op {
@@ -453,7 +470,7 @@
   position: absolute;
   top: var(--s1);
   bottom: var(--s1);
-  background: var(--paper);
+  background: var(--washi);
   border-radius: var(--radius);
 }
 .b-strip__axis {
@@ -468,7 +485,7 @@
   left: 50%;
   top: var(--s1);
   bottom: var(--s1);
-  border-left: 1px solid var(--slate);
+  border-left: 1px solid var(--nezumi);
 }
 .b-strip__dot {
   position: absolute;
@@ -477,11 +494,11 @@
   height: var(--s2);
   margin: calc(var(--s1) * -1) 0 0 calc(var(--s1) * -1);
   border-radius: 50%;
-  background: var(--ink);
+  background: var(--sumi);
   opacity: 0.7;
 }
 .b-misses {
-  color: var(--slate);
+  color: var(--nezumi);
   font-size: var(--text-sm);
   word-spacing: var(--s1);
   max-width: calc(var(--s16) * 8);
@@ -494,11 +511,12 @@
 }
 .b-reason__label {
   font-size: var(--text-sm);
-  color: var(--slate);
+  color: var(--nezumi);
 }
 .b-reason__text {
   margin: var(--s1) 0 0;
-  font-family: var(--font-display);
+  font-family: var(--font-ui);
+  font-variant-numeric: tabular-nums;
   font-size: var(--text-md);
 }
 .b-check {
@@ -587,16 +605,18 @@
     transition: background-color var(--t-fast) var(--ease);
   }
   .b-item:hover {
-    background: var(--paper);
+    background: var(--washi);
   }
   .b-item:focus-visible {
     border-radius: var(--radius);
   }
   .b-item[aria-pressed='true'] {
-    background: var(--paper);
+    background: var(--washi);
   }
   .b-item[aria-pressed='true'] .b-item__name {
-    color: var(--accent);
+    color: var(--ink);
+    text-decoration: underline 2px var(--pink-5);
+    text-underline-offset: 0.2em;
   }
   .b-item__name {
     grid-area: name;
@@ -605,14 +625,150 @@
   .b-item__meta {
     grid-area: meta;
     font-size: var(--text-sm);
-    color: var(--slate);
+    color: var(--nezumi);
   }
   .b-item__prep {
     grid-area: prep;
-    color: var(--slate);
+    color: var(--nezumi);
   }
   .b-eq__value,
   .b-eq__op {
     font-size: var(--text-2xl);
+  }
+}
+
+/* Panel and step titles use the UI face; the display face is kept for the page title */
+.b-panel__title,
+.b-step__title,
+.b-fc__item {
+  font-family: var(--font-ui);
+  font-weight: 700;
+}
+
+/* Back to the feed chooser */
+.b-back {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s1);
+  min-height: var(--touch);
+  margin: calc(var(--s3) * -1) 0 calc(var(--s3) * -1) calc(var(--s2) * -1);
+  padding: 0 var(--s2);
+  justify-self: start;
+  border-radius: var(--radius);
+  color: var(--ink-soft);
+  font-weight: 700;
+  text-decoration: none;
+}
+.b-back:hover {
+  color: var(--ink);
+  background: var(--pink-2);
+}
+.b-back:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.b-log__empty {
+  display: grid;
+  gap: var(--s3);
+  justify-items: start;
+}
+
+/* Chooser: two big links in a list, split by hairlines, not cards */
+.backstage--chooser {
+  max-width: 760px;
+  margin: 0 auto;
+}
+.b-picks {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-top: var(--hairline);
+}
+.b-picks > li {
+  border-bottom: var(--hairline);
+}
+.b-pick {
+  display: flex;
+  align-items: center;
+  gap: var(--s4);
+  padding: var(--s6) var(--s2);
+  margin: 0 calc(var(--s2) * -1);
+  border-radius: var(--radius);
+  color: var(--ink);
+  text-decoration: none;
+  transition: background-color var(--t-fast) var(--ease);
+}
+.b-pick:hover {
+  background: var(--surface);
+}
+.b-pick:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+.b-pick__text {
+  display: grid;
+  gap: var(--s1);
+  flex: 1;
+  min-width: 0;
+}
+.b-pick__name {
+  font-size: var(--text-lg);
+  font-weight: 800;
+}
+.b-pick__line {
+  color: var(--ink-soft);
+}
+.b-pick__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s1) var(--s2);
+  margin-top: var(--s1);
+  font-size: var(--text-sm);
+  color: var(--ink-soft);
+}
+.b-pick__meta .b-status__dot[data-status='live'] {
+  background: var(--ok);
+}
+.b-pick__meta .b-status__dot[data-status='offline'] {
+  background: var(--warn);
+}
+.b-pick__latest {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+.b-pick__latest::before {
+  content: '';
+  display: inline-block;
+  width: 3px;
+  height: 3px;
+  margin: 0 var(--s2) 0.2em 0;
+  border-radius: 50%;
+  background: currentColor;
+  vertical-align: middle;
+}
+.b-pick__go {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: var(--touch);
+  height: var(--touch);
+  border-radius: 50%;
+  background: var(--pink-2);
+  transition: transform var(--t-fast) var(--ease);
+}
+.b-pick__go svg {
+  transform: scaleX(-1);
+}
+.b-pick:hover .b-pick__go {
+  transform: translateX(3px);
+}
+@media (prefers-reduced-motion: reduce) {
+  .b-pick:hover .b-pick__go {
+    transform: none;
   }
 }

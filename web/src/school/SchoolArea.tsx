@@ -6,7 +6,9 @@ import { useReducedMotion } from '../shared/motion'
 import { Loading } from '../shared/ui/Notice'
 import { SignIn } from './SignIn'
 import { Wants } from './Wants'
-import { LIVE_SCHOOL } from '../shared/studentSchool'
+import { DEMO_SCHOOL, LIVE_SCHOOL } from '../shared/studentSchool'
+import { useDemoDate } from '../shared/demo'
+import { DemoBar } from '../shared/ui/DemoBar'
 import { clearSession, loadAnySession, loadSession, saveSession } from './session'
 import type { SchoolSession } from './session'
 import './school.css'
@@ -46,6 +48,7 @@ export function SchoolArea({ lockedSchool, base = '/school' }: { lockedSchool?: 
     lockedSchool ? loadSession(lockedSchool) : loadAnySession([LIVE_SCHOOL]),
   )
   const [expired, setExpired] = useState(false)
+  const demoDate = useDemoDate()
 
   const signedIn = useCallback((s: SchoolSession) => {
     saveSession(s)
@@ -65,6 +68,9 @@ export function SchoolArea({ lockedSchool, base = '/school' }: { lockedSchool?: 
 
   if (!session) return <SignIn onSignedIn={signedIn} expired={expired} lockedSchool={lockedSchool} />
 
+  // Presenter controls only for the simulated demo school, never on the live panel.
+  const demo = !lockedSchool && session.school.school_id === DEMO_SCHOOL
+
   return (
     <div className="s-panel">
       <div className="s-bar">
@@ -82,7 +88,9 @@ export function SchoolArea({ lockedSchool, base = '/school' }: { lockedSchool?: 
           <SubLink to={`${base}/kitchen`} label={t.navKitchen} reduce={reduce} />
         </nav>
       )}
-      <Routes>
+      {demo && <DemoBar school={DEMO_SCHOOL} className="s-demo" />}
+      {/* A new simulated day remounts the section, so it loads that day's numbers. */}
+      <Routes key={demo ? (demoDate ?? 'today') : 'fixed'}>
         <Route index element={<Wants session={session} onExpired={ranOut} />} />
         {!lockedSchool && (
           <Route

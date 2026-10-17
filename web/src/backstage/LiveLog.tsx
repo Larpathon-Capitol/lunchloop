@@ -1,6 +1,7 @@
 import { AnimatePresence, motion } from 'framer-motion'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ServerEvent } from '../shared/api'
+import type { ReactNode } from 'react'
 import { backstage as t } from '../shared/copy/backstage'
 import { fmtInt } from '../shared/format'
 import { useReducedMotion } from '../shared/motion'
@@ -29,21 +30,38 @@ interface Group {
 }
 
 const LOOK_BACK_GROUPS = 4
+/** Rows the server writes on its own (forecasts, the meter, the simulator), not student taps. */
+const ENGINE_KINDS = new Set<ServerEvent['kind']>(['prep', 'savings', 'simulate', 'meter'])
+const isEngine = (e: ServerEvent) => ENGINE_KINDS.has(e.kind)
 const sameKind = (a: ServerEvent, b: ServerEvent) =>
   a.kind === b.kind && a.school_id === b.school_id && a.player === b.player && a.summary === b.summary
 
 /**
- * Rows arrive newest first. Rows of the same kind, school, player and summary that landed within a
- * few seconds of each other become one row with a count. A page load logs prep and meter rows
- * interleaved, so a row may join one of the last few groups, not only the one just above it.
+ * Rows arrive newest first. Two kinds of grouping keep student taps easy to find:
+ * - Engine rows of one kind and school with no student tap between them become one row with a
+ *   count, however far apart they landed ("Prep list x4"). The row shows the newest summary.
+ * - Other rows of the same kind, school, player and summary that landed within a few seconds of
+ *   each other become one row. A page load logs prep and meter rows interleaved, so a row may
+ *   join one of the last few groups, not only the one just above it.
  */
 function groupRows(rows: ServerEvent[]): Group[] {
   const groups: Group[] = []
   for (const e of rows) {
     const at = Date.parse(e.at)
-    const home = groups
-      .slice(-LOOK_BACK_GROUPS)
-      .find((g) => sameKind(g.newest, e) && g.oldestAt - at <= MERGE_WINDOW_MS)
+    const recent = groups.slice(-LOOK_BACK_GROUPS)
+    let home: Group | undefined
+    if (isEngine(e)) {
+      // Walk back through the run of engine groups just above; a student row ends the run.
+      for (let i = recent.length - 1; i >= 0 && isEngine(recent[i].newest); i--) {
+        const g = recent[i]
+        if (g.newest.kind === e.kind && g.newest.school_id === e.school_id) {
+          home = g
+          break
+        }
+      }
+    } else {
+      home = recent.find((g) => sameKind(g.newest, e) && g.oldestAt - at <= MERGE_WINDOW_MS)
+    }
     if (home) {
       home.key = e.id
       home.oldestAt = at
@@ -110,10 +128,16 @@ export function LiveLog({
   rows,
   status,
   fresh,
+  empty,
+  heading = t.log.heading,
 }: {
   rows: ServerEvent[]
   status: FeedStatus
   fresh: { seq: number; events: ServerEvent[] }
+  /** What to show before anything has happened. Defaults to the general hint. */
+  empty?: ReactNode
+  /** The log's title. Defaults to the live wording; the simulated page passes its own. */
+  heading?: string
 }) {
   const reduce = useReducedMotion()
   const line = useAnnouncer(fresh)
@@ -125,7 +149,7 @@ export function LiveLog({
     <section className="b-panel b-log" aria-labelledby="b-log-h">
       <div className="b-log__head">
         <h2 id="b-log-h" className="b-panel__title">
-          {t.log.heading}
+          {heading}
         </h2>
         <p className="b-status" data-status={status}>
           <span className="b-status__dot" aria-hidden="true" />
@@ -137,7 +161,7 @@ export function LiveLog({
       </p>
 
       {rows.length === 0 && status !== 'connecting' ? (
-        <p className="b-log__empty">{t.log.empty}</p>
+        <div className="b-log__empty">{empty ?? t.log.empty}</div>
       ) : (
         <ol className="b-log__list" aria-label={t.log.listLabel}>
           <AnimatePresence initial={false}>
@@ -145,6 +169,7 @@ export function LiveLog({
               <motion.li
                 key={g.key}
                 className="b-row"
+                data-engine={isEngine(g.newest) || undefined}
                 layout={reduce ? false : 'position'}
                 initial={reduce ? { opacity: 0 } : { opacity: 0, y: -12 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -167,6 +192,7 @@ export function CountsStrip({ counts }: { counts: Counts }) {
   const items: [number, (n: number) => string][] = [
     [counts.votes, t.counts.votes],
     [counts.guesses, t.counts.guesses],
+    [counts.trays, t.counts.trays],
     [counts.signIns, t.counts.signIns],
     [counts.forecasts, t.counts.forecasts],
   ]

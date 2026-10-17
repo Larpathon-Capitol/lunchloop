@@ -96,7 +96,7 @@ def test_spin_uses_csv_options_and_allergens(client):
     assert response.status_code == 200
     body = response.json()
     assert set(body) == {
-        "date", "target_date", "target_slot", "options", "already_voted", "simulated"
+        "date", "target_date", "target_slot", "options", "pool", "already_voted", "simulated"
     }
     assert_success(body)
     expected = option_row("2026-10-19")
@@ -106,10 +106,16 @@ def test_spin_uses_csv_options_and_allergens(client):
     assert body["target_slot"] == expected["target_slot"]
     assert [o["item_id"] for o in body["options"]] == [expected[f"option_{i}"] for i in range(1, 4)]
     for option in body["options"]:
-        assert set(option) == {"item_id", "name", "allergens"}
+        assert set(option) == {"item_id", "name", "allergens", "diet", "gluten_free", "dairy_free"}
         raw = items[option["item_id"]]["allergens"]
         assert option["name"] == items[option["item_id"]]["name"]
         assert option["allergens"] == [x for x in raw.split(";") if x]
+        assert option["diet"] == [x for x in items[option["item_id"]]["diet"].split(";") if x]
+        assert option["gluten_free"] is ("wheat" not in option["allergens"])
+        assert option["dairy_free"] is ("milk" not in option["allergens"])
+    entrees = sorted(item_id for item_id, row in items.items() if row["component"] == "meat_alternate")
+    assert [p["item_id"] for p in body["pool"]] == entrees
+    assert all(set(p) == {"item_id", "name", "diet", "gluten_free", "dairy_free"} for p in body["pool"])
     assert body["already_voted"] is False
     assert vote(client, "device-01", expected["option_1"]).status_code == 200
     after_vote = client.get("/api/spin?device=device-01")
@@ -231,14 +237,16 @@ def test_guess_scoring_xp_badge_and_clock_rewind(client):
     assert_success(before_response.json())
     before = before_response.json()
     assert before["last_guess"]["correct"] is None and before["xp"] == 0
+    assert before["correct_calls"] == 0
     scored_response = client.get(f"/api/me?device={device}", headers=demo_headers("2026-10-21"))
     assert_success(scored_response.json())
     scored = scored_response.json()
     assert set(scored) == {
-        "device", "streak", "xp", "badges", "last_guess", "simulated"
+        "device", "streak", "xp", "badges", "last_guess", "voted_today", "packed_today", "correct_calls", "today_lunch", "free_today", "simulated"
     }
     assert set(scored["last_guess"]) == {"target_date", "item_id", "correct"}
     assert scored["last_guess"]["correct"] is True and scored["xp"] == 25
+    assert scored["correct_calls"] == 1
     assert (
         client.get(
             f"/api/me?device={device}", headers=demo_headers("2026-10-21")
@@ -251,6 +259,7 @@ def test_guess_scoring_xp_badge_and_clock_rewind(client):
     assert client.post("/api/guess", json={"device": wrong, "item_id": loser}).status_code == 200
     wrong_result = client.get(f"/api/me?device={wrong}", headers=demo_headers("2026-10-21")).json()
     assert wrong_result["last_guess"]["correct"] is False and wrong_result["xp"] == 0
+    assert wrong_result["correct_calls"] == 0
 
 
 def test_called_it_badge_after_five_csv_winners(client):
@@ -268,6 +277,9 @@ def test_called_it_badge_after_five_csv_winners(client):
     result = client.get(f"/api/me?device={device}", headers=demo_headers("2026-10-27"))
     assert result.status_code == 200
     assert "called_it_5" in result.json()["badges"]
+    assert result.json()["correct_calls"] == 5
+    early = client.get(f"/api/me?device={device}", headers=demo_headers("2026-10-22")).json()
+    assert early["correct_calls"] == 2
 
 
 def test_unknown_route_and_method_are_error_objects(client):

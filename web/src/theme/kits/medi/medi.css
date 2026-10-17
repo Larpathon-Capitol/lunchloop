@@ -1,0 +1,286 @@
+/* Courtyard world art. Colors come from the shared tokens; the fallbacks keep the art
+   drawn while tokens are still loading. Every piece's root carries .mk. */
+
+.mk {
+  --m-p1: var(--pink-1, #ffe5ec);
+  --m-p2: var(--pink-2, #ffc2d1);
+  --m-p3: var(--pink-3, #ffb3c6);
+  --m-p4: var(--pink-4, #ff8fab);
+  --m-p5: var(--pink-5, #fb6f92);
+  --m-sf: var(--surface, #fff4f7);
+  --m-ink: var(--ink, #3a1626);
+  --m-leaf: var(--leaf, #5fb77a);
+  --m-leafd: var(--leaf-deep, #1f5a3a);
+  --m-tq: var(--accent-1, #0a6c70);
+  --m-au: var(--accent-2, #6b2145);
+  --m-field: var(--field, #6b2145);
+  --m-gold: #e9b44c;
+  --m-display: var(--font-display, 'Rakkas', 'El Messiri', Georgia, serif);
+}
+
+.mk .f-p1 { fill: var(--m-p1); }
+.mk .f-p2 { fill: var(--m-p2); }
+.mk .f-p3 { fill: var(--m-p3); }
+.mk .f-p4 { fill: var(--m-p4); }
+.mk .f-p5 { fill: var(--m-p5); }
+.mk .f-sf { fill: var(--m-sf); }
+.mk .f-ink { fill: var(--m-ink); }
+.mk .f-leaf { fill: var(--m-leaf); }
+.mk .f-leafd { fill: var(--m-leafd); }
+.mk .f-tq { fill: var(--m-tq); }
+.mk .f-au { fill: var(--m-au); }
+.mk .f-gold { fill: var(--m-gold); }
+.mk .f-none { fill: none; }
+.mk .s-p1 { stroke: var(--m-p1); }
+.mk .s-p2 { stroke: var(--m-p2); }
+.mk .s-p3 { stroke: var(--m-p3); }
+.mk .s-p4 { stroke: var(--m-p4); }
+.mk .s-ink { stroke: var(--m-ink); }
+.mk .s-tq { stroke: var(--m-tq); }
+.mk .s-au { stroke: var(--m-au); }
+.mk .s-gold { stroke: var(--m-gold); }
+.mk .s-leafd { stroke: var(--m-leafd); }
+.mk .s-sf { stroke: var(--m-sf); }
+
+/* Loops pause when the tab is hidden; the hook adds .mk-paused to the root. */
+.mk-paused,
+.mk-paused * {
+  animation-play-state: paused !important;
+}
+
+/* ---------- Hero backdrop ---------- */
+
+.mk-hero {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  background: var(--m-p1);
+}
+
+.mk-layer {
+  position: absolute;
+  inset: -48px;
+  will-change: transform;
+}
+
+.mk-layer > svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+/* A soft band of evening light crossing the far tile wall, corner to corner. */
+.mk-sweep {
+  position: absolute;
+  inset: -20%;
+  background: linear-gradient(
+    115deg,
+    transparent 38%,
+    rgb(255 244 247 / 0) 40%,
+    rgb(255 244 247 / 0.55) 50%,
+    rgb(255 244 247 / 0) 60%,
+    transparent 62%
+  );
+  animation: mk-sweep 14s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+}
+
+@keyframes mk-sweep {
+  0% { transform: translate3d(-55%, -30%, 0); }
+  70%, 100% { transform: translate3d(55%, 30%, 0); }
+}
+
+/* Lamp glow that follows the pointer across the lattice. */
+.mk-glow {
+  position: absolute;
+  left: 50%;
+  top: 42%;
+  width: 70vmin;
+  height: 70vmin;
+  margin: -35vmin 0 0 -35vmin;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgb(255 244 247 / 0.7), rgb(255 244 247 / 0));
+}
+
+.mk-spin {
+  transform-box: fill-box;
+  transform-origin: 50% 50%;
+  animation: mk-spin 60s linear infinite;
+}
+
+@keyframes mk-spin {
+  to { transform: rotate(360deg); }
+}
+
+.mk-pennant {
+  transform-box: fill-box;
+  transform-origin: 50% 0;
+  animation: mk-wave 3.4s ease-in-out infinite alternate;
+}
+
+@keyframes mk-wave {
+  0% { transform: rotate(-5deg) skewY(-2deg); }
+  100% { transform: rotate(5deg) skewY(2deg); }
+}
+
+.mk-sway {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+  animation: mk-sway 5.2s ease-in-out infinite alternate;
+}
+
+@keyframes mk-sway {
+  0% { transform: rotate(-2.5deg); }
+  100% { transform: rotate(2.5deg); }
+}
+
+.mk-bob {
+  animation: mk-bob 4.6s ease-in-out infinite alternate;
+}
+
+@keyframes mk-bob {
+  0% { transform: translateY(0); }
+  100% { transform: translateY(-6px); }
+}
+
+/* ---------- Header band ---------- */
+
+.mk-band {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.mk-band-lattice {
+  position: absolute;
+  inset: 0;
+  opacity: 0.16;
+  mask-image: linear-gradient(90deg, transparent 52%, #000 88%);
+}
+
+.mk-band-hem {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  height: 12px;
+  display: block;
+}
+
+.mk-band-top {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 3px;
+  height: 2px;
+  background-image: radial-gradient(circle, var(--m-gold) 1px, transparent 1.4px);
+  background-size: 9px 2px;
+  opacity: 0.6;
+}
+
+/* ---------- Corner ---------- */
+
+:where(.mk-corner) {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  width: 128px;
+  height: 128px;
+  pointer-events: none;
+}
+
+.mk-corner svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+/* ---------- Milestone ---------- */
+
+:where(.mk-milestone) {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+}
+
+.mk-milestone svg {
+  width: min(100%, 420px);
+  height: 100%;
+  max-height: 420px;
+  overflow: visible;
+}
+
+/* ---------- Seal ---------- */
+
+.mk-seal {
+  position: relative;
+  display: inline-block;
+  flex: none;
+}
+
+.mk-seal svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.mk-seal-label {
+  font-family: var(--m-display);
+  font-synthesis: none;
+}
+
+/* ---------- Curtain ---------- */
+
+.mk-curtain {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  pointer-events: none;
+  perspective: 1400px;
+  overflow: hidden;
+}
+
+.mk-door {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 50.5%;
+  background-color: var(--m-p2);
+  backface-visibility: hidden;
+  will-change: transform;
+}
+
+.mk-door svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.mk-door-l {
+  left: 0;
+  transform-origin: 0 50%;
+}
+
+.mk-door-r {
+  right: 0;
+  transform-origin: 100% 50%;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mk-sweep,
+  .mk-spin,
+  .mk-pennant,
+  .mk-sway,
+  .mk-bob {
+    animation: none;
+  }
+}

@@ -43,6 +43,22 @@ export const school = {
     copyFailed: 'Couldn’t copy. Select this link instead:',
     linkLabel: 'Student link',
 
+    tray: {
+      heading: 'Tomorrow’s trays',
+      sub: (day: string) => `What students packed for ${day}.`,
+      packed: (n: number) => (n === 1 ? 'tray packed' : 'trays packed'),
+      picked: (n: number) => `${n} picked`,
+      skipped: (n: number) => `${n} skipped`,
+      empty: 'No trays packed yet today. Share the student link to get the first ones.',
+      groups: {
+        meat_alternate: 'Main dish',
+        grain: 'Grain',
+        vegetable: 'Vegetable',
+        fruit: 'Fruit',
+        milk: 'Milk',
+      },
+    },
+
     peopleHeading: 'Participation',
     votedToday: 'Voted today',
     votedLast5: 'Voted in the last 5 school days',

@@ -12,14 +12,14 @@
   font-size: var(--text-xl);
 }
 .s-signin__lead {
-  color: var(--slate);
+  color: var(--nezumi);
   margin-top: calc(var(--s2) * -1);
 }
 .s-signin__expired {
   padding: var(--s3) 0;
   border-top: var(--hairline);
   border-bottom: var(--hairline);
-  color: var(--ink);
+  color: var(--sumi);
 }
 .s-form {
   display: grid;
@@ -50,9 +50,9 @@
   width: 100%;
   min-height: var(--touch);
   padding: 0 var(--s3);
-  background: var(--surface);
-  color: var(--ink);
-  border: 1px solid var(--slate);
+  background: var(--shoji);
+  color: var(--sumi);
+  border: 1px solid var(--nezumi);
   border-radius: var(--radius);
   font: inherit;
 }
@@ -69,7 +69,7 @@
   border-top: var(--hairline);
 }
 .s-demo__note {
-  color: var(--slate);
+  color: var(--nezumi);
   font-size: var(--text-sm);
 }
 
@@ -85,7 +85,8 @@
   gap: var(--s4);
 }
 .s-bar__school {
-  font-family: var(--font-display);
+  font-family: var(--font-ui);
+  font-variant-numeric: tabular-nums;
   font-weight: 700;
   font-size: var(--text-md);
   min-width: 0;
@@ -106,14 +107,14 @@
   align-items: center;
   min-height: var(--touch);
   padding: 0 var(--s2);
-  color: var(--slate);
+  color: var(--nezumi);
   text-decoration: none;
   font-weight: 500;
   transition: color var(--t-fast) var(--ease);
 }
 .s-tabs__link:hover,
 .s-tabs__link[aria-current='page'] {
-  color: var(--ink);
+  color: var(--sumi);
 }
 .s-tabs__underline {
   position: absolute;
@@ -122,7 +123,7 @@
   bottom: -1px;
   height: 2px;
   border-radius: 1px;
-  background: var(--accent-mark);
+  background: var(--shu);
 }
 
 /* What students want */
@@ -142,7 +143,7 @@
 }
 .s-head__sub {
   margin-top: var(--s1);
-  color: var(--slate);
+  color: var(--nezumi);
 }
 .s-head .sim-tag {
   margin-left: auto;
@@ -171,17 +172,17 @@
   font-size: var(--text-lg);
 }
 .s-sec-sub {
-  color: var(--slate);
+  color: var(--nezumi);
   margin-top: var(--s1);
 }
 .s-hint {
-  color: var(--slate);
+  color: var(--nezumi);
   font-size: var(--text-sm);
   margin-top: var(--s3);
   min-height: calc(var(--text-sm) * var(--leading) * 2);
 }
 .s-hint--empty {
-  color: var(--ink);
+  color: var(--sumi);
   font-size: var(--text-base);
 }
 .s-copy {
@@ -193,7 +194,7 @@
   min-width: 11.5em;
 }
 .s-copy__note {
-  color: var(--slate);
+  color: var(--nezumi);
   font-size: var(--text-sm);
 }
 
@@ -225,7 +226,8 @@
   gap: var(--s3);
 }
 .s-row__big {
-  font-family: var(--font-display);
+  font-family: var(--font-ui);
+  font-variant-numeric: tabular-nums;
   font-weight: 700;
   font-size: var(--text-lg);
   line-height: var(--leading-tight);
@@ -233,7 +235,7 @@
   text-align: right;
 }
 .s-row__sub {
-  color: var(--slate);
+  color: var(--nezumi);
   font-size: var(--text-sm);
   min-width: 7ch;
   text-align: right;
@@ -247,11 +249,11 @@
 .s-meter__fill {
   height: 100%;
   width: 100%;
-  background: var(--slate);
+  background: var(--nezumi);
   transform-origin: left center;
 }
 .s-meter__fill--lead {
-  background: var(--ink);
+  background: var(--sumi);
 }
 
 /* Participation */
@@ -268,7 +270,7 @@
   border-top: var(--hairline);
 }
 .s-stat__label {
-  color: var(--ink);
+  color: var(--sumi);
 }
 .s-stat__value {
   margin: 0;
@@ -278,12 +280,13 @@
   justify-content: flex-end;
 }
 .s-stat__big {
-  font-family: var(--font-display);
+  font-family: var(--font-ui);
+  font-variant-numeric: tabular-nums;
   font-weight: 700;
   font-size: var(--text-lg);
 }
 .s-stat__of {
-  color: var(--slate);
+  color: var(--nezumi);
   font-size: var(--text-sm);
 }
 
@@ -309,16 +312,16 @@
   overflow-wrap: anywhere;
 }
 .s-line__note {
-  color: var(--slate);
+  color: var(--nezumi);
   font-size: var(--text-sm);
 }
 .s-line__val {
-  color: var(--slate);
+  color: var(--nezumi);
   font-size: var(--text-sm);
   text-align: right;
 }
 .s-empty {
-  color: var(--slate);
+  color: var(--nezumi);
   margin-top: var(--s3);
 }
 
@@ -351,6 +354,140 @@
 
 /* Live demo note under the school name */
 .s-bar__note {
-  color: var(--slate);
+  color: var(--nezumi);
   font-size: var(--text-sm);
+}
+
+/* Tomorrow's trays: one raised sheet, rows inside, a glaze color per food group */
+.s-tray {
+  background: var(--shoji);
+  border: var(--hairline);
+  border-radius: var(--radius);
+  padding: var(--s5) var(--s4);
+  display: grid;
+  gap: var(--s5);
+}
+.s-tray__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--s3) var(--s4);
+}
+.s-tray__total {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s2);
+}
+.s-tray__big {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: var(--text-2xl);
+  line-height: var(--leading-tight);
+  font-variant-numeric: tabular-nums;
+}
+.s-tray__unit {
+  color: var(--nezumi);
+}
+.s-tray__empty {
+  min-height: 0;
+  margin: 0;
+}
+.s-tray__groups {
+  display: grid;
+  gap: var(--s6) var(--s10);
+  grid-template-columns: minmax(0, 1fr);
+}
+.s-tg {
+  --glaze: var(--nezumi);
+  min-width: 0;
+}
+.s-tg[data-group='meat_alternate'] { --glaze: var(--g-entree); }
+.s-tg[data-group='grain'] { --glaze: var(--g-grain); }
+.s-tg[data-group='vegetable'] { --glaze: var(--g-vegetable); }
+.s-tg[data-group='fruit'] { --glaze: var(--g-fruit); }
+.s-tg[data-group='milk'] { --glaze: var(--g-milk); }
+.s-tg__head {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  padding-bottom: var(--s2);
+  border-bottom: 2px solid var(--glaze);
+}
+.s-tg__icon {
+  flex: none;
+  color: var(--glaze);
+}
+.s-tg__name {
+  font-family: var(--font-ui);
+  font-weight: 700;
+  font-size: var(--text-base);
+}
+.s-tg__skips {
+  margin-left: auto;
+  color: var(--nezumi);
+  font-size: var(--text-sm);
+}
+.s-tg__rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.s-tr {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 4ch 8ch;
+  column-gap: var(--s3);
+  align-items: baseline;
+  padding: var(--s3) 0 var(--s3);
+}
+.s-tr + .s-tr {
+  border-top: var(--hairline);
+}
+.s-tr__name {
+  overflow-wrap: anywhere;
+}
+.s-tr[data-lead] .s-tr__name {
+  font-weight: 700;
+}
+.s-tr__pct {
+  text-align: right;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.s-tr__picks {
+  text-align: right;
+  color: var(--nezumi);
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+}
+.s-tr__bar {
+  grid-column: 1 / -1;
+  margin-top: var(--s2);
+  height: var(--s2);
+  background: var(--line);
+  border-radius: var(--radius-pill);
+  overflow: hidden;
+}
+.s-tr__fill {
+  display: block;
+  height: 100%;
+  background: var(--glaze);
+  border-radius: var(--radius-pill);
+  transform-origin: left center;
+}
+
+@media (min-width: 900px) {
+  .s-tray {
+    padding: var(--s6);
+  }
+  .s-tray__groups {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+  }
+}
+
+/* Section titles use the UI face; the display face is kept for the page title */
+.s-sec-title {
+  font-family: var(--font-ui);
+  font-weight: 700;
 }

@@ -30,13 +30,26 @@ def init_db(path, data_dir):
                 school_id TEXT NOT NULL DEFAULT 'demo', device TEXT, streak INTEGER, xp INTEGER,
                 last_vote_date TEXT, PRIMARY KEY(school_id, device)
             );
+            CREATE TABLE IF NOT EXISTS trays(
+                school_id TEXT NOT NULL DEFAULT 'demo', device TEXT, date TEXT,
+                target_date TEXT, component TEXT, item_id TEXT,
+                PRIMARY KEY(school_id, device, date, component)
+            );
+            CREATE TABLE IF NOT EXISTS served(
+                school_id TEXT NOT NULL DEFAULT 'demo', device TEXT, date TEXT, got INTEGER NOT NULL,
+                PRIMARY KEY(school_id, device, date)
+            );
+            CREATE TABLE IF NOT EXISTS freebies(
+                school_id TEXT NOT NULL DEFAULT 'demo', date TEXT, item_id TEXT, created_at TEXT NOT NULL,
+                PRIMARY KEY(school_id, date, item_id)
+            );
             DROP TABLE IF EXISTS items;
             DROP TABLE IF EXISTS meals;
             DROP TABLE IF EXISTS menu;
             DROP TABLE IF EXISTS vote_options;
             CREATE TABLE items(
                 item_id TEXT PRIMARY KEY, name TEXT, component TEXT,
-                cost_per_serving REAL, allergens TEXT, prep_floor INTEGER
+                cost_per_serving REAL, allergens TEXT, prep_floor INTEGER, diet TEXT
             );
             CREATE TABLE meals(
                 date TEXT, item_id TEXT, component TEXT, attendance INTEGER,
@@ -47,7 +60,7 @@ def init_db(path, data_dir):
             CREATE TABLE menu(date TEXT, item_id TEXT, day_note TEXT);
             CREATE TABLE vote_options(
                 open_date TEXT PRIMARY KEY, target_date TEXT, target_slot TEXT,
-                option_1 TEXT, option_2 TEXT, option_3 TEXT
+                option_1 TEXT, option_2 TEXT, option_3 TEXT, option_4 TEXT
             );
             """
         )

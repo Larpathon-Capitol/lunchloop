@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { animate, motion, useMotionValue, useTransform } from 'framer-motion'
+import { motion } from 'framer-motion'
 import type { AdminSummary } from '../shared/api'
 import { copy } from '../shared/copy'
 import { fmtDay, fmtInt } from '../shared/format'
@@ -7,7 +7,10 @@ import { useReducedMotion } from '../shared/motion'
 import { DEMO_SCHOOL, LIVE_SCHOOL } from '../shared/studentSchool'
 import { ErrorNotice, Loading } from '../shared/ui/Notice'
 import { SimulatedTag } from '../shared/ui/SimulatedTag'
+import { LiveCount } from './LiveCount'
 import type { SchoolSession } from './session'
+import { ServicePanel } from './ServicePanel'
+import { TrayPanel } from './TrayPanel'
 import { useSummary } from './useSummary'
 
 const t = copy.school.wants
@@ -15,27 +18,6 @@ const t = copy.school.wants
 const barSpring = { type: 'spring', stiffness: 170, damping: 24, mass: 0.9 } as const
 const rowSpring = { type: 'spring', stiffness: 380, damping: 36 } as const
 const shortDay = { weekday: 'short', month: 'short', day: 'numeric' } as const
-
-/** A number that glides to its new value when a poll changes it. */
-function LiveCount({ value, format = fmtInt }: { value: number; format?: (n: number) => string }) {
-  const reduce = !!useReducedMotion()
-  const mv = useMotionValue(reduce ? value : 0)
-  const text = useTransform(mv, (v) => format(v))
-  useEffect(() => {
-    if (reduce) {
-      mv.set(value)
-      return
-    }
-    const controls = animate(mv, value, { duration: 0.3, ease: [0.2, 0, 0, 1] })
-    return () => controls.stop()
-  }, [value, reduce, mv])
-  return (
-    <span className="num">
-      <span className="visually-hidden">{format(value)}</span>
-      <motion.span aria-hidden="true">{text}</motion.span>
-    </span>
-  )
-}
 
 function studentLink(schoolId: string) {
   const base = `${window.location.origin}${import.meta.env.BASE_URL}`
@@ -141,13 +123,14 @@ function Stat({ value, label, of }: { value: number; label: string; of: string |
 
 export function Wants({ session, onExpired }: { session: SchoolSession; onExpired: () => void }) {
   const reduce = !!useReducedMotion()
-  const [summary, retry] = useSummary(session.token, onExpired)
+  const [summary, retry, refresh] = useSummary(session.token, onExpired)
 
   if (summary.state === 'loading') return <Loading label={t.loading} />
   if (summary.state === 'error') return <ErrorNotice error={summary.error} onRetry={retry} />
 
   const { data, stale } = summary
   const { vote, players, guesses } = data
+  const tray = data.tray ?? null
   const students = data.school.students
   const empty = !vote || vote.total === 0
   const ofPlayers = t.ofPlayers(fmtInt(players.total))
@@ -163,6 +146,16 @@ export function Wants({ session, onExpired }: { session: SchoolSession; onExpire
         </div>
         <SimulatedTag live={session.school.school_id === LIVE_SCHOOL} />
       </header>
+
+      <ServicePanel
+        service={data.service ?? null}
+        freeList={data.free ?? []}
+        token={session.token}
+        onChanged={refresh}
+        onExpired={onExpired}
+      />
+
+      <TrayPanel tray={tray} reduce={reduce} />
 
       <div className="s-grid">
         <section className="s-vote" aria-labelledby="s-vote-h">

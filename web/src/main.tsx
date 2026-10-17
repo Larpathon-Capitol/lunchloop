@@ -13,6 +13,8 @@ const StudentView = lazy(() => import('./student/StudentView').then((m) => ({ de
 
 const Hub = lazy(() => import('./hub/Hub').then((m) => ({ default: m.Hub })))
 const Backstage = lazy(() => import('./backstage/Backstage').then((m) => ({ default: m.Backstage })))
+const BackstageSimulated = lazy(() => import('./backstage/Backstage').then((m) => ({ default: m.BackstageSimulated })))
+const BackstageLive = lazy(() => import('./backstage/Backstage').then((m) => ({ default: m.BackstageLive })))
 
 /**
  * The student game. /student plays in the simulated school (or the one in ?school=), /live plays in
@@ -39,6 +41,9 @@ createRoot(document.getElementById('root')!).render(
           <Route path="live/admin/*" element={<SchoolArea lockedSchool={LIVE_SCHOOL} base="/live/admin" />} />
           <Route path="live/*" element={<GameRoute />} />
           <Route path="behind-the-scenes" element={<Backstage />} />
+          <Route path="behind-the-scenes/simulated" element={<BackstageSimulated />} />
+          <Route path="behind-the-scenes/live" element={<BackstageLive />} />
+          <Route path="behind-the-scenes/*" element={<Navigate to="/behind-the-scenes" replace />} />
           <Route path="*" element={<Home />} />
         </Route>
       </Routes>

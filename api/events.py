@@ -11,7 +11,9 @@ from .auth import secret
 
 class EventStore:
     def __init__(self, capacity=300):
-        self.events = deque(maxlen=capacity)
+        # Live and simulated events get separate buffers, so a burst of simulated
+        # activity never pushes real students' events out of the feed.
+        self.buffers = {"live": deque(maxlen=capacity), "simulated": deque(maxlen=capacity)}
         self.lock = threading.Lock()
         self.next_id = 1
 
@@ -33,11 +35,12 @@ class EventStore:
                 "ms": round(ms, 1) if ms is not None else None,
             }
             self.next_id += 1
-            self.events.append(event)
+            self.buffers["live" if school_id == "live" else "simulated"].append(event)
         return event
 
-    def after(self, after, limit):
+    def after(self, after, limit, scope=None):
         with self.lock:
-            selected = [event for event in self.events if event["id"] > after][:limit]
-            latest = self.events[-1]["id"] if self.events else 0
+            pool = self.buffers[scope] if scope else sorted([*self.buffers["live"], *self.buffers["simulated"]], key=lambda event: event["id"])
+            selected = [event for event in pool if event["id"] > after][:limit]
+            latest = self.next_id - 1
         return selected, latest

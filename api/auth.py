@@ -14,6 +14,29 @@ ITERATIONS = 200_000
 _SECRET = None
 
 
+def sign_device(device_id):
+    """Return the server-signed form of a valid unsigned device id."""
+    from .game import DEVICE_PATTERN
+
+    if not isinstance(device_id, str) or not DEVICE_PATTERN.fullmatch(device_id):
+        raise ValueError("invalid device")
+    digest = hmac.new(secret(), ("device:" + device_id).encode(), hashlib.sha256).hexdigest()[:16]
+    return f"{device_id}.{digest}"
+
+
+def verify_device(value):
+    """Return the unsigned base id when value is a valid signed device, else None."""
+    from .game import DEVICE_PATTERN
+
+    if not isinstance(value, str) or len(value) > 81 or "." not in value:
+        return None
+    base, signature = value.rsplit(".", 1)
+    if not DEVICE_PATTERN.fullmatch(base) or len(signature) != 16 or any(char not in "0123456789abcdef" for char in signature):
+        return None
+    expected = hmac.new(secret(), ("device:" + base).encode(), hashlib.sha256).hexdigest()[:16]
+    return base if hmac.compare_digest(signature, expected) else None
+
+
 def password_hash(password, iterations=ITERATIONS):
     salt = secrets.token_bytes(16)
     digest = hashlib.pbkdf2_hmac("sha256", password.encode(), salt, iterations)

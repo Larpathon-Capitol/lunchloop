@@ -1,0 +1,293 @@
+/* The mascot's DOM half. The 3D model is drawn by the shared layer into .mascot__stage. */
+.ume {
+  position: relative;
+  display: inline-block;
+  flex: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.ume-button {
+  display: block;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  background: none;
+  border-radius: 40% 40% 28% 28%;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  /* An open palm for petting, with a plain hand as the fallback. */
+  cursor:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'%3E%3Cg fill='%23fbfcf9' stroke='%231b1f2a' stroke-width='1.8' stroke-linejoin='round'%3E%3Crect x='9' y='4' width='4.4' height='14' rx='2.2'/%3E%3Crect x='13.4' y='2.6' width='4.4' height='15' rx='2.2'/%3E%3Crect x='17.8' y='3.6' width='4.4' height='14' rx='2.2'/%3E%3Crect x='22.2' y='6.4' width='4' height='12' rx='2'/%3E%3Crect x='3.2' y='13.4' width='4.2' height='10' rx='2.1' transform='rotate(-38 5.3 18.4)'/%3E%3Cpath d='M8.4 14h18v6.4c0 5.4-3.8 9-9 9s-9-3.6-9-9z'/%3E%3C/g%3E%3C/svg%3E")
+      16 16,
+    pointer;
+}
+
+.ume-button:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+/* The box the 3D layer draws into: the slot plus headroom for hops and room for the shadow.
+   Keep in step with STAGE in rig/bus.ts. */
+.mascot__stage {
+  position: absolute;
+  top: -90%;
+  bottom: -15%;
+  left: -50%;
+  right: -50%;
+  pointer-events: none;
+}
+
+/* The still poster: fills the slot with the same framing as the 3D model (rig/bus.ts STAGE and
+   FEET), so the model can crossfade in over it without a jump. Stays up when WebGL is missing. */
+.mascot__poster {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-select: none;
+  transform-origin: 50% 94%;
+  transition:
+    opacity 280ms ease-out 60ms,
+    transform 260ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.ume[data-ready='true'] .mascot__poster {
+  opacity: 0;
+}
+
+/* Without the model, the poster still answers a pet with a little squish. */
+.ume[data-ready='false'][data-mood='petted'] .mascot__poster {
+  transform: scale(1.06, 0.92);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mascot__poster {
+    transition: opacity 160ms linear;
+  }
+  .ume[data-ready='false'][data-mood='petted'] .mascot__poster {
+    transform: none;
+  }
+}
+
+/* The shared layer on <body>: over the page (2), under the header, tab bar, sheets, toasts and
+   curtains. The canvas first, then the bubbles, so words always sit above the models. */
+.mascot-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.mascot-layer__gl,
+.mascot-layer__bubbles {
+  position: absolute;
+  inset: 0;
+}
+
+/* One per lifted bubble, moved to its mascot's slot every frame by FloatOver. */
+.mascot-float {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+}
+
+.mascot__bits {
+  position: absolute;
+  left: 50%;
+  top: 8%;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+  z-index: 3;
+}
+
+.mascot__bit {
+  position: absolute;
+  left: -8px;
+  top: -8px;
+  display: block;
+  will-change: transform, opacity;
+}
+
+.mascot__bit svg {
+  display: block;
+}
+
+.ume-bubble {
+  position: absolute;
+  bottom: calc(100% + var(--s2));
+  left: 50%;
+  translate: -50% 0;
+  transform-origin: 50% 100%;
+  width: max-content;
+  max-width: min(240px, 70vw);
+  padding: var(--s2) var(--s3);
+  background: var(--shoji);
+  color: var(--sumi);
+  border: var(--hairline);
+  border-radius: var(--radius);
+  box-shadow: var(--lift);
+  font-family: var(--font-ui);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  line-height: 1.4;
+  text-align: left;
+  pointer-events: none;
+  z-index: 2;
+}
+
+/* The tail: a rotated square sharing the bubble's paper and border. */
+.ume-bubble::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  width: 10px;
+  height: 10px;
+  margin: -5px 0 0 -5px;
+  background: var(--shoji);
+  border-right: var(--hairline);
+  border-bottom: var(--hairline);
+  transform: rotate(45deg);
+}
+
+.ume-bubble[data-align='start'] {
+  left: 0;
+  translate: 0 0;
+  transform-origin: 20% 100%;
+}
+
+.ume-bubble[data-align='start']::after {
+  left: 28px;
+}
+
+.ume-bubble[data-align='end'] {
+  left: auto;
+  right: 0;
+  translate: 0 0;
+  transform-origin: 80% 100%;
+}
+
+.ume-bubble[data-align='end']::after {
+  left: auto;
+  right: 23px;
+}
+
+/* ---- The dock: wide screens only, in the right gutter beside the page ---- */
+.ume-dock {
+  display: none;
+  position: fixed;
+  z-index: 40;
+  right: var(--s6);
+  /* Room under the slot for the contact shadow (STAGE.bottom in rig/bus.ts), so the whole
+     mascot always sits above the viewport edge and the safe area. */
+  bottom: calc(var(--ume-dock-bottom-desktop, var(--s6)) + var(--dock-size, 106px) * 0.15 + env(safe-area-inset-bottom, 0px));
+  pointer-events: none;
+}
+
+/* Keep in step with DOCK_QUERY in dock.ts. */
+@media (min-width: 1400px) {
+  .ume-dock {
+    display: block;
+  }
+}
+
+.ume-dock > * {
+  pointer-events: auto;
+}
+
+/* The bubble stays inside the gutter, so it never crosses the page. */
+.ume-dock .ume-bubble {
+  max-width: calc((100vw - var(--max-width)) / 2 - var(--s6) - var(--s2));
+}
+
+/* ---- Inline: Ume in the layout, the bubble in reserved space beside it ---- */
+.ume-inline {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--s3);
+  min-height: var(--ume-inline-size);
+}
+
+.ume-inline__ume {
+  flex: none;
+  display: block;
+  width: var(--ume-inline-size);
+  height: var(--ume-inline-size);
+}
+
+.ume-inline__col {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: var(--s1);
+  align-content: end;
+  min-height: var(--ume-inline-size);
+}
+
+.ume-inline__say {
+  display: flex;
+  align-items: flex-end;
+  min-height: 40px;
+}
+
+.ume-inline__col:only-child .ume-inline__say,
+.ume-inline__say:only-child {
+  min-height: var(--ume-inline-size);
+  align-items: center;
+}
+
+.ume-inline__bubble {
+  position: relative;
+  max-width: 100%;
+  margin: 0;
+  padding: var(--s2) var(--s3);
+  background: var(--shoji);
+  color: var(--sumi);
+  border: var(--hairline);
+  border-radius: var(--radius);
+  font-family: var(--font-ui);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  line-height: 1.35;
+  transform-origin: 0 100%;
+}
+
+/* The tail points back at Ume. */
+.ume-inline__bubble::before {
+  content: '';
+  position: absolute;
+  left: -6px;
+  bottom: 12px;
+  width: 10px;
+  height: 10px;
+  background: var(--shoji);
+  border-left: var(--hairline);
+  border-bottom: var(--hairline);
+  transform: rotate(45deg);
+}
+
+.ume-bubble-anchor {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2;
+}
+
+/* Holds the bubble's space in the layout; the visible copy floats above the 3D layer on top of it. */
+.ume-inline__bubble--ghost {
+  visibility: hidden;
+}
+
+.ume-inline__bubble--live {
+  width: 100%;
+  max-width: none;
+}

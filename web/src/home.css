@@ -1,109 +1,610 @@
-.home {
-  display: grid;
-  justify-items: center;
-  gap: var(--s10);
-  text-align: center;
-  padding-top: var(--s4);
-}
-.home__copy {
-  display: grid;
-  justify-items: center;
-}
-.home__title {
-  font-size: var(--text-hero);
-}
-.home__line {
-  display: block;
+/* The hero: one full screen on the pink ground. The world's backdrop behind, the tray floating
+   above it, the words low on phones and on the left on wide screens. Layers: backdrop and far
+   stickers (0, on body), tray stage (1), this page (2). */
+
+.home-field {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  background: var(--pink-1);
   overflow: hidden;
-  /* room for descenders inside the mask */
-  padding-bottom: var(--s1);
-  margin-bottom: calc(var(--s1) * -1);
 }
-.home__line-inner {
-  display: block;
-  text-wrap: balance;
-}
-.home__lead {
-  margin-top: var(--s4);
-  max-width: 28ch;
-  font-size: var(--text-md);
-  color: var(--slate);
-  text-wrap: pretty;
-}
-.home__actions {
-  margin-top: var(--s8);
-  display: grid;
-  gap: var(--s3);
-  width: 100%;
-  max-width: 360px;
-}
-.home__cta {
-  min-height: calc(var(--touch) + var(--s2));
-  font-size: var(--text-md);
-}
-.home__visual {
-  display: grid;
-  justify-items: center;
-  gap: var(--s4);
-  width: 100%;
-}
-.home__tray {
-  width: 100%;
-  max-width: 340px;
-  height: auto;
-  display: block;
-}
-.home__meter {
-  display: grid;
-  justify-items: center;
-  gap: var(--s1);
-  text-align: center;
-  min-height: calc(var(--s10) + var(--s2));
-}
-.home__meter-line {
-  font-size: var(--text-md);
-  color: var(--slate);
-}
-.home__meter-num {
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: var(--text-xl);
+
+.home {
+  position: relative;
+  height: 100svh;
+  overflow: hidden;
   color: var(--ink);
 }
-.home__meter-note {
-  color: var(--slate);
+
+/* Phones: the tray sits under the switcher, the words below it. */
+.home__slot {
+  position: absolute;
+  left: 4vw;
+  width: 92vw;
+  top: calc(var(--bar-h) + 76px);
+  height: 34svh;
+  pointer-events: none;
+}
+
+.home__switch {
+  position: absolute;
+  z-index: 3;
+  top: calc(var(--bar-h) + 2px);
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  padding: 0 var(--s4);
+  pointer-events: none;
+}
+.home__switch > * {
+  pointer-events: auto;
+}
+
+.home__mascot {
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 1;
+  pointer-events: auto;
+  transition: filter 200ms var(--ease);
+}
+.home__mascot.is-gone {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+/* Stickers */
+.stickers {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.stickers--near {
+  z-index: 1;
+}
+.sticker {
+  position: absolute;
+  translate: -50% -50%;
+}
+.sticker__pose,
+.sticker__float {
+  width: 100%;
+  height: 100%;
+}
+.sticker__float svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.sticker__float.is-floating {
+  animation: sticker-float 3.8s ease-in-out infinite alternate;
+}
+@keyframes sticker-float {
+  from {
+    transform: translateY(0) rotate(-3deg);
+  }
+  to {
+    transform: translateY(-8px) rotate(3deg);
+  }
+}
+
+/* Words. On phones they sit on a paper sheet rising from the bottom edge, so they read over
+   any world's backdrop; the menu tape is wrapped across its top edge. */
+.home__copy {
+  position: absolute;
+  z-index: 2;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: var(--s8) var(--s5) var(--s2);
+  background: var(--surface);
+  border-top: 2px solid var(--ink);
+  border-radius: 28px 28px 0 0;
+}
+.home__copy .home__tape {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -20px;
+  bottom: auto;
+}
+
+.home__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s2) var(--s3);
+  margin-bottom: var(--s3);
+}
+
+.hl {
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-synthesis: none;
+  font-size: clamp(44px, 12vw, 104px);
+  line-height: 0.98;
+  letter-spacing: -0.005em;
+  color: var(--ink);
+}
+:root[data-theme='asia'] .hl {
+  font-weight: 400;
+  font-size: clamp(34px, 9.2vw, 82px);
+  line-height: 1.08;
+  color: var(--accent-1);
+}
+:root[data-theme='medi'] .hl {
+  font-weight: 400;
+  font-size: clamp(42px, 11.2vw, 100px);
+  line-height: 1.04;
+  color: var(--accent-2);
+}
+/* Americas: hand-painted sign letters, one cobalt drop under the ink. */
+:root[data-theme='americas'] .hl__word {
+  text-shadow: 3px 3px 0 var(--accent-2);
+}
+:root[data-theme='americas'] .hl__word--spin,
+:root[data-theme='americas'] .hl__word--spin .hl__word-in {
+  text-shadow: none;
+}
+
+.hl__line {
+  display: block;
+  white-space: nowrap;
+}
+.hl__mask {
+  display: inline-block;
+  overflow: hidden;
+  vertical-align: top;
+  /* room for descenders and the sign shadow inside the mask */
+  padding: 0 0.08em 0.12em 0;
+  margin: 0 -0.08em -0.12em 0;
+}
+.hl__word,
+.hl__word-in {
+  display: inline-block;
+  transform-origin: 0 100%;
+}
+.hl__spin {
+  position: relative;
+  display: inline-block;
+  vertical-align: top;
+}
+.hl__ghost {
+  visibility: hidden;
+  padding: 0 0.12em;
+}
+.hl__sizer {
+  position: absolute;
+  left: 0;
+  top: 0;
+  visibility: hidden;
+  pointer-events: none;
+  white-space: nowrap;
+}
+.hl__sizer > span {
+  position: absolute;
+  left: 0;
+  top: 0;
+  padding: 0 0.12em;
+}
+.hl__mask--spin {
+  position: absolute;
+  inset: 0;
+  padding: 0 0.12em;
+  margin: 0;
+  /* Clip only top and bottom, so a word never gets cut while the swash catches up. */
+  overflow: visible clip;
+}
+.hl__word--spin {
+  display: block;
+  white-space: nowrap;
+}
+/* A marker swash behind the rolling word: ink reads on it in every world. */
+.hl__swash {
+  position: absolute;
+  left: -0.04em;
+  right: -0.06em;
+  top: 0.16em;
+  bottom: 0.02em;
+  background: var(--pink-4);
+  border-radius: 0.18em 0.3em 0.22em 0.34em;
+  transform-origin: 0 50%;
+  rotate: -1.5deg;
+}
+.hl__word--spin,
+.hl__word-in {
+  color: var(--ink);
+}
+
+.home__lead {
+  margin-top: var(--s3);
+  max-width: 34ch;
+  font-size: var(--text-base);
+  font-weight: 500;
+  line-height: 1.4;
+  color: var(--ink-soft);
+  text-wrap: pretty;
+}
+
+.home__actions {
+  margin-top: var(--s4);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s3) var(--s5);
+}
+
+/* The chunky press button. The one place a hard offset shadow is allowed. */
+.cta-wrap {
+  display: inline-block;
+}
+.cta {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 56px;
+  padding: 0 var(--s8);
+  border: 2px solid var(--ink);
+  border-radius: var(--radius-pill);
+  background: var(--pink-5);
+  color: var(--ink);
+  font-family: var(--font-ui);
+  font-size: var(--text-md);
+  font-weight: 800;
+  letter-spacing: -0.005em;
+  box-shadow: 0 5px 0 var(--ink);
+  overflow: hidden;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    box-shadow 120ms var(--ease),
+    background-color 160ms var(--ease);
+}
+.cta:hover {
+  background: var(--pink-4);
+}
+.cta:active {
+  box-shadow: 0 1px 0 var(--ink);
+}
+.cta:focus-visible {
+  outline: 3px solid var(--ink);
+  outline-offset: 4px;
+}
+.cta__label {
+  position: relative;
+  z-index: 1;
+}
+.cta__shine {
+  position: absolute;
+  inset: -2px;
+  background: linear-gradient(105deg, transparent 35%, rgb(255 255 255 / 0.55) 48%, rgb(255 255 255 / 0.1) 56%, transparent 64%);
+  transform: translateX(-120%);
+  animation: cta-shine 6s var(--ease-out) 1.4s infinite;
+  pointer-events: none;
+}
+@keyframes cta-shine {
+  0% {
+    transform: translateX(-120%);
+  }
+  12%,
+  100% {
+    transform: translateX(120%);
+  }
+}
+
+/* Streak chip */
+.streak {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 0 var(--s3) 0 10px;
+  border: 1.5px solid var(--pink-4);
+  border-radius: var(--radius-pill);
+  background: var(--pink-2);
+  color: var(--ink);
   font-size: var(--text-sm);
+  font-weight: 700;
+}
+.streak__flame {
+  display: inline-flex;
+  transform-origin: 50% 90%;
+}
+
+/* Flip board countdown */
+.flip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s2);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+.flip__board {
+  display: inline-flex;
+  align-items: center;
+  font-variant-numeric: tabular-nums;
+}
+.flip__group {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+.flip__colon {
+  width: 9px;
+  height: 12px;
+  background:
+    radial-gradient(circle, var(--ink) 1.6px, transparent 2px) 50% 2px / 4px 4px no-repeat,
+    radial-gradient(circle, var(--ink) 1.6px, transparent 2px) 50% 8px / 4px 4px no-repeat;
+}
+.flip__tile {
+  position: relative;
+  display: inline-flex;
+  justify-content: center;
+  width: 19px;
+  height: 26px;
+  overflow: hidden;
+  border-radius: 5px;
+  background: var(--ink);
+  perspective: 120px;
+}
+/* The fold line across the middle of each tile. */
+.flip__tile::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 1px;
+  background: rgb(255 255 255 / 0.14);
+}
+.flip__digit {
+  display: block;
+  line-height: 26px;
+  font-weight: 800;
+  font-size: 16px;
+  color: var(--pink-1);
+}
+
+/* Quiet links */
+.home__quiet {
+  margin-top: var(--s2);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 var(--s4);
+  font-size: var(--text-sm);
+  color: var(--ink-soft);
+}
+.home__staff {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--touch);
+  color: var(--ink-soft);
+  font-weight: 600;
+  text-decoration: underline;
+  text-decoration-color: var(--pink-4);
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 0.3em;
+  border-radius: var(--radius-sm);
+  transition:
+    color var(--t-fast) var(--ease),
+    text-decoration-color var(--t-fast) var(--ease);
+}
+.home__staff:hover {
+  color: var(--ink);
+  text-decoration-color: var(--ink);
+}
+.home__staff:focus-visible {
+  outline: 3px solid var(--ink);
+  outline-offset: 2px;
+}
+
+/* Menu tape */
+.home__tape {
+  position: absolute;
+  z-index: 2;
+  left: 0;
+  right: 0;
+  bottom: 3svh;
+  pointer-events: none;
+}
+.tapes {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0;
+}
+.tape {
+  overflow: hidden;
+  border-block: 2px solid var(--ink);
+  mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
+}
+.tape--a {
+  background: var(--pink-5);
+  color: var(--ink);
+  rotate: -2.5deg;
+  margin-inline: -4vw;
+}
+.tape--b {
+  background: var(--field);
+  color: var(--on-field);
+  rotate: 1.6deg;
+  margin: -6px -4vw 0;
+}
+.tape__run {
+  display: flex;
+  width: max-content;
+  animation: tape-run 48s linear infinite;
+}
+.tape--b .tape__run {
+  animation-direction: reverse;
+  animation-duration: 56s;
+}
+.tape__run.is-still {
+  animation: none;
+}
+@keyframes tape-run {
+  to {
+    transform: translateX(-50%);
+  }
+}
+.tape__item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s3);
+  padding: 7px var(--s3) 7px 0;
+  font-size: var(--text-sm);
+  font-weight: 700;
+  white-space: nowrap;
+}
+.tape__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.8;
+}
+
+/* Fixed label that answers the hover, away from the cursor. */
+.home__hint {
+  position: fixed;
+  right: max(var(--s6), 4vw);
+  top: calc(var(--bar-h) + var(--s4));
+  z-index: 3;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s2);
+  min-height: 36px;
+  padding: 0 var(--s4);
+  border-radius: var(--radius-pill);
+  background: var(--ink);
+  color: var(--pink-1);
+  font-weight: 700;
+  font-size: var(--text-sm);
+  opacity: 0;
+  transform: translateY(-6px) scale(0.96);
+  transition:
+    opacity var(--t-med) var(--ease-out),
+    transform 450ms var(--ease-out);
+  pointer-events: none;
+}
+.home__hint.is-on {
+  opacity: 1;
+  transform: none;
+}
+
+/* Hidden tab: every CSS loop on the hero holds still. */
+.home.is-paused *,
+:root:has(.home.is-paused) .home-field * {
+  animation-play-state: paused !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sticker__float.is-floating,
+  .cta__shine,
+  .tape__run {
+    animation: none;
+  }
+}
+
+/* Short phones: tighten everything so it still fits in one screen. */
+@media (max-height: 760px) and (max-width: 899px) {
+  .home__slot {
+    height: 30svh;
+  }
+  .home__lead {
+    display: none;
+  }
+}
+
+@media (max-width: 899px) {
+  /* The bar already shows the brand up here; the group keeps its name for screen readers. */
+  .home__switch .ll-switcher__heading {
+    display: none;
+  }
+  .home__quiet {
+    font-size: 13px;
+  }
+  .home__staff {
+    min-height: 40px;
+  }
 }
 
 @media (min-width: 900px) {
-  .home {
-    grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
-    align-content: center;
-    align-items: center;
-    gap: var(--s16);
-    text-align: left;
-    min-height: calc(100svh - var(--bar-h) - var(--s6) - var(--s16) - var(--s1));
-    padding-top: 0;
+  .home__slot {
+    left: 46vw;
+    width: 50vw;
+    top: 13svh;
+    height: 62svh;
+  }
+  .home__switch {
+    top: 14px;
   }
   .home__copy {
-    justify-items: start;
+    left: max(var(--s12), 6vw);
+    right: auto;
+    top: 15svh;
+    bottom: auto;
+    max-width: 44vw;
+    padding: 0;
+    background: none;
+    border: 0;
+    border-radius: 0;
   }
-  .home__title {
-    font-size: calc(var(--text-hero) * 1.25);
+  .hl {
+    font-size: clamp(64px, 6.6vw, 116px);
+  }
+  :root[data-theme='asia'] .hl {
+    font-size: clamp(50px, 5vw, 90px);
+  }
+  :root[data-theme='medi'] .hl {
+    font-size: clamp(60px, 6.3vw, 108px);
+  }
+  .home__meta {
+    margin-bottom: var(--s5);
   }
   .home__lead {
-    max-width: 36ch;
+    margin-top: var(--s5);
     font-size: var(--text-lg);
+    max-width: 36ch;
   }
   .home__actions {
-    grid-auto-flow: column;
-    width: auto;
-    max-width: none;
+    margin-top: var(--s8);
   }
-  .home__cta {
-    padding: 0 var(--s6);
+  .cta {
+    min-height: 64px;
+    padding: 0 var(--s10);
+    font-size: 20px;
   }
-  .home__tray {
-    max-width: 420px;
+  /* The quiet links get a calm ground of page pink, so they read over busy tiles too. */
+  .home__quiet {
+    width: fit-content;
+    margin-top: var(--s4);
+    margin-left: calc(-1 * var(--s4));
+    padding: 0 var(--s4);
+    border-radius: var(--radius-pill);
+    background: var(--pink-1);
+  }
+  /* A soft pool of page pink behind the words, so they stay readable over any world's
+     backdrop while its decoration still shows at the edges. */
+  .home__copy::before {
+    content: '';
+    position: absolute;
+    inset: -18% -22% -16% -30%;
+    z-index: -1;
+    background: radial-gradient(closest-side, var(--pink-1) 62%, color-mix(in srgb, var(--pink-1) 70%, transparent) 80%, transparent);
+    pointer-events: none;
+  }
+  .tape__item {
+    font-size: var(--text-base);
+    padding-block: 9px;
+  }
+  .home__hint {
+    top: auto;
+    bottom: calc(3svh + 110px);
   }
 }

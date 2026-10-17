@@ -1,0 +1,334 @@
+/* Americas world kit: block party at dusk. Every color comes from the theme tokens,
+   with the hex from the art direction as a fallback while tokens load. */
+
+.amx {
+  --amx-pink1: var(--pink-1, #ffe5ec);
+  --amx-pink2: var(--pink-2, #ffc2d1);
+  --amx-pink3: var(--pink-3, #ffb3c6);
+  --amx-pink4: var(--pink-4, #ff8fab);
+  --amx-pink5: var(--pink-5, #fb6f92);
+  --amx-yellow: var(--accent-1, #ffc72c);
+  --amx-cobalt: var(--accent-2, #1d3fae);
+  --amx-leaf: var(--leaf, #5fb77a);
+  --amx-leaf-deep: var(--leaf-deep, #1f5a3a);
+  --amx-ink: var(--ink, #3a1626);
+  --amx-paper: var(--surface, #fff4f7);
+  --amx-display: 'Londrina Solid', var(--font-display, 'Gabarito'), sans-serif;
+}
+
+/* Fill and stroke classes, so SVG shapes can use the tokens. */
+.amx-f-pink1 { fill: var(--amx-pink1); }
+.amx-f-pink2 { fill: var(--amx-pink2); }
+.amx-f-pink3 { fill: var(--amx-pink3); }
+.amx-f-pink4 { fill: var(--amx-pink4); }
+.amx-f-pink5 { fill: var(--amx-pink5); }
+.amx-f-yellow { fill: var(--amx-yellow); }
+.amx-f-cobalt { fill: var(--amx-cobalt); }
+.amx-f-leaf { fill: var(--amx-leaf); }
+.amx-f-leafdeep { fill: var(--amx-leaf-deep); }
+.amx-f-ink { fill: var(--amx-ink); }
+.amx-f-paper { fill: var(--amx-paper); }
+.amx-f-white { fill: #fff; }
+.amx-s-ink { stroke: var(--amx-ink); }
+.amx-s-cobalt { stroke: var(--amx-cobalt); }
+.amx-s-yellow { stroke: var(--amx-yellow); }
+.amx-s-leaf { stroke: var(--amx-leaf); }
+.amx-s-pink4 { stroke: var(--amx-pink4); }
+.amx-s-pink5 { stroke: var(--amx-pink5); }
+
+.amx-string { stroke: var(--amx-ink); stroke-width: 1.3; opacity: 0.55; stroke-linecap: round; }
+.amx-fold { fill: var(--amx-ink); opacity: 0.12; }
+
+/* ---------- loops (all paused when the tab is hidden or motion is reduced) ---------- */
+
+.amx-sway {
+  transform-box: fill-box;
+  transform-origin: 50% 0;
+  animation: amx-sway 3.2s ease-in-out infinite alternate;
+}
+@keyframes amx-sway {
+  from { transform: rotate(-3deg); }
+  to { transform: rotate(3deg); }
+}
+
+.amx-twinkle {
+  transform-box: fill-box;
+  transform-origin: 50% 50%;
+  animation: amx-twinkle 2.8s ease-in-out infinite;
+}
+@keyframes amx-twinkle {
+  0%, 100% { transform: scale(0.55) rotate(0deg); opacity: 0.45; }
+  50% { transform: scale(1) rotate(20deg); opacity: 1; }
+}
+
+.amx[data-paused] *,
+.amx[data-paused] { animation-play-state: paused !important; }
+
+@media (prefers-reduced-motion: reduce) {
+  .amx *, .amx { animation: none !important; }
+}
+
+/* ---------- hero backdrop ---------- */
+
+.amx-hero {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  background: var(--amx-pink1);
+  z-index: 0;
+}
+.amx-layer { position: absolute; inset: 0; will-change: transform; }
+
+/* The sunburst is a painted sign behind the tray: yellow rays, faded out at the
+   center so the tray and headline sit on a calm field. */
+.amx-burst-wrap {
+  position: absolute;
+  left: 50%;
+  top: 46%;
+  width: max(170vmax, 1400px);
+  aspect-ratio: 1;
+  translate: -50% -50%;
+  -webkit-mask-image: radial-gradient(circle, transparent 0 9%, #000 22%, #000 34%, transparent 50%);
+  mask-image: radial-gradient(circle, transparent 0 9%, #000 22%, #000 34%, transparent 50%);
+}
+.amx-burst {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: repeating-conic-gradient(from 0deg, var(--amx-yellow) 0deg 7.5deg, transparent 7.5deg 15deg);
+  opacity: 0.5;
+  animation: amx-turn 120s linear infinite;
+}
+.amx-burst.is-static { animation: none; }
+@keyframes amx-turn { to { transform: rotate(360deg); } }
+
+/* The painted wall: a low pink-2 dado with a sign painter's pinstripes. */
+.amx-wall {
+  position: absolute;
+  left: -40px;
+  right: -40px;
+  bottom: 0;
+  height: 29%;
+  background: var(--amx-pink2);
+}
+.amx-wall::before {
+  /* yellow band and cobalt pinstripe along the top of the dado */
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 14px;
+  background:
+    linear-gradient(var(--amx-cobalt), var(--amx-cobalt)) 0 0 / 100% 3px no-repeat,
+    linear-gradient(var(--amx-yellow), var(--amx-yellow)) 0 6px / 100% 6px no-repeat;
+}
+.amx-wall::after {
+  /* a painted scallop trim hanging under the stripes */
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 14px;
+  height: 12px;
+  background: radial-gradient(circle at 50% 0, var(--amx-pink4) 0 8px, transparent 8.5px) 0 0 / 22px 12px repeat-x;
+}
+
+/* The sarape stripe painted along the wall, between cobalt pinstripes, so the wall above the
+   tablecloth reads as a sign painter's band instead of an empty strip. */
+.amx-wall-sign {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 40px;
+  height: 48px;
+  padding-block: 4px;
+  border-block: 2px solid var(--amx-cobalt);
+}
+.amx-wall-sign::before,
+.amx-wall-sign::after {
+  /* inner pinstripes */
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 1.5px;
+  background: var(--amx-ink);
+  opacity: 0.35;
+}
+.amx-wall-sign::before { top: 3px; }
+.amx-wall-sign::after { bottom: 3px; }
+.amx-sarape { display: block; width: 100%; height: 36px; margin-top: 2px; }
+
+/* Checker tablecloth: a tabletop in perspective with a straight front hem. */
+.amx-table {
+  position: absolute;
+  left: -12%;
+  right: -12%;
+  bottom: 0;
+  height: 20%;
+  min-height: 92px;
+  perspective: 520px;
+  perspective-origin: 50% -40%;
+}
+.amx-table-top {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 70%;
+  transform-origin: 50% 100%;
+  transform: rotateX(52deg);
+  background:
+    repeating-conic-gradient(var(--amx-cobalt) 0 25%, var(--amx-paper) 0 50%) 0 0 / 44px 44px;
+  box-shadow: inset 0 18px 22px -14px rgba(58, 22, 38, 0.35);
+}
+.amx-table-front {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 32%;
+  background:
+    repeating-conic-gradient(var(--amx-cobalt) 0 25%, var(--amx-paper) 0 50%) 0 0 / 22px 22px;
+}
+.amx-table-front::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 4px;
+  background: var(--amx-ink);
+  opacity: 0.25;
+}
+
+.amx-hero-svg { position: absolute; display: block; }
+.amx-garland { left: -6%; top: 0; width: 112%; height: auto; }
+.amx-cards { position: absolute; inset: auto 0 0 0; height: 40%; }
+.amx-card { position: absolute; width: clamp(84px, 13vw, 150px); height: auto; filter: drop-shadow(0 6px 6px rgba(58, 22, 38, 0.18)); }
+.amx-card-l { left: max(-4px, 2vw - 24px); bottom: 7%; rotate: -11deg; }
+.amx-card-r { right: max(-4px, 2vw - 24px); bottom: 9%; rotate: 9deg; }
+.amx-sparkles { position: absolute; inset: 0; width: 100%; height: 100%; }
+
+/* ---------- header band ---------- */
+
+.amx-band {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+.amx-band-hem {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 11px;
+}
+.amx-band-hem::before {
+  /* checker rail on the bottom edge, pink and cobalt so it reads on the cobalt bar */
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 6px;
+  background: repeating-conic-gradient(var(--amx-pink2) 0 25%, transparent 0 50%) 0 0 / 12px 12px;
+}
+.amx-band-hem::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 6px;
+  height: 3px;
+  background: var(--amx-yellow);
+}
+.amx-band-flags { position: absolute; top: 0; height: 30px; width: 120px; }
+.amx-band-flags.is-right { right: 0; }
+
+/* ---------- corner ---------- */
+
+.amx-corner { position: absolute; top: 0; right: 0; width: 132px; height: 112px; pointer-events: none; }
+
+/* ---------- seal ---------- */
+
+.amx-seal { position: relative; display: inline-block; flex: none; }
+.amx-seal-body { position: absolute; inset: 0; display: block; }
+.amx-seal svg { display: block; width: 100%; height: 100%; overflow: visible; }
+.amx-seal-text { font-family: var(--amx-display); font-weight: 900; }
+.amx-seal-shadow {
+  position: absolute;
+  left: 12%;
+  right: 12%;
+  bottom: 2%;
+  height: 14%;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(58, 22, 38, 0.28), transparent);
+}
+
+/* ---------- milestone ---------- */
+
+.amx-milestone { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.amx-milestone svg { width: 100%; height: 100%; display: block; overflow: visible; }
+
+/* ---------- curtain: a rolling shop shutter ---------- */
+
+.amx-curtain {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  pointer-events: none;
+  overflow: hidden;
+}
+.amx-shutter {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -4%;
+  height: 104%;
+  background: var(--amx-pink1);
+  overflow: hidden;
+  will-change: transform;
+}
+.amx-shutter .amx-burst { animation: none; }
+.amx-slats {
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    180deg,
+    transparent 0 30px,
+    color-mix(in srgb, var(--amx-pink3) 70%, transparent) 30px 32px,
+    transparent 32px 34px
+  );
+  opacity: 0.55;
+}
+.amx-rail {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 22px;
+  background: var(--amx-cobalt);
+}
+.amx-rail::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -9px;
+  height: 9px;
+  background: repeating-conic-gradient(var(--amx-cobalt) 0 25%, var(--amx-yellow) 0 50%) 0 0 / 18px 18px;
+}
+.amx-handle {
+  position: absolute;
+  left: 50%;
+  bottom: 6px;
+  width: 72px;
+  height: 10px;
+  translate: -50% 0;
+  border-radius: 5px;
+  background: var(--amx-yellow);
+}

@@ -1,12 +1,24 @@
 // Words for the Hub: the page Abyan opens during the presentation to jump around.
 export const hub = {
-  title: 'Presentation hub',
-  lead: 'Every page in one list. Open one here, or copy its link.',
+  title: 'Dashboard',
+  audience: { student: 'Student view', staff: 'Staff view' },
+  lead: 'Every page in one place. Open one here, or copy its link.',
+  nav: 'Dashboard',
   open: 'Open',
   copy: 'Copy link',
   copied: 'Copied',
   copyFailed: 'Couldn’t copy',
   listLabel: 'Pages',
+  groups: {
+    simulated: {
+      heading: 'Simulated school (for demos)',
+      line: 'A made-up school with a full lunch history. Safe to click around and add fake students.',
+    },
+    live: {
+      heading: 'Real time (live students)',
+      line: 'Real people in the room. Every vote and tray here is a real tap.',
+    },
+  },
   passwordLabel: 'Password',
   noteSimulated:
     'Menu, history and kitchen numbers are simulated. Votes on the live page are real taps from people in the room.',
@@ -14,25 +26,34 @@ export const hub = {
   pages: {
     student: {
       name: 'Student game',
-      line: 'Spin, vote and guess on the simulated school.',
+      line: 'Pack a tray, vote and guess in the simulated school.',
     },
     school: {
-      name: 'School panel',
-      line: 'What students want and the kitchen view, for the simulated school.',
+      name: 'School dashboard',
+      line: 'What students want, for the simulated school.',
       password: 'lunchloop',
+    },
+    kitchen: {
+      name: 'Kitchen',
+      line: 'Prep list, savings and the what-if simulator.',
+      passwordNote: 'Same sign-in as the school dashboard',
     },
     live: {
       name: 'Live student game',
       line: 'The same game, but every vote here is real. Peers scan the code.',
     },
     liveAdmin: {
-      name: 'Live school panel',
+      name: 'Live school dashboard',
       line: 'Watch the live votes arrive, as people tap.',
       passwordNote: 'Sign in with the staff password you set',
     },
     backstage: {
       name: 'Behind the scenes',
-      line: 'The backend working, one request at a time.',
+      line: 'The server working on the simulated school, one request at a time.',
+    },
+    backstageLive: {
+      name: 'Behind the scenes',
+      line: 'The server handling real taps from the live game.',
     },
   },
 

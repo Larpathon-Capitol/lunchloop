@@ -1,0 +1,82 @@
+* { box-sizing: border-box; }
+
+html, body, #root {
+  margin: 0;
+  height: 100%;
+}
+
+body {
+  background: #f2f4f3;
+  color: #0f172a;
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+
+.lab {
+  position: fixed;
+  inset: 0;
+}
+
+.lab-bar {
+  position: absolute;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(8px);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08), 0 4px 16px rgba(15, 23, 42, 0.06);
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+.lab-seg {
+  display: flex;
+  background: #eef0f2;
+  border-radius: 999px;
+  padding: 2px;
+}
+
+.lab-seg button,
+.lab-bar > button {
+  font: inherit;
+  border: 0;
+  background: transparent;
+  padding: 6px 14px;
+  border-radius: 999px;
+  cursor: pointer;
+  color: #334155;
+}
+
+.lab-seg button[aria-pressed='true'] {
+  background: #fff;
+  color: #0f172a;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.12);
+}
+
+.lab-bar label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-right: 10px;
+  color: #334155;
+}
+
+.lab-status {
+  position: absolute;
+  bottom: 24px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-size: 15px;
+  color: #475569;
+  pointer-events: none;
+}
+
+.lab-status strong {
+  color: #0f172a;
+}

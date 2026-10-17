@@ -1,0 +1,183 @@
+/* Stamps page and the leftovers sentence. Mobile first at 375px; nothing here is interactive. */
+
+/* ---------- Stamps ---------- */
+
+.sbook {
+  display: grid;
+  gap: var(--s5, 20px);
+  min-width: 0;
+}
+.sbook__page {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--s6, 24px) var(--s4, 16px);
+  margin: 0;
+  padding: var(--s5, 20px) 0;
+  list-style: none;
+  border-top: var(--hairline, 1px solid #f4a3b9);
+  border-bottom: var(--hairline, 1px solid #f4a3b9);
+}
+.sbook__stamp {
+  display: grid;
+  justify-items: center;
+  align-content: start;
+  gap: var(--s3, 12px);
+  min-width: 0;
+  text-align: center;
+}
+/* The week streak leads the page on its own row. */
+.sbook__stamp--streak_7 {
+  grid-column: 1 / -1;
+}
+.sbook__art {
+  display: grid;
+  place-items: center;
+  line-height: 0;
+}
+.sbook__text {
+  display: grid;
+  justify-items: center;
+  gap: var(--s1, 4px);
+  width: 100%;
+  max-width: 160px;
+}
+.sbook__name {
+  font-family: var(--font-ui, 'Gabarito', system-ui, sans-serif);
+  font-weight: 700;
+  color: var(--ink, #3a1626);
+}
+.sbook__state {
+  font-family: var(--font-ui, 'Gabarito', system-ui, sans-serif);
+  font-size: var(--text-sm, 14px);
+  color: var(--ink-soft, #7a3f58);
+  font-variant-numeric: tabular-nums;
+}
+.sbook__stamp.is-earned .sbook__state {
+  color: var(--leaf-deep, #1f5a3a);
+  font-weight: 600;
+}
+.sbook__brush {
+  width: 100%;
+  max-width: 112px;
+  margin-top: 2px;
+}
+/* An unearned stamp: the world's seal as a faint shape, filled from the bottom by progress. */
+.sbook__ghost {
+  position: relative;
+  display: grid;
+  place-items: center;
+}
+.sbook__ghost svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+.sbook__ghost-base {
+  fill: var(--pink-2, #ffc2d1);
+  opacity: 0.55;
+}
+.sbook__ghost-fill {
+  fill: var(--pink-3, #ffb3c6);
+}
+.sbook__ghost-line {
+  fill: none;
+  stroke: var(--pink-4, #ff8fab);
+  stroke-width: 1.2;
+  stroke-dasharray: 3 3;
+  stroke-linejoin: round;
+}
+.sbook__ghost-label {
+  position: relative;
+  font-family: var(--font-display, 'Gabarito', system-ui, sans-serif);
+  font-size: var(--text-base, 16px);
+  line-height: 1.1;
+  color: var(--ink-soft, #7a3f58);
+}
+.sbook__rule {
+  margin: 0;
+  font-size: var(--text-sm, 14px);
+  color: var(--ink-soft, #7a3f58);
+  text-align: center;
+}
+
+/* Wider screens: all three stamps share one row, the headline one a little wider. */
+@media (min-width: 560px) {
+  .sbook__page {
+    grid-template-columns: 1.3fr 1fr 1fr;
+    align-items: end;
+    padding: var(--s8, 32px) 0;
+  }
+  .sbook__stamp--streak_7 {
+    grid-column: auto;
+  }
+}
+
+/* ---------- Leftovers avoided ---------- */
+
+.leftovers {
+  display: grid;
+  gap: var(--s3, 12px);
+  min-width: 0;
+  padding: var(--s5, 20px);
+  border-radius: var(--radius, 18px);
+  background: var(--surface, #fff4f7);
+  border: var(--hairline, 1px solid #f4a3b9);
+  color: var(--ink, #3a1626);
+}
+.leftovers__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--s1, 4px) var(--s3, 12px);
+}
+.leftovers__title {
+  margin: 0;
+  font-family: var(--font-ui, 'Gabarito', system-ui, sans-serif);
+  font-size: var(--text-base, 16px);
+  font-weight: 700;
+  color: var(--ink, #3a1626);
+}
+.leftovers__week {
+  margin: 0;
+  font-size: var(--text-sm, 14px);
+  color: var(--ink-soft, #7a3f58);
+}
+.leftovers__sentence {
+  margin: 0;
+  max-width: 34ch;
+  font-family: var(--font-ui, 'Gabarito', system-ui, sans-serif);
+  font-size: var(--text-md, 18px);
+  line-height: 1.55;
+  color: var(--ink, #3a1626);
+  overflow-wrap: anywhere;
+}
+/* The number sits inline in the sentence with its brush underline painted beneath it. */
+.leftovers__figure {
+  position: relative;
+  display: inline-block;
+  padding-bottom: 6px;
+  white-space: nowrap;
+}
+.leftovers__big {
+  position: relative;
+  z-index: 1;
+  font-family: var(--font-display, 'Gabarito', system-ui, sans-serif);
+  font-size: var(--text-xl, 28px);
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink, #3a1626);
+}
+.leftovers__underline {
+  position: absolute;
+  left: -2px;
+  right: -6px;
+  bottom: -2px;
+  pointer-events: none;
+}
+.leftovers__money {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}

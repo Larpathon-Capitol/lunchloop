@@ -9,13 +9,47 @@ export const backstage = {
   simulatedNote: 'The menu and lunch history are a simulated school. Votes from the live demo are real taps.',
   docTitle: 'Behind the scenes | LunchLoop',
 
+  chooser: {
+    lead: 'Two feeds, kept apart so a demo never mixes with real students. Pick one.',
+    listLabel: 'Event feeds',
+    held: (n: number) => (n === 0 ? 'Nothing yet' : `${n} ${plural(n, 'event', 'events')} on the server`),
+    connecting: 'Checking…',
+    offline: 'Can’t reach the server',
+    open: 'Open',
+    simulated: {
+      name: 'Simulated school',
+      line: 'The demo school. Add simulated students and step through the days.',
+    },
+    live: {
+      name: 'Live, real students',
+      line: 'Real taps from people on the live game. No simulated activity.',
+    },
+  },
+
+  simulated: {
+    title: 'Behind the scenes: simulated school',
+    lead: 'The demo school, live. Add students or change the day with the presenter controls and watch it happen.',
+    docTitle: 'Simulated school, behind the scenes | LunchLoop',
+    logHeading: 'Server log, simulated school',
+  },
+
+  live: {
+    title: 'Behind the scenes: live students',
+    lead: 'Real taps from the live game, as they reach the server. Simulated activity never shows up here.',
+    docTitle: 'Live students, behind the scenes | LunchLoop',
+    empty: 'No live activity yet. Open the live game from the dashboard to try it.',
+    dashboard: 'Go to the dashboard',
+  },
+
+  back: 'All feeds',
+
   log: {
     heading: 'Live server log',
     watching: 'Watching the server',
     paused: 'Paused while this tab is hidden',
     reconnecting: 'Can’t reach the server. Trying again.',
     loading: 'Connecting to the server…',
-    empty: 'Nothing has happened yet. Open the student view on a phone and spin, and it shows up here.',
+    empty: 'Nothing has happened yet. Open the student view on a phone and spin or pack a tray, and it shows up here.',
     footnote:
       'This is the server’s own memory of its newest 300 events. It is cleared when the server restarts. Players get anonymous tags, never device ids or IP addresses.',
     listLabel: 'Newest server events first',
@@ -32,6 +66,7 @@ export const backstage = {
     spin: 'Spin',
     vote: 'Vote',
     guess: 'Guess',
+    tray: 'Tray',
     staff_sign_in: 'Staff sign-in',
     staff_sign_in_failed: 'Sign-in failed',
     prep: 'Prep list',
@@ -39,12 +74,16 @@ export const backstage = {
     simulate: 'Simulator',
     meter: 'Waste meter',
     rate_limited: 'Slowed down',
+    // Newer server kind, not yet in the api.ts union.
+    served: 'Checked in',
+    free: 'Free leftovers',
   } satisfies Record<EventKind, string>,
 
   counts: {
-    heading: 'Since you opened this page',
+    heading: 'Recent activity on the server',
     votes: (n: number) => plural(n, 'vote', 'votes'),
     guesses: (n: number) => plural(n, 'guess', 'guesses'),
+    trays: (n: number) => plural(n, 'tray packed', 'trays packed'),
     signIns: (n: number) => plural(n, 'staff sign-in', 'staff sign-ins'),
     forecasts: (n: number) => plural(n, 'forecast run', 'forecasts run'),
   },

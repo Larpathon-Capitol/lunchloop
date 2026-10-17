@@ -25,6 +25,7 @@ All CSVs have a header row and use `,` as the separator. Lists inside a cell use
 | cost_per_serving | float | dollars |
 | allergens | str | `;` list from: milk, egg, fish, shellfish, tree_nuts, peanuts, wheat, soybeans, sesame |
 | prep_floor | int | minimum servings to prep (fruit and vegetable items), else 0 |
+| diet | str | semicolon list of vegetarian, vegan, contains_pork, contains_beef, spicy |
 
 **meals.csv**: history, one row per item per school day, up to and including 2026-10-16.
 
@@ -46,7 +47,7 @@ All CSVs have a header row and use `,` as the separator. Lists inside a cell use
 
 **menu.csv**: `date, item_id, day_note`. Which items are served each school day, for history and at least two weeks after 2026-10-16.
 
-**vote_options.csv**: `open_date, target_date, target_slot, option_1, option_2, option_3`. The three options students can vote on each day, for a future menu slot.
+**vote_options.csv**: `open_date, target_date, target_slot, option_1, option_2, option_3, option_4`. Four varied options students can vote on each day, with at least one vegetarian entree.
 
 ## Engine (Python, `engine/`)
 
@@ -106,23 +107,34 @@ meter(date=None, data_dir=None) -> dict
 
 ## API (FastAPI, `api/`)
 
-Run with `uvicorn api.main:app`. All routes are under `/api`. CORS origin from env var `LUNCHLOOP_CORS_ORIGIN` (default `*` for local work). A request may send header `X-Demo-Date: YYYY-MM-DD` to move the demo clock (for showing streaks); otherwise today is `LUNCHLOOP_TODAY`.
+Run with `uvicorn api.main:app`. All routes are under `/api`. CORS origin from env var `LUNCHLOOP_CORS_ORIGIN` (default `*` for local work). A request may send header `X-Demo-Date: YYYY-MM-DD` to move the demo clock for simulated schools; live always uses `LUNCHLOOP_TODAY`.
 
 Errors are `{"error": "<plain message>"}` with status 400 (bad input), 404 (unknown date or item), 409 (already voted or guessed today), or 501 (engine function not built yet).
 
 | method and path | request | response |
 | --- | --- | --- |
 | GET /api/health | | `{"ok": true, "today", "simulated": true}` |
-| GET /api/prep?date=&ratio= | date default today | engine `prep_list()` |
+| GET /api/prep?date=&ratio= | date default today | engine `prep_list()`; each item also gets `diet`, `gluten_free`, `dairy_free` |
 | GET /api/savings?weeks=&ratio= | | engine `backtest()` |
 | POST /api/simulate | `{"date"?, "attendance_multiplier", "price_multiplier", "ratio"}` | engine `simulate()` |
-| GET /api/spin?device= | | `{"date", "target_date", "target_slot", "options": [{"item_id", "name", "allergens": [str]}], "already_voted": bool, "simulated": true}` |
-| POST /api/vote | `{"device", "item_id"}` | `{"ok": true, "streak", "xp", "tally": {item_id: count}, "simulated": true}` |
+| POST /api/device | `{"legacy"?: str}` | `{"device": "<id>.<sig>", "simulated": true}` (see the device notes below the tray section) |
+| GET /api/spin?device= | | `{"date", "target_date", "target_slot", "options": [{"item_id", "name", "allergens": [str], "diet": [str], "gluten_free": bool, "dairy_free": bool}], "pool": [{"item_id", "name", "diet", "gluten_free", "dairy_free"}], "already_voted": bool, "simulated": true}` |
+| POST /api/vote | `{"device", "item_id"}` (any of today's options, four on the full data) | `{"ok": true, "streak", "xp", "tally": {item_id: count}, "simulated": true}` |
 | POST /api/guess | `{"device", "item_id"}` (most popular item next school day) | `{"ok": true, "target_date", "simulated": true}` |
-| GET /api/me?device= | | `{"device", "streak", "xp", "badges": [str], "last_guess": {"target_date", "item_id", "correct": bool or null} or null, "simulated": true}` |
+| GET /api/me?device= | | `{"device", "streak", "xp", "badges": [str], "last_guess": {"target_date", "item_id", "correct": bool or null} or null, "voted_today", "packed_today", "correct_calls": int (guesses scored correct so far), "simulated": true}` |
 | GET /api/meter | | engine `meter()` |
 
+## Tray
+
+Students can pack one tray for the next school day. `GET /api/tray?device=&school=` returns the target date and that day's menu grouped in fixed component order: `meat_alternate`, `grain`, `vegetable`, `fruit`, `milk`. Each item is `{"item_id", "name", "allergens", "diet", "gluten_free", "dairy_free"}`. `diet` is a list in the fixed order vegetarian, vegan, contains_pork, contains_beef, spicy; `gluten_free` means no wheat allergen and `dairy_free` means no milk allergen (derived, not stored). The spin options use the same item shape. A device's `picks` are item ids or null for a skipped group. The response includes a `tally` only after that device has packed today.
+
+`POST /api/tray` accepts `{"device", "school"?, "picks": {component: item_id or null}}`. Every target-day group must be picked or skipped, and at least one group must be picked. A device can pack once per school day. The response includes the target date, current streak and XP, and a tally. The tally counts packed trays, skips, and each menu item's picks and share.
+
+Packing a tray earns 10 XP. A school day is active for streaks and longest-run badges when the device voted or packed a tray. The `tray` key in `/api/admin/summary` is the current school's tally, or null when no trays were packed today. Tray submissions use the same per-IP limit as votes and guesses.
+
 - `device` is a random ID the browser makes (8 to 64 letters, digits or dashes). No names or emails. The first call with a new device creates its player row.
+- `POST /api/device` accepts an optional `legacy` id and returns `{"device": "<id>.<sig>", "simulated": true}`. `<id>` is a device id as above and `<sig>` is the first 16 lowercase hex characters of HMAC-SHA256(server secret, `device:<id>`), so a signed id is at most 81 characters. A valid unsigned `legacy` id that already has a player row (any school) is signed as is, so the student keeps their streak and XP. Any other `legacy` value, or none, gets a new random id (32 hex characters). A `legacy` that is already a valid signed id comes back unchanged. Every call except the unchanged case counts as a new player for the mint limit (see Limits).
+- Env `LUNCHLOOP_SIGNED_DEVICES=1` turns enforcement on: `POST /api/vote`, `POST /api/guess`, `GET /api/tray` with a device, `POST /api/tray`, `POST /api/served`, `GET /api/me` and `GET /api/spin` with a device answer 400 `{"error": "invalid device"}` to a missing, unsigned or wrongly signed device. Off (the default), both plain and signed ids are accepted, but a signed id with a bad signature is still 400. Either way a signed id and its unsigned base are the same player: history, streaks and the one-per-day rules are kept under the unsigned base id. Simulated `/api/demo/crowd` devices are internal and not affected.
 - One vote and one guess per device per school day.
 - Streak counts consecutive school days with a vote. XP: +10 per vote, +25 per correct guess.
 - A guess is scored once its target date is in the past (by the demo clock), using `future_meals.csv`: correct if the item has the most `servings_taken` among that day's `meat_alternate` items.
@@ -130,7 +142,7 @@ Errors are `{"error": "<plain message>"}` with status 400 (bad input), 404 (unkn
 
 ## Database (SQLite, owned by `api/`)
 
-Built fresh at startup from the data folder (hosting disks may be wiped), at `LUNCHLOOP_DB` (default `lunchloop.db`, git-ignored). Tables: `items`, `meals`, `menu`, `vote_options`, `votes(device, date, item_id)`, `guesses(device, date, target_date, item_id)`, `players(device, streak, xp, last_vote_date)`. Votes, guesses and players survive restarts only if the file does.
+Built fresh at startup from the data folder (hosting disks may be wiped), at `LUNCHLOOP_DB` (default `lunchloop.db`, git-ignored). Tables: `items`, `meals`, `menu`, `vote_options`, `votes(device, date, item_id)`, `guesses(device, date, target_date, item_id)`, `trays(school_id, device, date, target_date, component, item_id)`, `players(device, streak, xp, last_vote_date)`. Votes, guesses, trays and players survive restarts only if the file does.
 
 ## School accounts
 
@@ -176,10 +188,14 @@ These routes are public and show only anonymous data, so judges can watch the ba
 
 | method and path | request | response |
 | --- | --- | --- |
-| GET /api/events?after=&limit= | `after` = last event id seen (default 0), `limit` 1 to 100 (default 50) | `{"events": [{"id", "at", "kind", "school_id", "player", "summary", "detail": {}, "ms"}], "latest_id", "simulated": true}` oldest first |
+| GET /api/events?after=&limit=&scope= | `scope` optional `live` or `simulated`; global ids remain unchanged | same response, filtered when scoped |
+| GET /api/demo/calendar?school= | simulated school only | `{"today", "school_days": [str], "default_today", "simulated": true}` |
+| POST /api/demo/crowd | `{"school": "demo", "count": 1..40}` | `{"ok": true, "added", "date", "totals": {"votes", "trays", "checked_in"}, "simulated": true}` |
 | GET /api/trace/forecast?item_id=&date=&ratio= | date default today, ratio default 3.0 | see below |
 
-Events: the server keeps the newest 300 in memory (lost on restart). `kind` is one of `spin`, `vote`, `guess`, `staff_sign_in`, `staff_sign_in_failed`, `prep`, `savings`, `simulate`, `meter`, `rate_limited`. `at` is an ISO UTC time. `player` is a 6-character anonymous tag (an HMAC of the device id with the server secret), or null. `summary` is one plain sentence (for example "A player voted for Beef nachos"). `detail` holds small numbers (for example the new tally, or the prep total and item count). `ms` is how long the work took, or null. Events never hold device ids, passwords, tokens, IP addresses or user agents. Admin summary polls are not events.
+Demo controls never touch `live`: both demo routes return 400 `demo controls are for simulated schools` for it, and an unknown school is 404. `POST /api/demo/crowd` acts on the school's current demo date (the `X-Demo-Date` header): each simulated student votes for one of today's options (weighted by that entree's past popularity, so vegetarian options get a real share), packs a tray for the next school day (each group picked or skipped), and about a third also guess. Device ids are `sim-<school>-<date>-<index>`, the index continuing from that day's earlier simulated votes and skipping any id a real device already used. Every action records the usual `spin`, `vote`, `tray` or `guess` event. `count` must be an integer 1 to 40 (400 `count must be 1 to 40`). One request counts as one write for rate limits. 404 `no voting today` when the date has no vote or no next school day.
+
+Events: the server keeps the newest 300 live events (school `live`) and, separately, the newest 300 of everything else, in memory (lost on restart), so simulated bursts never push live events out. `?scope=live` or `?scope=simulated` reads one buffer; no scope merges both (up to 600) in id order. `kind` is one of `spin`, `vote`, `guess`, `tray`, `served`, `free`, `staff_sign_in`, `staff_sign_in_failed`, `prep`, `savings`, `simulate`, `meter`, `rate_limited`. A tray event says that a player packed a tray for the target date, with picked count and tally total in `detail`. `at` is an ISO UTC time. `player` is a 6-character anonymous tag (an HMAC of the device id with the server secret), or null. `summary` is one plain sentence (for example "A player voted for Beef nachos"). `detail` holds small numbers (for example the new tally, or the prep total and item count). `ms` is how long the work took, or null. Events never hold device ids, passwords, tokens, IP addresses or user agents. Admin summary polls are not events.
 
 `/api/trace/forecast` shows every step of `forecast()` for one item, with the same inputs the engine used:
 
@@ -196,5 +212,26 @@ Events: the server keeps the newest 300 in memory (lost on restart). `kind` is o
 
 - The interactive docs (`/docs`, `/redoc`, `/openapi.json`) are off unless env `LUNCHLOOP_DOCS=1`.
 - Request bodies over 16 KB get 413.
-- Each client IP may make 3,000 requests a minute, and 300 votes plus guesses in 10 minutes (a whole class can share one school Wi-Fi address). Over the limit: 429 `{"error": "slow down a little"}`.
+- Each client IP may make 1,200 requests a minute and 300 actions in 10 minutes (a whole school can share one Wi-Fi address). Actions are `POST` to `/api/vote`, `/api/guess`, `/api/tray`, `/api/served`, `/api/admin/free` and `/api/demo/crowd`.
+- Each device (the `device` query parameter or JSON body field, counted by its unsigned base id) may also make 60 requests a minute and 12 actions in 10 minutes. Requests without a device only count against their IP. A signed id with a bad signature is not counted as that device.
+- Over an IP or device limit: 429 `{"error": "slow down a little"}`.
+- Each client IP may get 120 new players from `POST /api/device` in 10 minutes. Over that: 429 `{"error": "too many new players from this network, try again soon"}`.
+- The first time an address hits a limit kind in a minute, a `rate_limited` event is recorded with `detail.limit` set to `requests`, `votes and guesses`, `device requests`, `device actions` or `new players`. It never holds the address or the device id.
+- Every limit can be changed with env (read when the app starts; each must be a whole number of at least 1):
+
+  | env | default |
+  | --- | --- |
+  | `LUNCHLOOP_IP_REQUESTS` | 1200 requests per IP per minute |
+  | `LUNCHLOOP_IP_ACTIONS` | 300 actions per IP per 10 minutes |
+  | `LUNCHLOOP_DEVICE_REQUESTS` | 60 requests per device per minute |
+  | `LUNCHLOOP_DEVICE_ACTIONS` | 12 actions per device per 10 minutes |
+  | `LUNCHLOOP_DEVICE_MINTS` | 120 new players per IP per 10 minutes |
 - Every response carries `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer` and `X-Frame-Options: DENY`; admin responses also carry `Cache-Control: no-store`.
+
+## Free leftovers and lunch service
+
+Students can report whether they received the tray they packed for the current school date with `POST /api/served` using `{"device", "school"?, "got": true|false}`. The request requires a tray targeting that date and returns `no tray for today` when none exists. Repeating the request updates the answer. `GET /api/me` and `GET /api/tray` include `today_lunch` and `free_today`.
+
+Staff can mark a menu item free with `POST /api/admin/free` using a bearer staff token and `{"item_id", "free": true|false}`. The server returns `that food is not on today's menu` for an off-menu item. `GET /api/free?school=` is public. Free records are stored in the `freebies` table, per school and date, and the admin token determines the school. The admin summary includes `free` and a `service` object with packed, checked-in, got, missed, and per-item wanted, got, missed, waiting, and free counts.
+
+The demo crowd also simulates today's lunch service: if no simulated student packed a tray for the current date yet, it first makes `count` of them on the previous school day, then checks in about 85% of up to `count` waiting simulated students (about 90% of those got their pick), recording `served` events. `totals.trays` counts trays packed on the current date; `totals.checked_in` counts today's check-ins.

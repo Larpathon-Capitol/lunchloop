@@ -1,10 +1,12 @@
-// The spin reel: a column of menu items that spins on a spring, ticks as rows pass,
-// and lands with today's three choices filling the window. The last three rows of the
-// strip are the ballot itself, so they become tappable the moment the reel reaches
-// them, while the spring finishes its one small overshoot.
+// The spin reel: a column of every entree that spins on a spring, ticks as rows pass,
+// and lands with today's four choices filling the window. The last rows of the strip are
+// the ballot itself, so they become tappable the moment the reel reaches them, while the
+// spring finishes its one small overshoot. Once it rests, the window opens to fit the
+// ballot rows, which are taller than the spinning rows (they carry diet info).
 import { animate, motion, useMotionValue, useMotionValueEvent, useReducedMotion } from 'framer-motion'
-import { useEffect, useMemo, useRef } from 'react'
-import type { SpinOption } from '../shared/api'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import type { PoolItem, SpinOption } from '../shared/api'
+import { Leaf } from '../shared/icons'
 import { copy } from '../shared/copy'
 import { sound } from '../shared/sound'
 import { FoodGlyph } from './FoodGlyph'
@@ -12,14 +14,21 @@ import { reelSpring } from './springs'
 import { ChoiceRow } from './ChoiceRow'
 
 const FILL = 40
+/** Rows visible in the window while spinning, one per ballot option. */
+const WINDOW = 4
+/** Spinning row height in px. Matches --reel-row in student.css. */
+const ROW = 60
 const TICK_GAP_MS = 40
+/** Longest wait between reaching the ballot and opening the window. The spring rests in about 0.7s. */
+const OPEN_FALLBACK_MS = 800
 const t = copy.student.spin
 
 type Phase = 'idle' | 'spinning' | 'landed'
 
 interface Props {
   options: SpinOption[]
-  pool: { item_id: string; name: string }[]
+  /** Every entree, in the order the strip shows them. */
+  pool: (Pick<PoolItem, 'item_id' | 'name'> & Partial<PoolItem>)[]
   phase: Phase
   selected: string | null
   disabled?: boolean
@@ -28,14 +37,14 @@ interface Props {
   onInfo: (option: SpinOption) => void
 }
 
-/** Filler rows from real menu items, never the same item twice in a row. */
+/** Filler rows: the pool in order, repeated to fill, never the same item twice in a row. */
 function buildFiller(pool: Props['pool'], options: SpinOption[]) {
-  const source = pool.length > 1 ? pool : options
+  const source: Props['pool'] = pool.length > 1 ? pool : options
   if (!source.length) return []
-  const rows: { item_id: string; name: string }[] = []
+  const rows: Props['pool'] = []
   let i = 0
   while (rows.length < FILL) {
-    const next = source[(i * 7 + 3) % source.length]
+    const next = source[i % source.length]
     i++
     const last = rows[rows.length - 1]
     if (last && last.item_id === next.item_id && source.length > 1) continue
@@ -50,10 +59,6 @@ function buildFiller(pool: Props['pool'], options: SpinOption[]) {
 function Idle() {
   return (
     <div className="reel reel--idle">
-      <svg className="reel__idle-mark" viewBox="0 0 48 48" aria-hidden="true">
-        <rect x="6" y="9" width="36" height="30" rx="4" />
-        <path d="M6 19h36M6 29h36" />
-      </svg>
       <p className="reel__idle-text">{t.idle}</p>
     </div>
   )
@@ -73,6 +78,8 @@ export function Reel({ options, pool, phase, selected, disabled, onLanded, onSel
 
   const spinning = phase !== 'idle'
   const live = phase === 'landed'
+  // True once the spring has come to rest: the filler goes and the window opens up.
+  const [open, setOpen] = useState(false)
 
   /** Runs once per spin, however many times the spring or StrictMode calls it. */
   const land = () => {
@@ -82,6 +89,15 @@ export function Reel({ options, pool, phase, selected, disabled, onLanded, onSel
     sound.land()
     landedRef.current()
   }
+
+  // Once the parent knows the reel landed, the window must open, even if the spring never
+  // reports that it came to rest (stopped by a re-render, a remount or a hidden tab).
+  // The normal path opens sooner, from onComplete below.
+  useEffect(() => {
+    if (!live || open) return
+    const id = window.setTimeout(() => setOpen(true), reduce ? 0 : OPEN_FALLBACK_MS)
+    return () => window.clearTimeout(id)
+  }, [live, open, reduce])
 
   useMotionValueEvent(y, 'change', (v) => {
     const s = state.current
@@ -107,35 +123,62 @@ export function Reel({ options, pool, phase, selected, disabled, onLanded, onSel
     if (reduce || !h) {
       y.set(target)
       land()
+      setOpen(true)
       return
     }
-    const controls = animate(y, target, { ...reelSpring, onComplete: land })
-    return () => controls.stop()
+    const controls = animate(y, target, {
+      ...reelSpring,
+      onComplete: () => {
+        land()
+        setOpen(true)
+      },
+    })
+    return () => {
+      controls.stop()
+      // Stopped after the strip reached the ballot: open now rather than wait for the fallback.
+      if (state.current.landed) setOpen(true)
+    }
     // `land` reads refs only; options and filler are frozen for the spin.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [spinning, reduce, y])
 
-  // Hand keyboard and screen reader focus to the first choice once the reel lands.
+  // Hand keyboard and screen reader focus to the first choice once the reel lands and opens.
   useEffect(() => {
-    if (live) groupRef.current?.querySelector<HTMLButtonElement>('.reel__pick')?.focus({ preventScroll: true })
-  }, [live])
+    if (live && open) groupRef.current?.querySelector<HTMLButtonElement>('.choice__main')?.focus({ preventScroll: true })
+  }, [live, open])
 
   if (!spinning || !options.length) return <Idle />
 
+  const ghost = (o: Props['pool'][number]) => (
+    <span className="reel__ghost">
+      <FoodGlyph id={o.item_id} />
+      <span className="reel__name">{o.name}</span>
+      {o.diet?.includes('vegetarian') && (
+        <span className="reel__veg">
+          <Leaf />
+        </span>
+      )}
+    </span>
+  )
+
   return (
-    <div className="reel">
-      <motion.div className="reel__strip" style={{ y }}>
-        <div aria-hidden="true">
-          {filler.map((o, i) => (
-            <div className="reel__row" key={i} ref={i === 0 ? rowRef : undefined}>
-              <span className="reel__pick">
-                <span className="reel__radio reel__radio--ghost" />
-                <FoodGlyph id={o.item_id} />
-                <span className="reel__name">{o.name}</span>
-              </span>
-            </div>
-          ))}
-        </div>
+    <motion.div
+      className={`reel${live ? ' reel--live' : ''}${open ? ' reel--open' : ''}`}
+      initial={false}
+      animate={{ height: open ? 'auto' : ROW * WINDOW }}
+      transition={reduce ? { duration: 0 } : { type: 'spring', stiffness: 260, damping: 30 }}
+    >
+      {/* Dropping the filler and zeroing y in the same render keeps the ballot exactly where it is. */}
+      <motion.div className="reel__strip" style={{ y: open ? 0 : y }}>
+        {!open && (
+          <div aria-hidden="true">
+            {filler.map((o, i) => (
+              <div className="reel__row" key={i} ref={i === 0 ? rowRef : undefined}>
+                {ghost(o)}
+              </div>
+            ))}
+          </div>
+        )}
         {live ? (
           <div className="reel__choices" role="group" aria-label={t.choices} ref={groupRef}>
             {options.map((o) => (
@@ -143,6 +186,7 @@ export function Reel({ options, pool, phase, selected, disabled, onLanded, onSel
                 key={o.item_id}
                 item_id={o.item_id}
                 name={o.name}
+                facts={o}
                 on={selected === o.item_id}
                 disabled={disabled}
                 popIn={!reduce}
@@ -155,16 +199,12 @@ export function Reel({ options, pool, phase, selected, disabled, onLanded, onSel
           <div aria-hidden="true">
             {options.map((o) => (
               <div className="reel__row" key={o.item_id}>
-                <span className="reel__pick">
-                  <span className="reel__radio reel__radio--ghost" />
-                  <FoodGlyph id={o.item_id} />
-                  <span className="reel__name">{o.name}</span>
-                </span>
+                {ghost(o)}
               </div>
             ))}
           </div>
         )}
       </motion.div>
-    </div>
+    </motion.div>
   )
 }

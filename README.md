@@ -157,7 +157,7 @@ The full list of routes and response shapes is in the [API reference](docs/backe
 
 ## Current features
 
-- A simulated large Texas high school of 2,750 students, made by `python data/simulate.py` with a fixed seed. It has 125 school days of history (Jan 12 to Oct 16, 2026), 14 menu items across all five meal components, and four upcoming school weeks of menu.
+- A simulated large Texas high school of 2,750 students, made by `python data/simulate.py` with a fixed seed. It has 136 school days of history (Jan 12 to Oct 16, 2026), 30 menu items across all five meal components (14 entrees, 7 of them vegetarian, and 2 to 3 choices of grain, vegetable, fruit and milk every day), and 59 upcoming school days of menu (Oct 19, 2026 to Jan 29, 2027).
 - A forecast engine that suggests a prep amount for each menu item, with a one-line reason for each. An item with no history gets a rough guess instead of an error.
 - Data checks: `engine.validate()` lists problems in the data files in plain words.
 - A meal check that flags a missing food group.
@@ -187,11 +187,11 @@ The full list of routes and response shapes is in the [API reference](docs/backe
 - Votes and streaks live in a local SQLite file, so a fresh deploy resets them.
 - Allergens in the data are placeholders, not product labels. Do not use them for real food safety.
 - At the default setting, LunchLoop runs short more often than the kitchen's usual amount (see the results below).
-- Entrees and grains sell out on some days in the simulated history (22.6% of entree and grain item-days), so the history undercounts what students wanted. `tools/eval_truth.py` scores against the true demand to check this.
-- Packaged items (milk cartons, fruit cups, mandarin oranges) are counted as waste when they are not eaten. Some of them may be stored and served again, so the results may overstate their waste.
+- Entrees and grains sell out on some days in the simulated history (19.9% of entree and grain item-days), so the history undercounts what students wanted. `tools/eval_truth.py` scores against the true demand to check this.
+- Packaged items (milk cartons, fruit cups, mandarin oranges, bagged apple slices) are counted as waste when they are not eaten. Some of them may be stored and served again, so the results may overstate their waste.
 - The kitchen's "usual amount" is a fixed over-prep per food group (7.5% for entrees and grains, 20% for fruit and vegetables, 12% for milk). These margins are our assumptions. No published standard sets them.
 - The 4-week backtest (`engine.backtest()` and the leftovers meter) can only see what was served, so the usual amount never shows a shortage there and only LunchLoop's shortages are charged. `tools/eval_truth.py` scores both against true demand and is the fairer check.
-- The vote options are the same three entrees every day in the current data.
+- Each school day has four vote options with at least one vegetarian entree. The simulated calendar follows a typical Texas district pattern (weekends, Thanksgiving week, winter break, spring break, summer and the usual Monday holidays are off), not any real district's calendar.
 
 ---
 
@@ -213,27 +213,27 @@ All numbers here are simulated. The test: run the forecast on the last 4 weeks o
 
 The score uses true demand: the simulation knows how many students wanted each item, including students who found it sold out. We ran 5 random simulated schools (5 seeds) and pooled them, 95 school days in all.
 
-- **Pooled over 5 simulated schools:** LunchLoop saves about **$40.90 per school day**. The 95% interval is $21.63 to $59.53.
-- **The school in this repo** (seed 20261016, 19 school days): about $74.08 per school day, interval $47.07 to $98.15. One school and one 4-week window swing a lot. Across the 5 seeds the single-school figure ran from $19.79 to $74.08 per day.
-- Per day, LunchLoop leaves $118.19 of food uneaten and the usual amount leaves $227.88. LunchLoop comes up 62.13 servings short and the usual amount 17.87.
+- **Pooled over 5 simulated schools:** LunchLoop saves about **$81.10 per school day**. The 95% interval is $58.34 to $103.16.
+- **The school in this repo** (seed 20261016, 19 school days): about $74.52 per school day, interval $13.10 to $130.83. One school and one 4-week window swing a lot. Across the 5 seeds the single-school figure ran from $71.50 to $94.55 per day.
+- Per day, LunchLoop leaves $153.46 of food uneaten and the usual amount leaves $316.22. LunchLoop comes up 84.48 servings short and the usual amount 20.74.
 
 Where the saving comes from (pooled, per school day):
 
 | Food group | Net saved per day |
 | --- | ---: |
-| Entree | -$11.18 |
-| Grain | -$0.36 |
-| Vegetable | $20.41 |
-| Fruit | $25.69 |
-| Milk | $6.34 |
-| **Total** | **$40.90** |
+| Entree | -$3.75 |
+| Grain | -$1.88 |
+| Vegetable | $41.67 |
+| Fruit | $40.92 |
+| Milk | $4.14 |
+| **Total** | **$81.10** |
 
-Entrees lose money because LunchLoop runs out more often than the usual amount does. About 78% of the total ($32.03) comes from packaged items (milk cartons, fruit cups, mandarin oranges). If those leftovers are stored and served again instead of wasted, only about $9 per day ($8.87) remains.
+Entrees and grains lose money because LunchLoop runs out more often than the usual amount does. About 54% of the total ($43.39) comes from packaged items (milk cartons, fruit cups, mandarin oranges, bagged apple slices). If those leftovers are stored and served again instead of wasted, about $38 per day ($37.71) remains.
 
 Two choices in the simulation push the saving up:
 
-- The usual amount for milk is 12% above recent use, an assumption kept from the prototype. Schools must offer fluid milk every day, but the rule sets no margin. With milk at 2.5% over, the pooled saving is about $35.05 per day instead (interval $17.10 to $52.12).
-- Packaged leftovers count as waste, as noted above. Without the packaged items the saving is about $9 per day.
+- The usual amount for milk is 12% above recent use, an assumption kept from the prototype. Schools must offer fluid milk every day, but the rule sets no margin. With milk at 2.5% over, the pooled saving is about $78.81 per day instead (interval $58.47 to $98.35).
+- Packaged leftovers count as waste, as noted above. Without the packaged items the saving is about $38 per day.
 
 A real school's saving would scale with its size and with how much it over-cooks today. We have not measured that. These numbers come from simulated data, not a real cafeteria.
 
@@ -252,7 +252,7 @@ For a quick check on just the shipped data, scored on what was served instead of
 python -c "import engine, json; print(json.dumps({k: v for k, v in engine.backtest().items() if k != 'series'}, indent=2))"
 ```
 
-That prints 49.4% fewer leftovers (5,361 servings against 10,603) and a net saving of $1,358.05 over the 4 weeks.
+That prints 56.6% fewer leftovers (5,688 servings against 13,100) and a net saving of $1,348.37 over the 4 weeks.
 
 ---
 
@@ -271,8 +271,8 @@ That prints 49.4% fewer leftovers (5,361 servings against 10,603) and a net savi
 
 ## Credits
 
-- [Ekansh Simgekar](https://github.com/magicKansh) built the first forecasting prototype and the simulated cafeteria data this project started from.
-- [Yojith](https://github.com/yojithprograms), LunchLoop team member.
+- [Ekansh Simgekar](https://github.com/magicKansh) built the first forecasting prototype and the simulated cafeteria data this project started from. He also helped with the simulated school dataset (3da8b1a, d24c487), the API and database (9c0d6b1), and the README and data notes (b8baa8c, fd7ffe7).
+- [Yojith](https://github.com/yojithprograms), LunchLoop team member, helped with the forecast engine (31d2753), the API and database (9c0d6b1), the first web frontend (328d934) and serving the app pages on GitHub Pages (f24038f).
 - The shortage-aware scoring, the data checks and the no-history fallback build on ideas from Ekansh's TrayTrack branch.
 
 ## License

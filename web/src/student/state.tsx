@@ -1,11 +1,14 @@
-// Shared state for the student view: who this device is, today's date,
-// the player's stats, a small catalog of menu items, and the food info sheet.
+// Shared state for the student game: who this device is, today's date, the player's
+// stats, tomorrow's tray (and the picks made so far), a small catalog of menu items,
+// and the food info sheet. Tabs share it, so nothing resets on a tab switch.
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { api, ApiError, type Allergen, type Component, type Me, type PrepList, type SpinOption, type VoteResult } from '../shared/api'
+import { api, ApiError, type Allergen, type Component, type DietInfo, type Me, type PrepList, type SpinOption, type Tray, type TrayPicks, type VoteResult } from '../shared/api'
+import { addDays } from '../shared/format'
 import { deviceId } from '../shared/device'
 import { activeStudentSchool } from '../shared/studentSchool'
 
-export interface FoodInfo {
+/** A food as the info sheet shows it. Diet facts are there when the API sent them. */
+export interface FoodInfo extends Partial<DietInfo> {
   item_id: string
   name: string
   allergens: Allergen[]
@@ -50,6 +53,33 @@ function writeStoredVote(v: StoredVote) {
   }
 }
 
+const draftKey = (date: string) => `lunchloop.trayDraft.${activeStudentSchool()}.${date}`
+
+/** Picks made before packing, kept for this tab session so a reload doesn't lose them. */
+function readDraft(date: string, device: string): TrayPicks {
+  try {
+    const raw = sessionStorage.getItem(draftKey(date))
+    if (!raw) return {}
+    const v = JSON.parse(raw) as { device: string; picks: TrayPicks }
+    return v && v.device === device && v.picks && typeof v.picks === 'object' ? v.picks : {}
+  } catch {
+    return {}
+  }
+}
+
+function writeDraft(date: string, device: string, picks: TrayPicks) {
+  try {
+    sessionStorage.setItem(draftKey(date), JSON.stringify({ device, picks }))
+  } catch {
+    // Storage blocked: the in-memory copy still covers this visit.
+  }
+}
+
+export type TrayLoad =
+  | { state: 'loading' }
+  | { state: 'error'; error: ApiError }
+  | { state: 'ready'; data: Tray }
+
 interface StudentState {
   device: string
   me: Me | null
@@ -63,6 +93,16 @@ interface StudentState {
   addToCatalog: (items: FoodInfo[]) => void
   lastVote: StoredVote | null
   rememberVote: (v: StoredVote) => void
+  tray: TrayLoad
+  reloadTray: () => void
+  /** Replace the loaded tray, for example with the tally after packing. */
+  setTray: (t: Tray) => void
+  /** Picks made so far (before packing). Only components on the tray count. */
+  draft: TrayPicks
+  setDraftPick: (component: Component, item_id: string | null) => void
+  /** Changes whenever the streak should pop in the HUD. */
+  hudBump: number
+  bumpHud: () => void
   food: FoodInfo | null
   showFood: (item: FoodInfo) => void
   closeFood: () => void
@@ -70,13 +110,7 @@ interface StudentState {
 
 const Ctx = createContext<StudentState | null>(null)
 
-/** "2026-10-19" plus n days, as a local date so it never shifts. */
-export function addDays(iso: string, n: number) {
-  const [y, m, d] = iso.split('-').map(Number)
-  const date = new Date(y, m - 1, d + n)
-  const pad = (v: number) => String(v).padStart(2, '0')
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
-}
+export { addDays }
 
 /** Finds the next day after `today` that has a menu (skips weekends and breaks). */
 async function nextMenuDay(today: string): Promise<PrepList | null> {
@@ -105,6 +139,11 @@ export function StudentProvider({ children }: { children: ReactNode }) {
   const [catalog, setCatalog] = useState<Record<string, FoodInfo>>({})
   const [food, setFood] = useState<FoodInfo | null>(null)
   const [lastVote, setLastVote] = useState<StoredVote | null>(null)
+  const [tray, setTrayLoad] = useState<TrayLoad>({ state: 'loading' })
+  const [trayTick, setTrayTick] = useState(0)
+  const [draft, setDraft] = useState<TrayPicks>({})
+  const [hudBump, setHudBump] = useState(0)
+  const bumpHud = useCallback(() => setHudBump((b) => b + 1), [])
   const alive = useRef(true)
   const meRequest = useRef(0)
 
@@ -169,6 +208,39 @@ export function StudentProvider({ children }: { children: ReactNode }) {
     }
   }, [calendarTick, addToCatalog])
 
+  useEffect(() => {
+    let live = true
+    setTrayLoad((t) => (t.state === 'ready' ? t : { state: 'loading' }))
+    api
+      .getTray(device)
+      .then((data) => {
+        if (!live) return
+        addToCatalog(data.groups.flatMap((g) => g.items.map((i) => ({ ...i, component: g.component }))))
+        setDraft(data.picks ? {} : readDraft(data.open_date, device))
+        setTrayLoad({ state: 'ready', data })
+      })
+      .catch((e) => {
+        if (live) setTrayLoad({ state: 'error', error: asError(e) })
+      })
+    return () => {
+      live = false
+    }
+  }, [device, trayTick, addToCatalog])
+
+  const reloadTray = useCallback(() => setTrayTick((t) => t + 1), [])
+  const setTray = useCallback((data: Tray) => setTrayLoad({ state: 'ready', data }), [])
+  const trayDate = tray.state === 'ready' ? tray.data.open_date : null
+  const setDraftPick = useCallback(
+    (component: Component, item_id: string | null) => {
+      setDraft((prev) => {
+        const next = { ...prev, [component]: item_id }
+        if (trayDate) writeDraft(trayDate, device, next)
+        return next
+      })
+    },
+    [trayDate, device],
+  )
+
   const value = useMemo<StudentState>(
     () => ({
       device,
@@ -183,11 +255,18 @@ export function StudentProvider({ children }: { children: ReactNode }) {
       addToCatalog,
       lastVote,
       rememberVote,
+      tray,
+      reloadTray,
+      setTray,
+      draft,
+      setDraftPick,
+      hudBump,
+      bumpHud,
       food,
       showFood: setFood,
       closeFood,
     }),
-    [device, me, meError, refreshMe, calendar, calendarError, reloadCalendar, catalog, addToCatalog, lastVote, rememberVote, food, closeFood],
+    [device, me, meError, refreshMe, calendar, calendarError, reloadCalendar, catalog, addToCatalog, lastVote, rememberVote, tray, reloadTray, setTray, draft, setDraftPick, hudBump, bumpHud, food, closeFood],
   )
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>

@@ -1,680 +1,1878 @@
-/* Student view. Phone first; on wide screens it stays a single calm column.
-   Every selector is scoped under .student-view so nothing leaks into other views. */
+/* The student game. Tokens only. Phones first (375 to 390px); from 960px the tray sits large
+   in the middle with its panel beside it. The page stays transparent over the tray slot, so the
+   3D stage behind it shows through. */
 
-.student-view .student {
-  max-width: calc(var(--max-width) / 2);
-  margin: 0 auto;
-  padding-bottom: calc(var(--touch) + var(--s12));
-}
-
-.student-view .student__screen {
-  display: grid;
-  gap: var(--s5);
+.game {
+  --tabbar-h: 64px;
+  padding-bottom: calc(var(--tabbar-h) + var(--s16) + env(safe-area-inset-bottom, 0px));
 }
 
-.student-view .screen {
-  display: grid;
-  gap: var(--s5);
-}
+/* ---------- Shared pieces ---------- */
 
-.student-view .screen__head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--s3);
-  flex-wrap: wrap;
-}
-
-.student-view .screen__title {
-  font-size: var(--text-xl);
-}
-
-.student-view .section-title {
-  font-size: var(--text-lg);
-  text-wrap: balance;
-}
-
-/* Streak and XP */
-.student-view .stats {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  border-top: var(--hairline);
-  border-bottom: var(--hairline);
-  min-height: var(--s16);
-}
-.student-view .stats--empty {
-  min-height: var(--s16);
-}
-.student-view .stats__item {
-  display: flex;
-  align-items: center;
-  gap: var(--s2);
-  padding: var(--s3) 0;
-}
-.student-view .stats__item + .stats__item {
-  border-left: var(--hairline);
-  padding-left: var(--s4);
-}
-.student-view .stats__flame {
-  display: inline-flex;
-  transform-origin: 50% 90%;
-}
-.student-view .stats__value {
-  font-family: var(--font-display);
-  font-size: var(--text-2xl);
+.section-title {
+  font-family: var(--font-ui);
+  font-size: var(--text-md);
   font-weight: 700;
-  line-height: 1;
+  line-height: 1.3;
+  color: var(--sumi);
 }
-.student-view .stats__label {
-  color: var(--slate);
-}
-
-.student-view .flame {
-  width: var(--s5);
-  height: var(--s6);
-  fill: var(--accent-mark);
-}
-.student-view .flame--off {
-  fill: none;
-  stroke: var(--line);
-  stroke-width: 1.6;
+.section-title:focus {
+  outline: none;
 }
 
-/* Panels: white surface on paper, no shadow */
-.student-view .panel {
-  background: var(--surface);
+.icon-btn {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: var(--touch);
+  height: var(--touch);
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--nezumi);
+  cursor: pointer;
+  transition: background-color var(--t-fast) var(--ease), color var(--t-fast) var(--ease);
+  -webkit-tap-highlight-color: transparent;
+}
+.icon-btn:hover {
+  background: var(--washi);
+  color: var(--sumi);
+}
+.icon-btn svg {
+  width: 22px;
+  height: 22px;
+}
+
+.btn-ink {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--touch);
+  padding: 0 var(--s5);
   border-radius: var(--radius);
-  padding: var(--s5);
+  border: 1.5px solid var(--sumi);
+  color: var(--sumi);
+  font-weight: 700;
+  text-decoration: none;
+  transition: background-color var(--t-fast) var(--ease);
+}
+.btn-ink:hover {
+  background: var(--shoji);
+}
+
+.glyph-disc {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--washi);
+  color: var(--sumi);
+}
+.glyph-disc svg {
+  width: 26px;
+  height: 26px;
+}
+.glyph-disc--solid {
+  color: var(--on-shu);
+}
+.glyph-disc--quiet {
+  color: var(--nezumi);
+  background: transparent;
+  border: 1.5px dashed var(--line);
+}
+.glyph-disc--entree {
+  color: var(--g-entree);
+}
+.glyph-disc--small {
+  width: 32px;
+  height: 32px;
+}
+.glyph-disc--small svg {
+  width: 20px;
+  height: 20px;
+}
+.glyph-disc--big {
+  width: 64px;
+  height: 64px;
+}
+.glyph-disc--big svg {
+  width: 36px;
+  height: 36px;
+}
+.food-glyph {
+  width: 26px;
+  height: 26px;
+}
+
+.inline-icon {
+  width: 20px;
+  height: 20px;
+  margin-right: var(--s2);
+  vertical-align: -3px;
+  color: var(--nezumi);
+}
+
+/* Skeletons: paper shapes that breathe slowly while the menu loads. */
+.skel {
+  display: block;
+  border-radius: var(--radius-sm);
+  background: var(--line);
+  opacity: 0.6;
+  animation: skel-breathe 1.6s var(--ease) infinite alternate;
+}
+.skel--title {
+  width: 64%;
+  height: 30px;
+}
+.skel--line {
+  width: 42%;
+  height: 14px;
+  margin-top: var(--s2);
+}
+.skel--block {
+  width: 100%;
+  height: 160px;
+  margin-top: var(--s4);
+  border-radius: var(--radius);
+}
+.skel--disc {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+}
+.skel--word {
+  width: 70%;
+  height: 10px;
+}
+@keyframes skel-breathe {
+  to {
+    opacity: 0.25;
+  }
+}
+
+/* Paper panels: raised washi, one level only. */
+/* A tab's main section. It sits straight on the washi ground: no card around it. */
+.paper {
   display: grid;
   gap: var(--s4);
 }
-.student-view .panel--quiet {
-  background: transparent;
-  padding: 0 0 var(--s5);
-  border-bottom: var(--hairline);
-  border-radius: 0;
+.paper__lead {
+  color: var(--nezumi);
 }
-.student-view .panel__lead {
-  color: var(--slate);
-  margin-top: calc(var(--s2) * -1);
+.paper__note {
+  color: var(--nezumi);
+  font-size: var(--text-sm);
 }
-.student-view .panel__note {
-  color: var(--slate);
-}
-.student-view .panel__error {
+.paper__error,
+.pack__error {
   color: var(--bad);
   font-weight: 500;
 }
-.student-view .panel__cta {
-  width: 100%;
-}
-.student-view .panel__action {
+.paper__action {
   display: grid;
 }
-/* Headings that take focus after a vote or guess, so the result is read out. */
-.student-view .section-title[tabindex='-1']:focus-visible {
-  box-shadow: none;
-}
-.student-view .voted__mark {
-  display: flex;
+.paper--result {
+  grid-template-columns: auto 1fr;
   align-items: center;
-  gap: var(--s3);
-}
-.student-view .voted__xp {
-  font-family: var(--font-display);
-  font-size: var(--text-md);
-  font-weight: 700;
-  color: var(--ok);
-}
-
-.student-view .btn--big:disabled {
-  opacity: 1;
-  background: var(--paper);
-  color: var(--slate);
-}
-.student-view .btn--big[data-busy] {
-  background: var(--accent);
-  color: var(--accent-ink);
-}
-.student-view .btn--big {
-  width: 100%;
-  min-height: calc(var(--touch) + var(--s3));
-  font-family: var(--font-display);
-  font-size: var(--text-md);
-}
-
-.student-view .done-mark {
-  width: var(--s10);
-  height: var(--s10);
-  fill: none;
-  stroke: var(--ok);
-  stroke-width: 1.8;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-/* The reel and the choice rows */
-.student-view .reel {
-  position: relative;
-  background: var(--paper);
-  border-radius: var(--radius);
-  overflow: hidden;
-}
-.student-view .reel:not(.reel--list) {
-  height: calc(var(--s16) * 3 - 1px);
-}
-.student-view .reel__strip {
-  will-change: transform;
-}
-.student-view .reel__row {
-  display: flex;
-  align-items: stretch;
-  height: var(--s16);
-  border-bottom: var(--hairline);
-}
-.student-view .reel__choices .reel__row:last-child,
-.student-view .reel--list .reel__row:last-child {
-  border-bottom: 0;
-}
-.student-view .reel__row--on {
-  background: var(--surface);
-  border-radius: var(--radius);
-  outline: 2px solid var(--accent);
-  outline-offset: -2px;
-}
-.student-view .reel__pick {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  align-items: center;
-  gap: var(--s3);
-  padding: 0 var(--s3);
-  background: none;
-  border: 0;
-  border-radius: var(--radius);
-  text-align: left;
-  color: var(--ink);
-  -webkit-tap-highlight-color: transparent;
-}
-.student-view button.reel__pick {
-  cursor: pointer;
-}
-/* Inset rings: the reel clips anything drawn outside its rows. */
-.student-view .reel__pick:focus-visible,
-.student-view .reel__info:focus-visible {
-  box-shadow: inset 0 0 0 2px var(--accent);
-}
-.student-view button.reel__pick:disabled {
-  cursor: default;
-}
-/* Before the first spin: a calm, empty reel window, clearly waiting. */
-.student-view .reel--idle {
-  display: grid;
-  place-content: center;
-  justify-items: center;
-  gap: var(--s2);
-  padding: var(--s4);
-  text-align: center;
-}
-.student-view .reel__idle-mark {
-  width: var(--s10);
-  height: var(--s10);
-  fill: none;
-  stroke: var(--slate);
-  stroke-width: 1.6;
-  stroke-linejoin: round;
-}
-.student-view .reel__idle-text {
-  color: var(--slate);
-}
-.student-view .reel__name {
-  font-family: var(--font-display);
-  font-size: var(--text-md);
-  font-weight: 600;
-  line-height: var(--leading-tight);
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  overflow: hidden;
-}
-.student-view .reel__radio {
-  flex: none;
-  display: grid;
-  place-items: center;
-  width: var(--s5);
-  height: var(--s5);
-  border: 1.5px solid var(--slate);
-  border-radius: 50%;
-}
-.student-view .reel__radio--ghost {
-  visibility: hidden;
-}
-.student-view .reel__row--on .reel__radio {
-  background: var(--accent);
-  border-color: var(--accent);
-}
-.student-view .reel__radio svg {
-  width: var(--s4);
-  height: var(--s4);
-  fill: none;
-  stroke: var(--accent-ink);
-  stroke-width: 2;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-.student-view .reel__info {
-  flex: none;
-  display: grid;
-  place-items: center;
-  width: var(--touch);
-  align-self: center;
-  height: var(--touch);
-  margin-right: var(--s1);
-  border: 0;
-  border-radius: var(--radius);
-  background: none;
-  color: var(--slate);
-  cursor: pointer;
-}
-.student-view .reel__info:hover {
-  color: var(--ink);
-}
-.student-view .reel__info svg {
-  width: var(--s5);
-  height: var(--s5);
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.6;
-  stroke-linecap: round;
-}
-
-.student-view .food-glyph {
-  flex: none;
-  width: var(--s8);
-  height: var(--s8);
-  color: var(--ink);
-}
-.student-view .food-glyph--lg {
-  width: var(--s12);
-  height: var(--s12);
-}
-
-/* Vote tally */
-.student-view .tally {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: grid;
   gap: var(--s4);
 }
-.student-view .tally__top {
+.paper__result-body {
+  display: grid;
+  gap: var(--s2);
+  justify-items: start;
+}
+.paper--skel {
+  gap: 0;
+}
+
+.game .notice {
+  border: 0;
+  border-radius: var(--radius);
+  background: var(--shoji);
+  box-shadow: var(--lift);
+  padding: var(--s5);
+}
+
+/* ---------- Top: HUD and (on laptops) the tab control ---------- */
+
+.game__top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s3) var(--s4);
+  margin-bottom: var(--s5);
+}
+.game__sim--top {
+  display: none;
+}
+.game__sim--foot {
+  display: flex;
+  justify-content: center;
+  margin-top: var(--s8);
+}
+
+.hud {
   display: flex;
   align-items: center;
-  gap: var(--s2);
-  margin-bottom: var(--s2);
+  gap: var(--s4);
+  width: 100%;
 }
-.student-view .tally__name {
-  font-family: var(--font-display);
-  font-weight: 600;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
+.hud__stat {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s1);
   white-space: nowrap;
 }
-.student-view .tally__mine {
-  flex: none;
-  color: var(--accent);
-  font-size: var(--text-sm);
-  font-weight: 600;
+.hud__icon {
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
 }
-.student-view .tally__count {
-  flex: none;
-  margin-left: auto;
-  color: var(--slate);
+.hud__icon svg {
+  width: 24px;
+  height: 24px;
 }
-.student-view .tally__track {
-  height: var(--s2);
-  background: var(--paper);
-  border-radius: var(--radius);
-  overflow: hidden;
+.hud__icon--streak {
+  color: var(--pink-5-deep, var(--shu));
 }
-.student-view .tally__bar {
-  display: block;
-  height: 100%;
-  background: var(--slate);
-  border-radius: var(--radius);
-  transform-origin: left center;
+.hud__icon--xp {
+  color: var(--kin);
 }
-.student-view .tally__bar--mine {
-  background: var(--accent);
-}
-
-/* Waste meter */
-.student-view .meter {
-  display: grid;
-  gap: var(--s4);
-  padding-top: var(--s2);
-}
-.student-view .meter__head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--s3);
-  flex-wrap: wrap;
-}
-.student-view .meter__week {
-  color: var(--slate);
-}
-.student-view .meter__figures {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: var(--s4);
-}
-.student-view .meter__figure {
-  display: grid;
-  gap: var(--s1);
-  align-content: start;
-}
-.student-view .meter__big {
-  font-family: var(--font-display);
-  font-size: var(--text-2xl);
-  font-weight: 700;
+.hud__value {
+  font-size: var(--text-lg);
+  font-weight: 900;
   line-height: 1;
+  font-variant-numeric: tabular-nums;
 }
-.student-view .meter__label {
-  color: var(--slate);
-  line-height: var(--leading-tight);
+.hud__label {
+  font-size: var(--text-sm);
+  color: var(--nezumi);
 }
-.student-view .meter__trays {
-  display: grid;
-  gap: var(--s1);
-  max-width: calc(var(--s10) * 12);
-}
-.student-view .meter__tray {
-  position: relative;
-  aspect-ratio: 22 / 14;
-}
-.student-view .meter__tray svg {
-  display: block;
-  width: 100%;
-  height: 100%;
-}
-.student-view .meter__tray-empty rect {
-  fill: none;
-  stroke: var(--line);
-  stroke-width: 1.5;
-}
-.student-view .meter__tray-empty path {
-  fill: none;
-  stroke: var(--line);
-}
-.student-view .meter__tray-full {
-  position: absolute;
-  inset: 0;
-}
-.student-view .meter__tray-full rect {
-  fill: var(--slate);
-  stroke: var(--slate);
-  stroke-width: 1.5;
-}
-.student-view .meter__tray-full path {
-  fill: none;
-  stroke: var(--paper);
-  stroke-width: 1.2;
-}
-.student-view .meter__unit {
-  color: var(--slate);
+.hud__blank {
+  display: inline-block;
+  width: 1ch;
+  height: 0.9em;
+  border-radius: 3px;
+  background: var(--line);
 }
 
-/* Called it */
-.student-view .result {
+.week {
   display: flex;
-  align-items: center;
-  gap: var(--s3);
-}
-.student-view .result__text,
-.student-view .result__body {
-  flex: 1;
-}
-.student-view .result__body {
-  display: grid;
-  gap: var(--s2);
-}
-.student-view .result__body .panel__lead {
-  margin-top: 0;
-}
-.student-view .result__xp {
-  flex: none;
-  font-weight: 600;
-  color: var(--ok);
-}
-
-/* Badges */
-.student-view .badges {
-  list-style: none;
-  margin: 0;
+  gap: 6px;
+  margin: 0 0 0 auto;
   padding: 0;
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  background: var(--surface);
-  border-radius: var(--radius);
+  list-style: none;
 }
-.student-view .badge {
+.week__day {
   display: grid;
   justify-items: center;
-  align-content: start;
-  text-align: center;
-  gap: var(--s2);
-  padding: var(--s5) var(--s2);
+  gap: 2px;
 }
-.student-view .badge + .badge {
-  border-left: var(--hairline);
-}
-.student-view .badge__mark {
+.week__dot {
   position: relative;
-  width: var(--s12);
-  height: var(--s12);
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--shoji);
+  box-shadow: inset 0 0 0 1.5px var(--line);
+}
+.week__dot--on {
+  background: var(--shu);
+  box-shadow: none;
+}
+.week__dot--today {
+  box-shadow: inset 0 0 0 2px var(--sumi);
+}
+.week__dot--today.week__dot--on {
+  box-shadow: 0 0 0 2px var(--washi), 0 0 0 3.5px var(--sumi);
+}
+.week__dot--waiting {
+  animation: today-breathe 2.4s var(--ease) infinite;
+}
+@keyframes today-breathe {
+  50% {
+    transform: scale(1.1);
+  }
+}
+.week__dot--future {
+  background: transparent;
+  box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--line) 70%, transparent);
+}
+.week__ink {
   display: grid;
   place-items: center;
 }
-.student-view .badge__ring {
-  fill: none;
-  stroke: var(--ink);
-  stroke-width: 2;
+.week__blossom {
+  width: 18px;
+  height: 18px;
+  fill: var(--on-shu);
 }
-.student-view .badge__dot {
-  fill: var(--accent-mark);
+.week__blossom .week__heart {
+  fill: var(--shu);
 }
-.student-view .badge__mark--off .badge__ring {
-  stroke: var(--line);
+.week__name {
+  font-size: 11px;
+  line-height: 1;
+  color: var(--nezumi);
 }
-.student-view .badge__mark--off .badge__dot {
-  fill: var(--line);
-}
-.student-view .badge__mark--flame .flame {
-  width: var(--s10);
-  height: var(--s12);
-}
-.student-view .badge__digit {
-  position: absolute;
-  bottom: var(--s2);
-  font-family: var(--font-display);
+.week__name--today {
+  color: var(--sumi);
   font-weight: 700;
-  font-size: var(--text-md);
-  color: var(--accent-ink);
-}
-.student-view .badge__mark--off .badge__digit {
-  color: var(--slate);
-}
-.student-view .badge__name {
-  font-family: var(--font-display);
-  font-weight: 600;
-  line-height: var(--leading-tight);
-  text-wrap: balance;
-}
-.student-view .badge__state {
-  color: var(--slate);
-}
-.student-view .badge--earned .badge__state {
-  color: var(--ok);
-  font-weight: 600;
-}
-.student-view .badges__note {
-  color: var(--slate);
-}
-.student-view .badge__how {
-  color: var(--slate);
-  font-size: var(--text-sm);
-  line-height: var(--leading-tight);
-  text-wrap: balance;
 }
 
-/* Bottom tab bar, sized for a thumb */
-.student-view .tabbar {
+/* ---------- Tabs ---------- */
+
+.tab__icon {
+  display: inline-grid;
+  place-items: center;
+  position: relative;
+  z-index: 1;
+}
+.tab__icon svg {
+  width: 24px;
+  height: 24px;
+}
+.tab__label {
+  position: relative;
+  z-index: 1;
+}
+
+/* Phones: a paper tab bar fixed to the bottom. */
+.tabbar {
   position: fixed;
   left: 0;
   right: 0;
   bottom: 0;
-  z-index: 40;
-  background: var(--paper);
-  border-top: var(--hairline);
-  padding-bottom: env(safe-area-inset-bottom);
+  z-index: 20;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  background: var(--shoji);
+  border-top: 3px solid var(--ai);
 }
-.student-view .tabbar__list {
-  list-style: none;
-  margin: 0 auto;
-  padding: 0 var(--s2);
-  max-width: calc(var(--max-width) / 2);
+.tabbar__list {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
+  max-width: 560px;
+  margin: 0 auto;
+  padding: 0;
+  list-style: none;
 }
-.student-view .tabbar__link {
+.tabbar__link {
   position: relative;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: var(--s1);
-  min-height: calc(var(--touch) + var(--s3));
-  color: var(--ink);
-  font-size: var(--text-sm);
-  font-weight: 500;
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: 2px;
+  height: var(--tabbar-h);
+  color: var(--nezumi);
+  font-size: 12px;
+  font-weight: 700;
   text-decoration: none;
   -webkit-tap-highlight-color: transparent;
 }
-.student-view .tabbar__link:focus-visible {
-  /* Inset, so the ring isn't cut off by the screen edge. */
-  box-shadow: inset 0 0 0 2px var(--accent);
+.tabbar__link[aria-current='page'] {
+  color: var(--sumi);
 }
-.student-view .tabbar__link[aria-current='page'] {
-  font-weight: 600;
+.tabbar__link[aria-current='page'] .tab__icon {
+  color: var(--on-shu);
 }
-.student-view .tabbar__icon {
-  width: var(--s6);
-  height: var(--s6);
-  fill: none;
-  stroke: var(--slate);
-  stroke-width: 1.6;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-.student-view .tabbar__link[aria-current='page'] .tabbar__icon {
-  stroke: var(--ink);
-}
-.student-view .tabbar__mark {
+.tabbar__mark {
   position: absolute;
-  top: -1px;
-  left: 30%;
-  right: 30%;
-  border-top: 2px solid var(--accent-mark);
+  top: 8px;
+  left: 50%;
+  width: 52px;
+  height: 30px;
+  margin-left: -26px;
+  /* An ink dab: rounder on one side, the way a brush lands. */
+  border-radius: 46% 54% 50% 50% / 58% 52% 48% 42%;
+  background: var(--shu);
+}
+.tabbar__link .tab__icon {
+  height: 30px;
 }
 
-/* Food info sheet */
-.student-view .sheet {
+/* Laptops: a compact segmented control at the top. */
+.segment {
+  display: none;
+}
+.segment__list {
+  display: flex;
+  gap: 2px;
+  margin: 0;
+  padding: 4px;
+  list-style: none;
+  border-radius: var(--radius-pill);
+  background: var(--shoji);
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+.segment__link {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s2);
+  min-height: var(--touch);
+  padding: 0 var(--s4);
+  border-radius: var(--radius-pill);
+  color: var(--nezumi);
+  font-weight: 700;
+  text-decoration: none;
+}
+.segment__link:hover {
+  color: var(--sumi);
+}
+.segment__link[aria-current='page'] {
+  color: var(--on-shu);
+}
+.segment__link .tab__icon svg {
+  width: 20px;
+  height: 20px;
+}
+.segment__mark {
+  position: absolute;
+  inset: 0;
+  border-radius: var(--radius-pill);
+  background: var(--shu);
+}
+
+/* ---------- Tab screens ---------- */
+
+.tabscreen {
+  display: grid;
+  gap: var(--s5);
+  max-width: 640px;
+  margin: 0 auto;
+}
+.tabscreen__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s3) var(--s4);
+}
+/* Ume sits beside the heading when there is room for a line, else on its own row under it. */
+.tabscreen__head .ume-inline {
+  flex: 1 1 200px;
+}
+.tabscreen__title {
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  font-weight: 800;
+}
+
+/* ---------- Tray tab ---------- */
+
+.traytab {
+  display: grid;
+  gap: var(--s8);
+}
+.screen-pad {
+  padding: var(--s4) 0;
+}
+
+.pack {
+  display: grid;
+  gap: var(--s4);
+}
+.pack__head {
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  gap: var(--s1);
+}
+/* One painted plum branch per screen: it hangs into the top right corner of the tray header. */
+.pack__plum {
+  position: absolute;
+  z-index: -1;
+  top: calc(var(--s2) * -1);
+  right: calc(var(--s4) * -1);
+  width: 104px;
+  height: auto;
+  pointer-events: none;
+}
+.pack__title {
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  font-weight: 800;
+  line-height: 1.15;
+}
+.pack__day {
+  color: var(--nezumi);
+}
+.pack__stage {
+  position: relative;
+  height: clamp(200px, 30svh, 340px);
+  margin: 0 calc(var(--s4) * -1);
+  display: grid;
+  place-items: center;
+}
+.pack__slot {
+  position: absolute;
+  inset: 0;
+}
+.pack--loading .pack__stage .empty-tray {
+  width: min(78%, 320px);
+  animation: skel-breathe 1.6s var(--ease) infinite alternate;
+}
+.pack__seal {
+  position: absolute;
+  right: var(--s5);
+  bottom: var(--s3);
+  pointer-events: none;
+}
+.pack__side {
+  display: grid;
+  gap: var(--s4);
+  align-content: start;
+}
+
+/* The five food groups as one bento strip: a single paper box divided by hairlines like tray
+   compartments. A row of cells on phones, a column beside the tray on laptops. A picked group
+   gets a short glaze mark at its foot; the open group gets a vermilion one. */
+.chips {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: var(--hairline);
+  border-radius: var(--radius);
+  background: var(--shoji);
+}
+.chip {
+  position: relative;
+  display: grid;
+  min-width: 0;
+}
+.chip + .chip {
+  border-left: var(--hairline);
+}
+.chip--picked::after,
+.chip--focus::after {
+  content: '';
+  position: absolute;
+  left: 30%;
+  right: 30%;
+  bottom: 6px;
+  height: 3px;
+  border-radius: var(--radius-pill);
+  background: var(--glaze);
+  pointer-events: none;
+}
+.chip--focus::after {
+  background: var(--shu);
+}
+.chip__body {
+  display: grid;
+  justify-items: center;
+  align-content: start;
+  gap: 6px;
+  width: 100%;
+  min-height: 104px;
+  padding: var(--s3) 2px var(--s4);
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: center;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background-color var(--t-fast) var(--ease);
+}
+.chip:first-child .chip__body {
+  border-radius: var(--radius) 0 0 var(--radius);
+}
+.chip:last-child .chip__body {
+  border-radius: 0 var(--radius) var(--radius) 0;
+}
+button.chip__body:hover {
+  background: var(--washi);
+}
+.chip__body:focus-visible {
+  position: relative;
+  z-index: 1;
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+span.chip__body {
+  cursor: default;
+}
+.chip__disc {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--washi);
+  box-shadow: inset 0 0 0 1.5px currentColor;
+}
+.chip__disc svg {
+  width: 24px;
+  height: 24px;
+}
+.chip--picked .chip__disc {
+  color: var(--on-shu);
+  box-shadow: none;
+}
+.chip--skipped .chip__disc {
+  color: var(--nezumi);
+  box-shadow: inset 0 0 0 1.5px var(--line);
+}
+.chip__text {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+  width: 100%;
+}
+.chip__group {
+  font-size: 11px;
+  color: var(--nezumi);
+}
+.chip__state {
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--sumi);
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.chip--open .chip__state {
+  color: var(--ink);
+}
+.chip--skipped .chip__state {
+  color: var(--nezumi);
+  font-weight: 500;
+}
+.chip--skel {
+  display: grid;
+  justify-items: center;
+  align-content: start;
+  gap: var(--s2);
+  min-height: 104px;
+  padding-top: var(--s3);
+}
+
+.pack__progress {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: var(--s3);
+}
+.pack__count {
+  font-size: var(--text-sm);
+  color: var(--nezumi);
+  white-space: nowrap;
+}
+.pack__action {
+  display: grid;
+  min-height: 56px;
+  align-items: center;
+}
+.pack__hint {
+  text-align: center;
+  color: var(--nezumi);
+  font-weight: 500;
+}
+.pack__after {
+  display: grid;
+  gap: var(--s6);
+}
+
+.empty-state {
+  display: grid;
+  justify-items: center;
+  gap: var(--s4);
+  padding: var(--s10) var(--s4);
+  text-align: center;
+}
+.empty-state__text {
+  max-width: 30ch;
+  font-size: var(--text-md);
+  color: var(--sumi);
+}
+.empty-tray {
+  width: 180px;
+  fill: none;
+  stroke: var(--nezumi);
+  stroke-width: 1.5;
+  opacity: 0.6;
+}
+
+/* ---------- Picker sheet ---------- */
+
+.sheet {
   position: fixed;
   inset: 0;
-  z-index: 50;
+  z-index: 60;
   display: flex;
   align-items: flex-end;
   justify-content: center;
 }
-.student-view .sheet__scrim {
+.sheet__scrim {
   position: absolute;
   inset: 0;
-  background: var(--ink);
+  background: color-mix(in srgb, var(--sumi) 42%, transparent);
 }
-.student-view .sheet__panel {
+.sheet__panel {
   position: relative;
   width: 100%;
-  max-width: calc(var(--max-width) / 2);
-  background: var(--surface);
+  max-width: 560px;
+  max-height: 88svh;
+  display: flex;
+  flex-direction: column;
   border-radius: var(--radius) var(--radius) 0 0;
-  padding: var(--s3) var(--s5) calc(var(--s6) + env(safe-area-inset-bottom));
-  display: grid;
-  gap: var(--s4);
+  background: var(--shoji);
+  overflow: hidden;
   touch-action: none;
 }
-.student-view .sheet__grip {
-  justify-self: center;
-  width: var(--s10);
-  height: var(--s1);
-  border-radius: var(--radius);
-  background: var(--line);
+.sheet__panel--side {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 420px;
+  max-width: 100%;
+  max-height: none;
+  border-radius: 0;
+  touch-action: auto;
 }
-.student-view .sheet__head {
+/* The noren edge: three indigo cloth panels with narrow slits, hanging from a rod, so the
+   cloth reads as whole wherever the panel's top edge sits. */
+.sheet__noren {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 3px;
+  flex: none;
+  height: 26px;
+  margin: var(--s3) var(--s4) 0;
+  padding-top: 4px;
+  background: var(--shoji);
+}
+.sheet__noren::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: calc(var(--s2) * -1);
+  right: calc(var(--s2) * -1);
+  height: 4px;
+  border-radius: var(--radius-pill);
+  background: var(--sumi);
+}
+.sheet__noren span {
+  background: var(--ai);
+  border-radius: 0 0 4px 4px;
+}
+.sheet__head {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--s2);
+  padding: var(--s4) var(--s3) var(--s2) var(--s5);
+}
+.sheet__head-main {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  flex: 1;
+  min-width: 0;
+}
+.sheet__titles {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.sheet__title {
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: 800;
+  line-height: 1.2;
+}
+.sheet__body {
+  overflow-y: auto;
+  padding: var(--s2) var(--s5) calc(var(--s6) + env(safe-area-inset-bottom, 0px));
+  touch-action: pan-y;
+}
+
+.picks {
+  display: grid;
+  gap: var(--s2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.pick {
+  border-radius: var(--radius);
+  background: var(--washi);
+  box-shadow: inset 0 0 0 1.5px transparent;
+  transition: box-shadow var(--t-fast) var(--ease);
+}
+.pick--on {
+  box-shadow: inset 0 0 0 2px var(--shu);
+  background: var(--shoji);
+}
+.pick__row {
+  display: flex;
+  align-items: center;
+}
+.pick__main {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  flex: 1;
+  min-width: 0;
+  min-height: 72px;
+  padding: var(--s3);
+  border: 0;
+  border-radius: var(--radius);
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.pick__main .glyph-disc {
+  background: var(--shoji);
+}
+.pick__text {
+  display: grid;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+.pick__name {
+  font-size: var(--text-md);
+  font-weight: 700;
+  color: var(--sumi);
+}
+.pick__allergens {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s1);
+  font-size: var(--text-sm);
+  color: var(--nezumi);
+}
+.pick__allergens svg {
+  width: 16px;
+  height: 16px;
+  flex: none;
+}
+.pick__check {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--shu);
+  color: var(--on-shu);
+}
+.pick__check svg {
+  width: 18px;
+  height: 18px;
+  stroke-width: 2.4;
+}
+.pick__info {
+  margin-right: var(--s1);
+}
+.pick__note {
+  margin: 0 var(--s3) var(--s3) 68px;
+  font-size: var(--text-sm);
+  color: var(--sumi);
+}
+.pick--skip {
+  margin-top: var(--s2);
+  background: transparent;
+  box-shadow: inset 0 0 0 1.5px var(--line);
+}
+.pick--skip.pick--on {
+  box-shadow: inset 0 0 0 2px var(--nezumi);
+}
+.pick--skip .pick__name {
+  font-size: var(--text-base);
+}
+
+.facts {
+  display: grid;
+  gap: var(--s3);
+  margin: 0 0 var(--s4);
+}
+.facts__row {
+  display: grid;
+  gap: 2px;
+}
+.facts dt {
+  font-size: var(--text-sm);
+  color: var(--nezumi);
+}
+.facts dd {
+  margin: 0;
+  font-weight: 700;
+}
+.staff-note {
+  display: flex;
+  gap: var(--s2);
+  align-items: flex-start;
+  padding: var(--s3);
+  border-radius: var(--radius-sm);
+  background: var(--washi);
+  font-size: var(--text-sm);
+}
+.staff-note svg {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  color: var(--nezumi);
+}
+
+/* ---------- After packing ---------- */
+
+.reveal {
+  display: grid;
+  gap: var(--s4);
+}
+.reveal__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--s1) var(--s4);
+}
+.reveal__total {
+  font-size: var(--text-sm);
+  color: var(--nezumi);
+}
+.reveal__groups {
+  display: grid;
+  gap: var(--s5);
+}
+.reveal__group {
+  display: grid;
+  gap: var(--s2);
+}
+.reveal__group-name {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  font-family: var(--font-ui);
+  font-size: var(--text-base);
+  font-weight: 700;
+}
+.reveal__icon svg {
+  width: 22px;
+  height: 22px;
+  display: block;
+}
+.reveal__items {
+  display: grid;
+  gap: var(--s2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.share__top,
+.tally__top {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+}
+.share__name,
+.tally__name {
+  min-width: 0;
+  font-size: var(--text-sm);
+}
+.share--mine .share__name,
+.tally__row--mine .tally__name {
+  font-weight: 700;
+}
+.share__you {
+  padding: 0 var(--s2);
+  border-radius: var(--radius-pill);
+  background: var(--sumi);
+  color: var(--shoji);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 20px;
+}
+/* Share bars: the empty track is only a faint trace, so a 0% row never reads as a full bar.
+   The painted fill (the food's own color) is the only thing that shows the share. */
+.share .brush,
+.tally__row .brush {
+  --brush-track: color-mix(in srgb, var(--pink-3, #ffb3c6) 45%, transparent);
+}
+.share__pct,
+.tally__count {
+  margin-left: auto;
+  font-size: var(--text-sm);
+  color: var(--nezumi);
+}
+.reveal__skips {
+  font-size: var(--text-sm);
+  color: var(--nezumi);
+}
+
+.quests {
+  display: grid;
+  gap: var(--s3);
+  align-content: start;
+}
+.quests__list {
+  display: grid;
+  border-top: var(--hairline);
+  border-bottom: var(--hairline);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.quests__row + .quests__row {
+  border-top: var(--hairline);
+}
+.quests__body {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  min-height: 56px;
+  color: var(--sumi);
+  text-decoration: none;
+}
+.quests__body--link {
+  border-radius: var(--radius-sm);
+}
+.quests__body--link:hover .quests__label {
+  text-decoration: underline;
+  text-decoration-color: var(--shu);
+  text-underline-offset: 4px;
+}
+.quests__icon {
+  display: grid;
+  place-items: center;
+  color: var(--ai);
+}
+.quests__icon svg {
+  width: 24px;
+  height: 24px;
+}
+.quests__label {
+  flex: 1;
+  font-weight: 500;
+}
+.quests__row--done .quests__label {
+  color: var(--nezumi);
+}
+.quests__mark {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1.5px var(--line);
+}
+.quests__mark--done {
+  background: var(--shu);
+  color: var(--on-shu);
+  box-shadow: none;
+  transform: rotate(-8deg);
+  border-radius: 7px;
+}
+.quests__mark svg {
+  width: 18px;
+  height: 18px;
+  stroke-width: 2.4;
+}
+
+/* ---------- Vote ---------- */
+
+/* The vote is for a future day: the heading names it and a small chip says how far off it is. */
+.vote-day {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s2) var(--s3);
+}
+.vote-day .section-title {
+  margin: 0;
+}
+.vote-day__when {
+  padding: 2px var(--s3);
+  border-radius: var(--radius-pill);
+  background: var(--pink-2);
+  color: var(--ink);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.vote-served {
+  margin: var(--s3) 0 0;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--leaf-deep);
+}
+
+.lacquer {
+  padding: 8px;
+  border-radius: var(--radius);
+  background: var(--sumi);
+  box-shadow: inset 0 0 0 1px var(--ai), 0 0 0 1px var(--ai-deep);
+}
+.reel {
+  /* Matches ROW in Reel.tsx. The window shows four rows while spinning. */
+  --reel-row: 60px;
+  position: relative;
+  height: calc(var(--reel-row) * 4);
+  overflow: hidden;
+  border-radius: var(--radius-sm);
+  background: var(--shoji);
+}
+/* The paper strip's top and bottom rows sit under the lacquer frame's shadow. */
+.reel:not(.reel--live)::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  box-shadow: inset 0 14px 12px -10px color-mix(in srgb, var(--sumi) 28%, transparent), inset 0 -14px 12px -10px color-mix(in srgb, var(--sumi) 28%, transparent);
+}
+.reel--idle {
+  display: grid;
+  place-items: center;
+  background: repeating-linear-gradient(var(--shoji) 0 59px, var(--line) 59px 60px);
+}
+.reel__idle-text {
+  padding: var(--s2) var(--s4);
+  border-radius: var(--radius-pill);
+  background: var(--shoji);
+  color: var(--nezumi);
+}
+.reel__strip {
+  will-change: transform;
+}
+.reel__row {
+  height: var(--reel-row);
+  border-bottom: 1px solid var(--line);
+}
+.reel__ghost {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  height: 100%;
+  padding: 0 var(--s4);
+  color: var(--nezumi);
+}
+.reel__name {
+  font-weight: 700;
+  color: var(--sumi);
+}
+.reel__choices .choice {
+  min-height: var(--reel-row);
+  border-radius: 0;
+  border-bottom: 1px solid var(--line);
+}
+.reel__choices .choice:last-child {
+  border-bottom: 0;
+}
+.reel__choices .choice__main {
+  min-height: var(--reel-row);
+}
+
+.choices {
+  display: grid;
+  gap: var(--s2);
+}
+.choice {
+  display: flex;
+  align-items: center;
+  border-radius: var(--radius);
+  background: var(--washi);
+  box-shadow: inset 0 0 0 1.5px transparent;
+  transition: box-shadow var(--t-fast) var(--ease), background-color var(--t-fast) var(--ease);
+}
+.reel__choices .choice {
+  background: var(--shoji);
+}
+.choice--on,
+.reel__choices .choice--on {
+  background: var(--shoji);
+  box-shadow: inset 0 0 0 2px var(--shu);
+}
+.choice__main {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  flex: 1;
+  min-width: 0;
+  min-height: 64px;
+  padding: 0 var(--s3);
+  border: 0;
+  background: transparent;
+  border-radius: inherit;
+  text-align: left;
+  font-weight: 700;
+  font-size: var(--text-md);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.choice__main:disabled {
+  cursor: default;
+}
+.choice__main .glyph-disc {
+  background: var(--shoji);
+  width: 40px;
+  height: 40px;
+}
+.choice--on .choice__main .glyph-disc,
+.reel__choices .choice__main .glyph-disc {
+  background: var(--washi);
+}
+.choice__name {
+  flex: 1;
+  min-width: 0;
+}
+.choice__mark {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1.5px var(--line);
+}
+.choice--on .choice__mark {
+  box-shadow: none;
+}
+.choice__check {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--shu);
+  color: var(--on-shu);
+}
+.choice__check svg {
+  width: 17px;
+  height: 17px;
+  stroke-width: 2.4;
+}
+
+.done-seal {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 9px;
+  background: var(--shu);
+  color: var(--on-shu);
+  transform: rotate(-6deg);
+}
+.done-seal svg {
+  width: 28px;
+  height: 28px;
+  stroke-width: 2.4;
+}
+.voted__top {
+  position: relative;
   display: flex;
   align-items: center;
   gap: var(--s3);
 }
-.student-view .sheet__title {
-  font-size: var(--text-lg);
+.voted__toast {
+  position: absolute;
+  left: 60px;
+  top: 10px;
 }
-.student-view .sheet__facts {
+.tally {
+  display: grid;
+  gap: var(--s3);
   margin: 0;
-  border-top: var(--hairline);
+  padding: 0;
+  list-style: none;
 }
-.student-view .sheet__fact {
-  display: flex;
-  justify-content: space-between;
-  gap: var(--s4);
-  padding: var(--s3) 0;
-  border-bottom: var(--hairline);
-}
-.student-view .sheet__fact dt {
-  color: var(--slate);
-}
-.student-view .sheet__fact dd {
-  margin: 0;
-  font-weight: 600;
-  text-align: right;
-}
-.student-view .sheet__note {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--s2);
-}
-.student-view .sheet__note svg {
-  flex: none;
-  width: var(--s5);
-  height: var(--s5);
-  margin-top: var(--s1);
-  fill: none;
-  stroke: var(--warn);
-  stroke-width: 1.6;
-  stroke-linecap: round;
-}
-.student-view .sheet__close {
-  width: 100%;
+.tally__row {
+  display: grid;
+  gap: var(--s1);
 }
 
-@media (min-width: 720px) {
-  .student-view .screen__title {
-    font-size: var(--text-2xl);
+/* ---------- Call it ---------- */
+
+.result-seal {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 92px;
+  height: 92px;
+  flex: none;
+  transform: rotate(-8deg);
+}
+.result-seal svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.result-seal__label {
+  position: relative;
+  max-width: 64px;
+  text-align: center;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 14px;
+  line-height: 1.1;
+}
+.result-seal--right .result-seal__ring {
+  fill: var(--kin);
+}
+.result-seal--right .result-seal__inner {
+  fill: none;
+  stroke: var(--kin-light);
+  stroke-width: 2;
+}
+.result-seal--right .result-seal__label {
+  color: var(--on-shu);
+}
+.result-seal--wrong .result-seal__ring,
+.result-seal--pending .result-seal__ring {
+  fill: none;
+  stroke: var(--nezumi);
+  stroke-width: 2;
+}
+.result-seal--wrong .result-seal__inner,
+.result-seal--pending .result-seal__inner {
+  fill: none;
+  stroke: var(--line);
+  stroke-width: 1.5;
+  stroke-dasharray: 3 4;
+}
+.result-seal--wrong .result-seal__label,
+.result-seal--pending .result-seal__label {
+  color: var(--nezumi);
+}
+.gold-tag {
+  padding: 0 var(--s3);
+  border-radius: var(--radius-pill);
+  background: var(--kin-light);
+  color: var(--sumi);
+  font-weight: 700;
+  font-size: var(--text-sm);
+  line-height: 26px;
+}
+
+/* Narrow phones: tighten the HUD so the week strip never runs off the edge. */
+@media (max-width: 419px) {
+  .hud {
+    gap: var(--s3);
+  }
+  .week {
+    gap: 4px;
+  }
+  .week__dot {
+    width: 24px;
+    height: 24px;
+  }
+  .week__blossom {
+    width: 16px;
+    height: 16px;
   }
 }
 
-.student-view .meter__tray-empty,
-.student-view .meter__tray-full {
+/* ---------- Laptops ---------- */
+
+@media (min-width: 960px) {
+  .game {
+    padding-bottom: var(--s16);
+  }
+  .tabbar {
+    display: none;
+  }
+  .segment {
+    display: block;
+    order: -1;
+  }
+  .game__top {
+    flex-wrap: nowrap;
+    margin-bottom: var(--s6);
+  }
+  .hud {
+    width: auto;
+    margin-left: auto;
+  }
+  .week {
+    margin-left: var(--s2);
+  }
+  .game__sim--top {
+    display: inline-flex;
+    margin-left: var(--s2);
+  }
+  .game__sim--foot {
+    display: none;
+  }
+  .pack__plum {
+    top: calc(var(--s3) * -1);
+    right: var(--s4);
+    width: 200px;
+  }
+
+  .pack {
+    grid-template-columns: minmax(0, 1fr) 340px;
+    grid-template-areas:
+      'head head'
+      'stage side'
+      'after after';
+    gap: var(--s5) var(--s8);
+  }
+  .pack__head {
+    grid-area: head;
+  }
+  .pack__title {
+    font-size: var(--text-2xl);
+  }
+  .pack__stage {
+    grid-area: stage;
+    height: min(56vh, 520px);
+    margin: 0;
+  }
+  .pack__side {
+    grid-area: side;
+    align-self: center;
+  }
+  .pack__after {
+    grid-area: after;
+    grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
+    align-items: start;
+    gap: var(--s8);
+  }
+  .reveal__groups {
+    grid-template-columns: 1fr 1fr;
+    gap: var(--s5) var(--s6);
+  }
+  .chips {
+    grid-template-columns: 1fr;
+  }
+  .chip + .chip {
+    border-left: 0;
+    border-top: var(--hairline);
+  }
+  .chip--picked::after,
+  .chip--focus::after {
+    left: calc(var(--s5) + 40px + var(--s3));
+    right: auto;
+    bottom: 10px;
+    width: 28px;
+  }
+  .chip__body,
+  .chip--skel {
+    display: flex;
+    align-items: center;
+    justify-items: start;
+    gap: var(--s3);
+    min-height: 64px;
+    padding: var(--s2) var(--s4) var(--s2) var(--s5);
+    text-align: left;
+  }
+  .chip:first-child .chip__body {
+    border-radius: var(--radius) var(--radius) 0 0;
+  }
+  .chip:last-child .chip__body {
+    border-radius: 0 0 var(--radius) var(--radius);
+  }
+  .chip__group {
+    font-size: var(--text-sm);
+  }
+  .chip__state {
+    font-size: var(--text-base);
+  }
+  .tabscreen {
+    max-width: 680px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skel,
+  .week__dot--waiting {
+    animation: none;
+  }
+}
+
+/* ---------- v2: worlds, display type and feedback ---------- */
+
+/* Display face for titles, big numbers and the mascot name; Gabarito (the UI face) for the rest.
+   Londrina Solid only reads right at 900; the other two worlds ship a single weight. */
+.pack__title,
+.tabscreen__title,
+.hud__value {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-synthesis: none;
+  letter-spacing: 0;
+}
+html[data-theme='americas'] .pack__title,
+html[data-theme='americas'] .tabscreen__title,
+html[data-theme='americas'] .hud__value {
+  font-weight: 900;
+}
+.hud__value,
+.pack__count,
+.num {
+  font-variant-numeric: tabular-nums;
+}
+.pack__title {
+  color: var(--accent-2, var(--ink));
+}
+html[data-theme='asia'] .pack__title,
+html[data-theme='asia'] .tabscreen__title {
+  color: var(--accent-1, var(--ink));
+}
+
+/* The sliding pill under the open (or next) food group. */
+.chip__pill {
+  position: absolute;
+  inset: 4px;
+  z-index: 0;
+  border-radius: calc(var(--radius) - 2px);
+  background: var(--pink-2, #ffc2d1);
+  pointer-events: none;
+}
+.chip__body {
+  position: relative;
+  z-index: 1;
+}
+.chip--picked .chip__disc {
+  color: var(--surface, #fff);
+}
+
+/* Desktop: hold the columns beside the tray back until the tray has landed from the hero. */
+.traytab .pack__side,
+.traytab .pack__after,
+.traytab > section {
+  transition: opacity 320ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+@media (min-width: 960px) {
+  .traytab--waiting .pack__side,
+  .traytab--waiting .pack__after,
+  .traytab--waiting .pack__head,
+  .traytab--waiting > section {
+    opacity: 0;
+    pointer-events: none;
+  }
+}
+
+/* Streak flame: pulses and throws a ring when the streak grows. */
+.hud__icon--streak {
+  position: relative;
+  color: var(--pink-5-deep, #c4466c);
+}
+.hud__ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 2px solid var(--pink-5, #fb6f92);
+  pointer-events: none;
+}
+.hud__icon--xp {
+  color: var(--xp-ink, var(--kin));
+}
+.week__dot--on {
+  background: var(--pink-5, var(--shu));
+}
+.week__blossom {
+  fill: var(--surface, #fff);
+}
+.week__blossom .week__heart {
+  fill: var(--pink-5, var(--shu));
+}
+
+/* Narrow phones: the Monday to Friday strip must fit, so it wraps under the stats. */
+@media (max-width: 399px) {
+  .hud {
+    flex-wrap: wrap;
+    row-gap: var(--s2);
+  }
+  .week {
+    gap: 4px;
+  }
+  .week__dot {
+    width: 28px;
+    height: 28px;
+  }
+  .pack__head {
+    padding-right: 76px;
+  }
+  .pack__plum {
+    width: 84px;
+    right: calc(var(--s2) * -1);
+  }
+}
+/* "Choose" sits on pink: ink keeps it readable on the pill and the panel. */
+.chip--open .chip__state {
+  color: var(--ink, var(--sumi));
+  text-decoration: underline;
+  text-decoration-color: var(--pink-5, #fb6f92);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 3px;
+}
+
+/* Sheet top edge: a soft grab handle; East Asia keeps its noren panels in the field color. */
+html:not([data-theme='asia']) .sheet__noren {
   display: block;
-  height: 100%;
+  width: 44px;
+  height: 5px;
+  margin: var(--s3) auto 0;
+  padding: 0;
+  border-radius: var(--radius-pill);
+  background: var(--pink-3, #ffb3c6);
+}
+html:not([data-theme='asia']) .sheet__noren::before,
+html:not([data-theme='asia']) .sheet__noren span {
+  display: none;
+}
+html[data-theme='asia'] .sheet__noren span {
+  background: var(--field, var(--ai));
+}
+/* Dela Gothic's zero closes up into a dot at HUD size, so East Asia keeps HUD numbers in the UI face. */
+html[data-theme='asia'] .hud__value {
+  font-family: var(--font-ui);
+  font-weight: 800;
+}
+
+/* Diet info on foods: calm outlined chips, then one-line notes. Icons always sit beside text. */
+.reel__veg {
+  display: inline-grid;
+  margin-left: auto;
+  color: var(--leaf-deep);
+}
+.reel__veg svg {
+  width: 18px;
+  height: 18px;
+}
+.choice__text {
+  display: grid;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+  padding: var(--s2) 0;
+}
+.choice--facts .choice__name {
+  line-height: 1.2;
+}
+.food-meta {
+  display: grid;
+  gap: 4px;
+  justify-items: start;
+  font-weight: 500;
+}
+.diet {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.diet__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 8px 1px 6px;
+  border: 1px solid var(--hairline-color);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  color: var(--ink-soft);
+  font-size: 12.5px;
+  font-weight: 600;
+  line-height: 18px;
+  white-space: nowrap;
+}
+.diet__chip svg {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  stroke-width: 2;
+}
+.diet__chip--leaf {
+  border-color: color-mix(in srgb, var(--leaf) 55%, transparent);
+  color: var(--leaf-deep);
+}
+.food-line {
+  display: inline-flex;
+  align-items: flex-start;
+  gap: 5px;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.3;
+  color: var(--ink-soft);
+}
+.food-line svg {
+  flex: none;
+  width: 15px;
+  height: 15px;
+  margin-top: 1px;
+}
+.food-line--fits {
+  color: var(--leaf-deep);
+  font-weight: 700;
+}
+.food-line--fits svg {
+  stroke-width: 2.4;
+}
+/* A kind warning: deep brick text (7:1 on the pink ground), never color alone. */
+.food-line--warn {
+  color: #8f2416;
+  font-weight: 700;
+}
+/* Foods that don't fit stay tappable; they just step back a little. */
+.choice--miss:not(.choice--on) .glyph-disc,
+.pick--miss:not(.pick--on) .glyph-disc {
+  opacity: 0.6;
+}
+.pick__text .food-meta {
+  margin-top: 2px;
+}
+.facts dd .diet {
+  padding-top: 2px;
+}
+.facts__needs {
+  margin: 0 0 var(--s4);
+}
+.facts__needs:empty {
+  display: none;
+}
+
+/* The "My needs" button: a small outlined pill that sits in a screen header. */
+.needs-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: var(--touch);
+  padding: 0 14px 0 10px;
+  border: 1.5px solid var(--pink-3);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  color: var(--ink);
+  font-family: var(--font-ui);
+  font-size: var(--text-sm);
+  font-weight: 700;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition: border-color var(--t-fast) var(--ease), background-color var(--t-fast) var(--ease);
+}
+.needs-btn:hover {
+  border-color: var(--pink-4);
+}
+.needs-btn svg {
+  flex: none;
+  width: 20px;
+  height: 20px;
+}
+.needs-btn__count {
+  display: inline-grid;
+  place-items: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  border-radius: var(--radius-pill);
+  background: var(--leaf-deep);
+  color: #fff;
+  font-size: 12px;
+  line-height: 1;
+}
+/* The needs button sits under the date so the headline keeps its width and the corner art stays clear. */
+.pack__needs {
+  justify-self: start;
+  margin-top: var(--s1);
+}
+.tabscreen__needs {
+  order: 3;
+}
+
+/* The needs sheet: two groups of toggle chips, a note, then the actions. */
+.needs {
+  display: grid;
+  gap: var(--s4);
+}
+.needs__lead {
+  color: var(--ink-soft);
+}
+.needs__group {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+.needs__legend {
+  padding: 0;
+  margin-bottom: var(--s2);
+  font-weight: 800;
+  font-size: var(--text-md);
+  color: var(--ink);
+}
+.needs__grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2);
+}
+.need {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: var(--touch);
+  padding: 0 14px 0 10px;
+  border: 1.5px solid var(--pink-3);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  color: var(--ink);
+  font-family: var(--font-ui);
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition: background-color var(--t-fast) var(--ease), border-color var(--t-fast) var(--ease);
+}
+.need:hover {
+  border-color: var(--pink-4);
+}
+.need[aria-pressed='true'] {
+  border-color: var(--leaf-deep);
+  background: color-mix(in srgb, var(--leaf) 16%, var(--surface));
+}
+.need__box {
+  display: inline-grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  box-shadow: inset 0 0 0 1.5px var(--ink-soft);
+}
+.need[aria-pressed='true'] .need__box {
+  background: var(--leaf-deep);
+  box-shadow: none;
+  color: #fff;
+}
+.need__box svg {
+  width: 15px;
+  height: 15px;
+  stroke-width: 2.6;
+}
+.needs__note {
+  font-size: var(--text-sm);
+  color: var(--ink-soft);
+}
+.needs__note + .needs__note {
+  margin-top: calc(var(--s3) * -1);
+}
+.needs__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s3);
+}
+.needs__clear {
+  background: transparent;
+  font-family: var(--font-ui);
+  font-size: var(--text-base);
+  cursor: pointer;
+}
+.needs__clear:disabled {
+  opacity: 0.45;
+  cursor: default;
 }

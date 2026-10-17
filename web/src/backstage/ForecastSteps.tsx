@@ -6,6 +6,7 @@ import type { ForecastTrace, PrepItem } from '../shared/api'
 import { backstage } from '../shared/copy/backstage'
 import { componentName, fmtDay, fmtInt } from '../shared/format'
 import { dur, useReducedMotion } from '../shared/motion'
+import { useDemoDate } from '../shared/demo'
 import { useApi } from '../shared/useApi'
 import { ErrorNotice, Loading } from '../shared/ui/Notice'
 import { stepSpring } from './springs'
@@ -245,8 +246,10 @@ function defaultItem(items: PrepItem[]) {
   return (items.find((i) => i.component === 'meat_alternate') ?? items[0])?.item_id ?? null
 }
 
+/** Follows the presenter's simulated day: the prep list and every trace are for that day. */
 export function ForecastSteps() {
-  const [prep, reloadPrep] = useApi(() => api.prep(), [])
+  const demoDate = useDemoDate()
+  const [prep, reloadPrep] = useApi(() => api.prep(demoDate ?? undefined), [demoDate])
   const [picked, setPicked] = useState<string | null>(null)
   const [trace, setTrace] = useState<ForecastTrace | null>(null)
   const [error, setError] = useState<ApiError | null>(null)
@@ -256,7 +259,8 @@ export function ForecastSteps() {
 
   const items = prep.state === 'ready' ? prep.data.items : []
   const date = prep.state === 'ready' ? prep.data.date : undefined
-  const selected = picked ?? defaultItem(items)
+  // A dish picked on another day may not be on this day's menu.
+  const selected = picked && items.some((i) => i.item_id === picked) ? picked : defaultItem(items)
 
   useEffect(() => {
     if (!selected || !date) return

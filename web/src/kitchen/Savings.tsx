@@ -142,16 +142,16 @@ export function Savings({ data }: { data: SavingsData }) {
               <XAxis
                 dataKey="date"
                 tickFormatter={short}
-                tick={{ fill: 'var(--slate)', fontSize: 14 }}
+                tick={{ fill: 'var(--nezumi)', fontSize: 14 }}
                 tickLine={false}
                 axisLine={{ stroke: 'var(--line)' }}
                 minTickGap={24}
                 interval="preserveStartEnd"
               >
-                <Label value={tc.xLabel} position="bottom" offset={4} fill="var(--slate)" fontSize={14} />
+                <Label value={tc.xLabel} position="bottom" offset={4} fill="var(--nezumi)" fontSize={14} />
               </XAxis>
               <YAxis
-                tick={{ fill: 'var(--slate)', fontSize: 14 }}
+                tick={{ fill: 'var(--nezumi)', fontSize: 14 }}
                 tickLine={false}
                 axisLine={false}
                 tickFormatter={fmtInt}
@@ -159,12 +159,12 @@ export function Savings({ data }: { data: SavingsData }) {
                 tickCount={5}
                 width={76}
               >
-                <Label value={tc.yLabel} angle={-90} position="insideLeft" offset={4} fill="var(--slate)" fontSize={14} style={{ textAnchor: 'middle' }} />
+                <Label value={tc.yLabel} angle={-90} position="insideLeft" offset={4} fill="var(--nezumi)" fontSize={14} style={{ textAnchor: 'middle' }} />
               </YAxis>
               <Tooltip content={<ChartTooltip />} cursor={{ stroke: 'var(--line)' }} />
-              <Line dataKey="usual" name={tc.usual} stroke="var(--slate)" strokeWidth={1.5} strokeDasharray="5 4" dot={false} isAnimationActive={false} />
-              <Line dataKey="lunchloop" name={tc.lunchloop} stroke="var(--slate)" strokeWidth={2} dot={false} isAnimationActive={false} />
-              <Line dataKey="taken" name={tc.taken} stroke="var(--ink)" strokeWidth={3} dot={false} isAnimationActive={false} />
+              <Line dataKey="usual" name={tc.usual} stroke="var(--nezumi)" strokeWidth={1.5} strokeDasharray="5 4" dot={false} isAnimationActive={false} />
+              <Line dataKey="lunchloop" name={tc.lunchloop} stroke="var(--shu)" strokeWidth={2} dot={false} isAnimationActive={false} />
+              <Line dataKey="taken" name={tc.taken} stroke="var(--sumi)" strokeWidth={3} dot={false} isAnimationActive={false} />
             </LineChart>
           </ResponsiveContainer>
         </div>

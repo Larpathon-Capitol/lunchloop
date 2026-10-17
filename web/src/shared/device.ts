@@ -34,11 +34,19 @@ function randomId(): string {
   return id
 }
 
+/** A server-signed id ("<id>.<signature>"); older browsers still hold a plain one until they upgrade. */
+export const SIGNED_DEVICE = /^[A-Za-z0-9-]{8,64}\.[0-9a-f]{16}$/
+
 export function deviceId(): string {
   let id = storeGet(KEY)
-  if (!id || !/^[A-Za-z0-9-]{8,64}$/.test(id)) {
+  if (!id || !(/^[A-Za-z0-9-]{8,64}$/.test(id) || SIGNED_DEVICE.test(id))) {
     id = randomId()
     storeSet(KEY, id)
   }
   return id
+}
+
+/** Swap in the signed id the server issued for this browser. */
+export function saveDeviceId(id: string) {
+  storeSet(KEY, id)
 }

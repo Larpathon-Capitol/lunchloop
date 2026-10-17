@@ -1,15 +1,31 @@
-item_id,name,component,cost_per_serving,allergens,prep_floor
-cheese_pizza,Cheese pizza,meat_alternate,1.06,milk;wheat,0
-beef_nachos,Beef nachos,meat_alternate,1.13,milk;wheat,0
-chicken_nuggets,Chicken nuggets,meat_alternate,0.88,wheat,0
-cheeseburger,Cheeseburger,meat_alternate,1.32,milk;soybeans;wheat,0
-popcorn_chicken,Popcorn chicken,meat_alternate,0.73,wheat;soybeans,0
-spicy_chicken_sandwich,Spicy chicken sandwich,meat_alternate,1.19,soybeans;wheat,0
-dinner_roll,Dinner roll,grain,0.14,wheat,0
-brown_rice,Brown rice,grain,0.12,,0
-steamed_carrots,Steamed carrots,vegetable,0.37,,120
-broccoli,Broccoli,vegetable,0.41,,80
-fruit_cup,Fruit cup,fruit,0.38,,150
-mandarin_oranges,Mandarin oranges,fruit,0.34,,70
-chocolate_milk,Chocolate milk,milk,0.37,milk,0
-milk_1pct,1% milk,milk,0.27,milk,0
+item_id,name,component,cost_per_serving,allergens,prep_floor,diet
+cheese_pizza,Cheese pizza,meat_alternate,0.97,milk;wheat,0,vegetarian
+beef_nachos,Beef nachos,meat_alternate,1.02,milk;wheat,0,contains_beef
+chicken_nuggets,Chicken nuggets,meat_alternate,0.80,wheat,0,
+cheeseburger,Cheeseburger,meat_alternate,1.20,milk;soybeans;wheat,0,contains_beef
+popcorn_chicken,Popcorn chicken,meat_alternate,0.66,wheat;soybeans,0,
+spicy_chicken_sandwich,Spicy chicken sandwich,meat_alternate,1.08,soybeans;wheat,0,spicy
+bean_cheese_burrito,Bean and cheese burrito,meat_alternate,1.05,milk;wheat,0,vegetarian
+veggie_burger,Veggie burger,meat_alternate,1.12,soybeans;wheat,0,vegetarian
+black_bean_quesadilla,Black bean quesadilla,meat_alternate,1.00,milk;wheat,0,vegetarian
+chickpea_curry_rice,Chickpea curry with rice,meat_alternate,1.08,,0,vegetarian;vegan
+falafel_wrap,Falafel wrap,meat_alternate,1.06,wheat;sesame,0,vegetarian;vegan
+teriyaki_tofu_bowl,Teriyaki tofu bowl,meat_alternate,1.16,soybeans;wheat,0,vegetarian;vegan
+chicken_shawarma_wrap,Chicken shawarma wrap,meat_alternate,1.28,wheat;milk,0,
+orange_chicken,Orange chicken,meat_alternate,1.23,wheat;soybeans,0,
+dinner_roll,Dinner roll,grain,0.14,wheat,0,vegetarian
+brown_rice,Brown rice,grain,0.12,,0,vegetarian;vegan
+whole_wheat_tortilla,Whole wheat tortilla,grain,0.13,wheat,0,vegetarian;vegan
+whole_wheat_pita,Whole wheat pita,grain,0.13,wheat,0,vegetarian;vegan
+steamed_carrots,Steamed carrots,vegetable,0.38,,120,vegetarian;vegan
+broccoli,Broccoli,vegetable,0.43,,80,vegetarian;vegan
+side_salad,Side salad,vegetable,0.50,,100,vegetarian;vegan
+black_beans,Seasoned black beans,vegetable,0.34,,60,vegetarian;vegan
+seasoned_corn,Seasoned corn,vegetable,0.30,,60,vegetarian;vegan
+fruit_cup,Fruit cup,fruit,0.42,,150,vegetarian;vegan
+mandarin_oranges,Mandarin oranges,fruit,0.37,,70,vegetarian;vegan
+apple_slices,Apple slices,fruit,0.38,,80,vegetarian;vegan
+banana,Banana,fruit,0.26,,60,vegetarian;vegan
+chocolate_milk,Chocolate milk,milk,0.39,milk,0,vegetarian
+milk_1pct,1% milk,milk,0.29,milk,0,vegetarian
+milk_fat_free,Fat-free milk,milk,0.28,milk,0,vegetarian

@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#FB6F92" />
+    <script>
+      // Paint the saved world from the first frame, so there is no flash of the default one.
+      try {
+        var t = localStorage.getItem('lunchloop.theme')
+        document.documentElement.dataset.theme = t === 'asia' || t === 'medi' || t === 'americas' ? t : 'americas'
+      } catch (e) {
+        document.documentElement.dataset.theme = 'americas'
+      }
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=Gabarito:wght@400..800&family=Londrina+Solid:wght@400;900&family=Rakkas&display=swap" rel="stylesheet" />
+    <title>Theme kit lab</title>
+  </head>
+  <body style="margin:0">
+    <div id="root"></div>
+    <script type="module" src="/src/theme/lab/main.tsx"></script>
+  </body>
+</html>

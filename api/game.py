@@ -25,10 +25,19 @@ def today(request, settings):
     return parse_date(header_value).isoformat()
 
 
-def device(value, required=True):
+def device(value, required=True, signed_enforced=False):
     if value is None and not required:
         return None
-    if not isinstance(value, str) or not DEVICE_PATTERN.fullmatch(value):
+    if not isinstance(value, str):
+        raise HTTPException(400, "invalid device")
+    if "." in value:
+        from .auth import verify_device
+
+        base = verify_device(value)
+        if base is None:
+            raise HTTPException(400, "invalid device")
+        return base
+    if signed_enforced or not DEVICE_PATTERN.fullmatch(value):
         raise HTTPException(400, "invalid device")
     return value
 
@@ -79,6 +88,16 @@ def score_guess(guess, current_date, taken):
     return guessed is not None and guessed["servings_taken"] == highest
 
 
+def correct_guess_count(connection, player_device, current_date, taken, school_id="demo"):
+    """Count this player's guesses that have been scored as correct by the current date."""
+    guess_rows = rows(
+        connection,
+        "SELECT * FROM guesses WHERE school_id=? AND device=? AND date<=?",
+        (school_id, player_device, current_date),
+    )
+    return sum(score_guess(guess, current_date, taken) is True for guess in guess_rows)
+
+
 def stats(connection, player_device, current_date, taken, school_id="demo"):
     """Return streak, XP, badges, and latest vote date through the current date.
 
@@ -92,30 +111,36 @@ def stats(connection, player_device, current_date, taken, school_id="demo"):
         (school_id, player_device, current_date),
     )
     voted_dates = {row[0] for row in vote_rows}
+    tray_dates = {
+        row[0]
+        for row in rows(
+            connection,
+            "SELECT DISTINCT date FROM trays WHERE school_id=? AND device=? AND date<=?",
+            (school_id, player_device, current_date),
+        )
+    }
+    active_dates = voted_dates | tray_dates
     last_vote_date = max(voted_dates) if voted_dates else None
     previous = prev_day(connection, current_date)
-    anchor = current_date if current_date in voted_dates else (previous[0] if previous else None)
+    anchor = current_date if current_date in active_dates else (previous[0] if previous and previous[0] in active_dates else None)
     streak = 0
     dates = school_dates(connection)
     index = dates.index(anchor) if anchor in dates else -1
-    while index >= 0 and dates[index] in voted_dates:
+    while index >= 0 and dates[index] in active_dates:
         streak += 1
         index -= 1
 
-    guess_rows = rows(
-        connection,
-        "SELECT * FROM guesses WHERE school_id=? AND device=? AND date<=?",
+    correct_guesses = correct_guess_count(connection, player_device, current_date, taken, school_id)
+    tray_count = connection.execute(
+        "SELECT COUNT(DISTINCT date) FROM trays WHERE school_id=? AND device=? AND date<=?",
         (school_id, player_device, current_date),
-    )
-    correct_guesses = sum(
-        score_guess(guess, current_date, taken) is True for guess in guess_rows
-    )
-    xp = len(vote_rows) * 10 + correct_guesses * 25
+    ).fetchone()[0]
+    xp = len(vote_rows) * 10 + tray_count * 10 + correct_guesses * 25
 
     longest = 0
     current_run = 0
     for school_date in dates:
-        if school_date <= current_date and school_date in voted_dates:
+        if school_date <= current_date and school_date in active_dates:
             current_run += 1
             longest = max(longest, current_run)
         elif school_date <= current_date:

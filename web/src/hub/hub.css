@@ -13,7 +13,7 @@
   font-size: var(--text-2xl);
 }
 .hub__lead {
-  color: var(--slate);
+  color: var(--nezumi);
   font-size: var(--text-md);
 }
 .hub__note {
@@ -47,11 +47,11 @@
   font-size: var(--text-lg);
 }
 .hub-row__line {
-  color: var(--slate);
+  color: var(--nezumi);
 }
 .hub-row__url {
   font-size: var(--text-sm);
-  color: var(--slate);
+  color: var(--nezumi);
   overflow-wrap: anywhere;
   user-select: all;
 }
@@ -96,7 +96,8 @@
   font-weight: 600;
 }
 .hub-qr__url {
-  font-family: var(--font-display);
+  font-family: var(--font-ui);
+  font-variant-numeric: tabular-nums;
   font-weight: 700;
   font-size: var(--text-xl);
   line-height: var(--leading-tight);
@@ -124,15 +125,15 @@
   margin: 0;
   padding: var(--s6);
   border: 0;
-  background: var(--surface);
-  color: var(--ink);
+  background: var(--shoji);
+  color: var(--sumi);
 }
 .hub-full[open] {
   display: grid;
   grid-template-rows: auto 1fr;
 }
 .hub-full::backdrop {
-  background: var(--surface);
+  background: var(--shoji);
 }
 .hub-full__close {
   justify-self: end;
@@ -149,7 +150,8 @@
   height: min(70vh, 90vw);
 }
 .hub-full__url {
-  font-family: var(--font-display);
+  font-family: var(--font-ui);
+  font-variant-numeric: tabular-nums;
   font-weight: 700;
   font-size: clamp(var(--text-xl), 4vw, var(--text-hero));
   line-height: var(--leading-tight);
@@ -165,4 +167,94 @@
   from {
     opacity: 0;
   }
+}
+
+.hub-row__name {
+  font-family: var(--font-ui);
+  font-weight: 700;
+}
+
+/* Two groups: the simulated school and the live one. Each opens under a heavy rule, no cards. */
+.hub-group {
+  display: grid;
+  gap: var(--s5);
+  padding-top: var(--s5);
+  border-top: 2px solid var(--ink);
+}
+.hub-group__head {
+  display: grid;
+  gap: var(--s1);
+}
+.hub-group__title {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  font-family: var(--font-ui);
+  font-weight: 800;
+  font-size: var(--text-xl);
+  line-height: var(--leading-tight);
+}
+.hub-group__line {
+  color: var(--ink-soft);
+}
+.hub-group .hub__list {
+  margin-top: calc(var(--s2) * -1);
+}
+.hub-group .hub-row:first-child {
+  padding-top: var(--s5);
+}
+
+/* The live group's beacon: a dot with a slow ring, so "real time" reads at a glance */
+.hub-group__pulse {
+  position: relative;
+  flex: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--pink-5);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .hub-group__pulse::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    border: 2px solid var(--pink-5);
+    animation: hub-pulse 2.4s var(--ease-out) infinite;
+  }
+}
+@keyframes hub-pulse {
+  from {
+    transform: scale(1);
+    opacity: 0.9;
+  }
+  to {
+    transform: scale(2.6);
+    opacity: 0;
+  }
+}
+.hub-row__btn:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+/* Who a page is for: a small tag beside its name. */
+.hub-row__for {
+  display: inline-block;
+  margin-left: var(--s2);
+  padding: 2px var(--s2);
+  border-radius: var(--radius-pill);
+  font-size: 12px;
+  font-weight: 700;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+.hub-row__for--student {
+  background: var(--pink-2);
+  color: var(--ink);
+}
+.hub-row__for--staff {
+  background: var(--surface);
+  color: var(--leaf-deep);
+  border: 1px solid var(--leaf-deep);
 }

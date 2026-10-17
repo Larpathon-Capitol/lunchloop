@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import QRCode from 'qrcode'
 import { copy } from '../shared/copy'
+import { DemoBar } from '../shared/ui/DemoBar'
 import './hub.css'
 
 const t = copy.hub
@@ -21,14 +22,21 @@ interface Page {
   path: string
   password?: string
   passwordNote?: string
+  /** Who the page is for, shown as a tag so student and staff views never blur together. */
+  audience: 'student' | 'staff'
 }
 
-const PAGES: Page[] = [
-  { key: 'student', path: 'student' },
-  { key: 'school', path: 'school', password: t.pages.school.password },
-  { key: 'live', path: 'live' },
-  { key: 'liveAdmin', path: 'live/admin', passwordNote: t.pages.liveAdmin.passwordNote },
-  { key: 'backstage', path: 'behind-the-scenes' },
+const SIMULATED: Page[] = [
+  { key: 'student', path: 'student', audience: 'student' },
+  { key: 'school', path: 'school', password: t.pages.school.password, audience: 'staff' },
+  { key: 'kitchen', path: 'school/kitchen', passwordNote: t.pages.kitchen.passwordNote, audience: 'staff' },
+  { key: 'backstage', path: 'behind-the-scenes/simulated', audience: 'staff' },
+]
+
+const LIVE: Page[] = [
+  { key: 'live', path: 'live', audience: 'student' },
+  { key: 'liveAdmin', path: 'live/admin', passwordNote: t.pages.liveAdmin.passwordNote, audience: 'staff' },
+  { key: 'backstageLive', path: 'behind-the-scenes/live', audience: 'staff' },
 ]
 
 /** The QR code drawn from its own modules, filled with token colors, so nothing is injected as markup. */
@@ -61,8 +69,8 @@ function Qr({ text, className }: { text: string; className?: string }) {
       data-url={text}
       shapeRendering="crispEdges"
     >
-      <rect width={box} height={box} fill="var(--surface)" />
-      <path d={d} transform={`translate(${quiet} ${quiet})`} fill="var(--ink)" />
+      <rect width={box} height={box} fill="var(--shoji)" />
+      <path d={d} transform={`translate(${quiet} ${quiet})`} fill="var(--sumi)" />
     </svg>
   )
 }
@@ -112,58 +120,91 @@ function QrOverlay({ url, dialogRef }: { url: string; dialogRef: React.RefObject
   )
 }
 
+function PageRow({ p, onFullScreen }: { p: Page; onFullScreen: () => void }) {
+  const page = t.pages[p.key]
+  const url = absolute(p.path)
+  return (
+    <li className="hub-row">
+      <div className="hub-row__text">
+        <h3 className="hub-row__name">
+          {page.name}
+          <span className={`hub-row__for hub-row__for--${p.audience}`}>{t.audience[p.audience]}</span>
+        </h3>
+        <p className="hub-row__line">{page.line}</p>
+        <p className="hub-row__url">{short(url)}</p>
+        {p.password ? (
+          <p className="hub-row__pw">
+            {t.passwordLabel}: <span className="hub-row__pw-value">{p.password}</span>
+          </p>
+        ) : (
+          p.passwordNote && <p className="hub-row__pw">{p.passwordNote}</p>
+        )}
+      </div>
+      <div className="hub-row__actions">
+        <Link to={`/${p.path}`} className="btn btn--quiet hub-row__btn">
+          {t.open}
+        </Link>
+        <CopyButton url={url} />
+      </div>
+      {p.key === 'live' && (
+        <div className="hub-qr">
+          <Qr text={url} className="hub-qr__code" />
+          <div className="hub-qr__side">
+            <p className="hub-qr__heading">{t.qr.heading}</p>
+            <p className="hub-qr__url">{short(url)}</p>
+            <button type="button" className="btn btn--primary" onClick={onFullScreen}>
+              {t.qr.fullScreen}
+            </button>
+          </div>
+        </div>
+      )}
+    </li>
+  )
+}
+
+/** The dashboard: the simulated school (with presenter controls) and the live one, as two separate groups. */
 export function Hub() {
   const dialogRef = useRef<HTMLDialogElement>(null)
   const liveUrl = absolute('live')
+  const full = () => dialogRef.current?.showModal()
 
   return (
     <div className="hub">
       <header className="hub__head">
         <h1 className="hub__title">{t.title}</h1>
         <p className="hub__lead">{t.lead}</p>
-        <p className="hub__note">{t.noteSimulated}</p>
       </header>
 
-      <ul className="hub__list" aria-label={t.listLabel}>
-        {PAGES.map((p) => {
-          const page = t.pages[p.key]
-          const url = absolute(p.path)
-          return (
-            <li key={p.key} className="hub-row">
-              <div className="hub-row__text">
-                <h2 className="hub-row__name">{page.name}</h2>
-                <p className="hub-row__line">{page.line}</p>
-                <p className="hub-row__url">{short(url)}</p>
-                {p.password ? (
-                  <p className="hub-row__pw">
-                    {t.passwordLabel}: <span className="hub-row__pw-value">{p.password}</span>
-                  </p>
-                ) : (
-                  p.passwordNote && <p className="hub-row__pw">{p.passwordNote}</p>
-                )}
-              </div>
-              <div className="hub-row__actions">
-                <Link to={`/${p.path}`} className="btn btn--quiet hub-row__btn">
-                  {t.open}
-                </Link>
-                <CopyButton url={url} />
-              </div>
-              {p.key === 'live' && (
-                <div className="hub-qr">
-                  <Qr text={liveUrl} className="hub-qr__code" />
-                  <div className="hub-qr__side">
-                    <p className="hub-qr__heading">{t.qr.heading}</p>
-                    <p className="hub-qr__url">{short(liveUrl)}</p>
-                    <button type="button" className="btn btn--primary" onClick={() => dialogRef.current?.showModal()}>
-                      {t.qr.fullScreen}
-                    </button>
-                  </div>
-                </div>
-              )}
-            </li>
-          )
-        })}
-      </ul>
+      <section className="hub-group hub-group--sim" aria-labelledby="hub-sim-h">
+        <div className="hub-group__head">
+          <h2 id="hub-sim-h" className="hub-group__title">
+            {t.groups.simulated.heading}
+          </h2>
+          <p className="hub-group__line">{t.groups.simulated.line}</p>
+        </div>
+        <DemoBar />
+        <ul className="hub__list" aria-label={t.groups.simulated.heading}>
+          {SIMULATED.map((p) => (
+            <PageRow key={p.key} p={p} onFullScreen={full} />
+          ))}
+        </ul>
+      </section>
+
+      <section className="hub-group hub-group--live" aria-labelledby="hub-live-h">
+        <div className="hub-group__head">
+          <h2 id="hub-live-h" className="hub-group__title">
+            <span className="hub-group__pulse" aria-hidden="true" />
+            {t.groups.live.heading}
+          </h2>
+          <p className="hub-group__line">{t.groups.live.line}</p>
+        </div>
+        <ul className="hub__list" aria-label={t.groups.live.heading}>
+          {LIVE.map((p) => (
+            <PageRow key={p.key} p={p} onFullScreen={full} />
+          ))}
+        </ul>
+      </section>
+
       <QrOverlay url={liveUrl} dialogRef={dialogRef} />
     </div>
   )
