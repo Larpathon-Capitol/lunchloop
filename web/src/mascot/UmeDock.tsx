@@ -1,11 +1,12 @@
 // The companion in the bottom right corner of wide screens, in the gutter beside the page.
-// Peeks from its edge while the user scrolls down, wanders along the bottom of the gutter now
-// and then, and travels to elements when asked through ume.moveTo(). Narrower screens get
-// UmeInline inside the layout instead, so the dock renders nothing there and never covers content.
+// Bounces around the gutter now and then and travels to elements when asked through
+// ume.moveTo(). It always stays fully on screen, above the bottom edge and the safe area.
+// Narrower screens get UmeInline inside the layout instead, so the dock renders nothing there
+// and never covers content.
 import { animate, motion, useMotionValue, useReducedMotion } from 'framer-motion'
 import { useEffect, useRef, useState } from 'react'
 import { useDocked } from './dock'
-import { rigBus, type MascotHandle } from './rig/bus'
+import { FEET, STAGE, rigBus, type MascotHandle } from './rig/bus'
 import { Ume } from './Ume'
 import { useUmeState } from './store'
 
@@ -14,9 +15,11 @@ const wait = (ms: number) => new Promise((r) => setTimeout(r, ms))
 /** The rising half of a hop arc, then the fall. */
 const RISE = [0.15, 0.75, 0.35, 1] as const
 const FALL = [0.55, 0, 0.9, 0.45] as const
+/** Keep the dock's head this far below the top bar when it bounces up the gutter. */
+const TOP_CLEAR = 56 + 32
 
 export type UmeDockProps = {
-  /** Width in CSS pixels. Defaults to 76. */
+  /** Width in CSS pixels. Defaults to 106. */
   size?: number
   hidden?: boolean
   onPet?: (count: number) => void
@@ -26,45 +29,16 @@ export function UmeDock({ size, hidden = false, onPet }: UmeDockProps) {
   const state = useUmeState()
   const docked = useDocked()
   const reduced = !!useReducedMotion()
-  const px = size ?? 76
+  const px = size ?? 106
 
   const homeRef = useRef<HTMLDivElement>(null)
   const x = useMotionValue(0)
   const y = useMotionValue(0)
-  const peekY = useMotionValue(0)
   const [away, setAway] = useState(false)
-  const [peek, setPeek] = useState(false)
   const rig = useRef<MascotHandle | null>(null)
   const air = (ms: number) => {
     if (rig.current) rigBus.send(rig.current, { type: 'air', ms })
   }
-
-  // Peek: tuck half of Ume below the dock edge while scrolling down, pop back up on scroll up.
-  useEffect(() => {
-    let last = window.scrollY
-    let raf = 0
-    const onScroll = () => {
-      cancelAnimationFrame(raf)
-      raf = requestAnimationFrame(() => {
-        const now = window.scrollY
-        if (now < 120) setPeek(false)
-        else if (now > last + 6) setPeek(true)
-        else if (now < last - 6) setPeek(false)
-        last = now
-      })
-    }
-    window.addEventListener('scroll', onScroll, { passive: true })
-    return () => {
-      window.removeEventListener('scroll', onScroll)
-      cancelAnimationFrame(raf)
-    }
-  }, [])
-
-  useEffect(() => {
-    const target = peek && !(away && state.move) ? px * 0.5 : 0
-    if (reduced) peekY.set(target)
-    else void animate(peekY, target, { type: 'spring', stiffness: 380, damping: 26 })
-  }, [peek, away, state.move, px, reduced, peekY])
 
   // Travel: spring onto the target's top edge, hold, then hop home.
   useEffect(() => {
@@ -77,7 +51,6 @@ export function UmeDock({ size, hidden = false, onPet }: UmeDockProps) {
     let cancelled = false
     const go = async () => {
       setAway(true)
-      peekY.set(0)
       if (reduced) {
         x.set(dx)
         y.set(dy)
@@ -109,7 +82,7 @@ export function UmeDock({ size, hidden = false, onPet }: UmeDockProps) {
     return () => {
       cancelled = true
     }
-  }, [state.move, reduced, x, y, peekY])
+  }, [state.move, reduced, x, y])
 
   // ume.back() clears the move: snap home.
   useEffect(() => {
@@ -123,31 +96,45 @@ export function UmeDock({ size, hidden = false, onPet }: UmeDockProps) {
     }
   }, [state.move, reduced, x, y])
 
-  // Wander: now and then hop to another spot along the bottom of the gutter, look around, hop home.
-  const busy = !!state.move || away || peek || reduced || hidden || !docked
+  // Wander: now and then bounce to a spot or two in the gutter (sideways and up), look around,
+  // then hop home. Spots stay inside the gutter, below the top bar and above the bottom edge.
+  const busy = !!state.move || away || reduced || hidden || !docked
   useEffect(() => {
     if (busy) return
     let cancelled = false
     let timer = 0
-    const hopTo = async (to: number) => {
-      air(560)
+    const hopTo = async (toX: number, toY: number) => {
+      const dist = Math.hypot(toX - x.get(), toY - y.get())
+      const half = Math.min(0.42, 0.26 + dist / 2400)
+      air(half * 2000)
       await wait(90)
-      void animate(x, to, { duration: 0.56, ease: [0.3, 0, 0.3, 1] })
-      await animate(y, -44, { duration: 0.28, ease: RISE })
-      await animate(y, 0, { duration: 0.28, ease: FALL })
+      void animate(x, toX, { duration: half * 2, ease: [0.3, 0, 0.3, 1] })
+      await animate(y, Math.min(y.get(), toY) - 44, { duration: half, ease: RISE })
+      if (cancelled) return
+      await animate(y, toY, { duration: half, ease: FALL })
+    }
+    const spot = () => {
+      const home = homeRef.current?.getBoundingClientRect()
+      const main = document.getElementById('main')?.getBoundingClientRect()
+      if (!home || !main) return null
+      // Sideways room between the page edge and home; upward room between home and the top bar.
+      const side = Math.max(0, home.left - main.right - px * STAGE.side * 0.4 - 16)
+      const up = Math.max(0, home.top - TOP_CLEAR - px * (STAGE.top - (1 - FEET)))
+      if (side < 24 && up < 80) return null
+      return { x: -rand(0, 1) * side, y: -rand(0.15, 0.85) * up }
     }
     const loop = () => {
       timer = window.setTimeout(async () => {
-        const main = document.getElementById('main')?.getBoundingClientRect()
-        const gutter = main ? window.innerWidth - main.right : 0
-        const room = gutter - px - 48
-        if (room > 60 && !cancelled) {
-          await hopTo(-rand(0.4, 1) * room)
-          await wait(rand(3500, 7000))
-          if (!cancelled) await hopTo(0)
+        const stops = Math.random() < 0.4 ? 2 : 1
+        for (let k = 0; k < stops && !cancelled; k++) {
+          const to = spot()
+          if (!to) break
+          await hopTo(to.x, to.y)
+          await wait(rand(2600, 5200))
         }
+        if (!cancelled && (x.get() !== 0 || y.get() !== 0)) await hopTo(0, 0)
         if (!cancelled) loop()
-      }, rand(14000, 26000))
+      }, rand(7000, 14000))
     }
     loop()
     return () => {
@@ -156,25 +143,22 @@ export function UmeDock({ size, hidden = false, onPet }: UmeDockProps) {
     }
   }, [busy, px, x, y])
 
-  const free = away && !!state.move
-
   if (hidden || !docked) return null
 
   return (
-    <div className="ume-dock" data-free={free} ref={homeRef} style={{ width: px, height: px }}>
-      <motion.div style={{ x, y }} onPointerEnter={() => setPeek(false)}>
-        <motion.div style={{ y: peekY }}>
-          <Ume
-            size={px}
-            mood={state.mood}
-            say={state.line}
-            sayKey={state.lineId}
-            hopKey={state.hopId}
-            bubbleAlign="end"
-            onPet={onPet}
-            rigRef={rig}
-          />
-        </motion.div>
+    <div className="ume-dock" ref={homeRef} style={{ width: px, height: px, ['--dock-size' as string]: `${px}px` }}>
+      <motion.div style={{ x, y }}>
+        <Ume
+          size={px}
+          mood={state.mood}
+          say={state.line}
+          sayKey={state.lineId}
+          hopKey={state.hopId}
+          bubbleAlign="end"
+          bubbleInPlace
+          onPet={onPet}
+          rigRef={rig}
+        />
       </motion.div>
     </div>
   )

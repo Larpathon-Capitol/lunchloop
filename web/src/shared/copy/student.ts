@@ -84,7 +84,13 @@ export const student = {
   },
 
   spin: {
-    heading: (slot: string, day: string) => `Pick the ${slot} for ${day}`,
+    /** Names the future day plainly: "Vote for lunch on Thursday, Oct 29". */
+    heading: (day: string) => `Vote for lunch on ${day}`,
+    /** How far off that day is, from today's date. */
+    when: (schoolDays: number, tomorrow: boolean) =>
+      tomorrow ? 'Tomorrow' : schoolDays <= 1 ? 'Next school day' : `In ${schoolDays} school days`,
+    /** Under the ballot: "Your pick will be served Thu, Oct 29". */
+    served: (day: string) => `Your pick will be served ${day}`,
     lead: 'Spin through every entree. Four land on the ballot, and at least one is always vegetarian.',
     button: 'Spin',
     spinning: 'Spinning',
@@ -101,7 +107,7 @@ export const student = {
 
   voted: {
     heading: 'Vote counted',
-    body: (name: string, slot: string, day: string) => `You picked ${name} as the ${slot} for ${day}.`,
+    body: (name: string, day: string) => `You voted for ${name} for ${day}.`,
     yours: 'You',
     xp: (n: number) => `+${n} XP`,
     announce: (name: string, xp: number | null) => (xp ? `Vote counted. You picked ${name}. Plus ${xp} XP.` : `Vote counted. You picked ${name}.`),
@@ -113,7 +119,7 @@ export const student = {
 
   done: {
     heading: 'You voted today',
-    body: (slot: string, day: string) => `Your vote for the ${slot} on ${day} is in. A new vote opens on the next school day.`,
+    body: (day: string) => `Your vote for lunch on ${day} is in. A new vote opens on the next school day.`,
   },
 
   meter: {
@@ -130,6 +136,8 @@ export const student = {
 
   calledIt: {
     title: 'Call it',
+    /** "Call tomorrow's top entree: Tuesday, Oct 20". */
+    heading: (day: string, tomorrow: boolean) => (tomorrow ? `Call tomorrow’s top entree: ${day}` : `Call the next school day’s top entree: ${day}`),
     question: (day: string) => `Which entree will students pick most on ${day}?`,
     choices: 'Entrees on the menu',
     lead: 'A right call earns 25 XP. One call per day.',
@@ -185,6 +193,8 @@ export const student = {
     dairyFree: 'Dairy-free',
     /** The allergen line on a food: "Has milk, wheat". */
     has: (list: string) => `Has ${list}`,
+    /** The allergen line when the needs warning already named some: "Also has wheat". */
+    alsoHas: (list: string) => `Also has ${list}`,
     noAllergens: 'No listed allergens',
     label: 'Diet',
     fits: 'Fits you',

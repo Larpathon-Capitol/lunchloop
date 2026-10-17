@@ -1,4 +1,5 @@
-export { Ume, Mascot, mascotName, type UmeProps, type MascotProps } from './Ume'
+export { Ume, Mascot, type UmeProps, type MascotProps } from './Ume'
+export { mascotName } from './name'
 export { UmeDock, UmeDock as MascotDock, type UmeDockProps, type UmeDockProps as MascotDockProps } from './UmeDock'
 export { UmeInline, UmeInline as MascotInline, type UmeInlineProps, type UmeInlineProps as MascotInlineProps } from './UmeInline'
 export { DOCK_QUERY, useDocked } from './dock'

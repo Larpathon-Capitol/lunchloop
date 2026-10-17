@@ -33,6 +33,8 @@ const PATHS: Record<EventKind, NodeId[]> = {
   vote: ['phone', 'api', 'database'],
   guess: ['phone', 'api', 'database'],
   tray: ['phone', 'api', 'database'],
+  served: ['phone', 'api', 'database'],
+  free: ['school', 'api', 'database'],
   rate_limited: ['phone', 'api'],
   staff_sign_in: ['school', 'api'],
   staff_sign_in_failed: ['school', 'api'],

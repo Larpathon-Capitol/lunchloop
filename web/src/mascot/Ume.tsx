@@ -2,14 +2,17 @@
 // an invisible pet button the size of the slot, the speech bubble and the petting particles.
 // The model itself is drawn by the shared 3D layer (three/MascotLayer.tsx) into a stage box
 // around the slot, so the page holds at most one extra WebGL canvas however many mascots it shows.
+// Until the model has drawn (or when WebGL is missing) a still poster of the mascot fills the slot.
 // Named Ume for the screens that already import it; Mascot is the same component.
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent, type MutableRefObject, type PointerEvent } from 'react'
 import { sound } from '../shared/sound'
+import { FloatOver } from './FloatOver'
 import { THEME_INFO } from '../theme/registry'
 import { useThemeId } from '../theme/store'
 import type { MascotId } from '../theme/types'
 import { lines, pickLine } from './lines'
+import { mascotName } from './name'
 import { rigBus, type MascotHandle } from './rig/bus'
 import { announce, registerPet } from './store'
 import type { Point, UmeMood } from './types'
@@ -38,6 +41,9 @@ export type UmeProps = {
   mascotId?: MascotId
   /** For hosts that draw their own bubble: true while it shows, so the mouth moves. */
   talking?: boolean
+  /** Keep the bubble inside this element instead of lifting it above the 3D layer. Only for hosts
+   * that already sit above the layer (the dock). */
+  bubbleInPlace?: boolean
   /** Receives the rig handle, for hosts that move the mascot around (the dock). */
   rigRef?: MutableRefObject<MascotHandle | null>
   className?: string
@@ -45,8 +51,9 @@ export type UmeProps = {
 export type MascotProps = UmeProps
 
 const BUBBLE_MS = 3500
-/** Mascot name for an id ("Chispa", "Ume", "Lafa"). */
-export const mascotName = (id: MascotId) => Object.values(THEME_INFO).find((t) => t.mascot === id)?.mascotName ?? 'Ume'
+
+/** The still image shown until the 3D model draws: public/mascots/<id>.webp, framed like the rig. */
+const posterUrl = (id: MascotId) => `${import.meta.env.BASE_URL}mascots/${id}.webp`
 
 const rand = (a: number, b: number) => a + Math.random() * (b - a)
 
@@ -92,6 +99,7 @@ export function Ume({
   talkWhenPetted = true,
   mascotId,
   talking = false,
+  bubbleInPlace = false,
   rigRef,
   className,
 }: UmeProps) {
@@ -102,6 +110,7 @@ export function Ume({
   const [override, setOverride] = useState<UmeMood | null>(null)
   const shown = override ?? mood
   const stageRef = useRef<HTMLDivElement>(null)
+  const anchorRef = useRef<HTMLDivElement>(null)
   const [bubble, setBubble] = useState<{ text: string; id: number } | null>(null)
   const [ready, setReady] = useState(false)
 
@@ -241,6 +250,25 @@ export function Ume({
     }
   }
 
+  const bubbleEl = (
+    <AnimatePresence>
+      {bubble && (
+        <motion.div
+          key={bubble.id}
+          className="ume-bubble"
+          data-align={bubbleAlign}
+          aria-hidden="true"
+          initial={reduced ? { opacity: 0 } : { opacity: 0, scale: 0.6, y: 6 }}
+          animate={reduced ? { opacity: 1 } : { opacity: 1, scale: 1, y: 0 }}
+          exit={reduced ? { opacity: 0 } : { opacity: 0, scale: 0.85, y: 4 }}
+          transition={reduced ? { duration: 0.12 } : { type: 'spring', stiffness: 520, damping: 26 }}
+        >
+          {bubble.text}
+        </motion.div>
+      )}
+    </AnimatePresence>
+  )
+
   return (
     <div
       className={`ume mascot${className ? ` ${className}` : ''}`}
@@ -249,24 +277,16 @@ export function Ume({
       data-mascot={mascot}
       data-ready={ready}
     >
+      <img className="mascot__poster" src={posterUrl(mascot)} alt="" aria-hidden="true" draggable={false} decoding="async" />
       <div ref={stageRef} className="mascot__stage" aria-hidden="true" />
-      <div className="ume-bubble-anchor">
-        <AnimatePresence>
-          {bubble && (
-            <motion.div
-              key={bubble.id}
-              className="ume-bubble"
-              data-align={bubbleAlign}
-              aria-hidden="true"
-              initial={reduced ? { opacity: 0 } : { opacity: 0, scale: 0.6, y: 6 }}
-              animate={reduced ? { opacity: 1 } : { opacity: 1, scale: 1, y: 0 }}
-              exit={reduced ? { opacity: 0 } : { opacity: 0, scale: 0.85, y: 4 }}
-              transition={reduced ? { duration: 0.12 } : { type: 'spring', stiffness: 520, damping: 26 }}
-            >
-              {bubble.text}
-            </motion.div>
-          )}
-        </AnimatePresence>
+      <div ref={anchorRef} className="ume-bubble-anchor">
+        {bubbleInPlace ? (
+          bubbleEl
+        ) : (
+          <FloatOver anchor={anchorRef} active={!!bubble}>
+            {bubbleEl}
+          </FloatOver>
+        )}
       </div>
       <div className="mascot__bits" aria-hidden="true">
         {bits.map((b) => (

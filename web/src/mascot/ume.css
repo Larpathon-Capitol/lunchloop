@@ -41,11 +41,61 @@
   pointer-events: none;
 }
 
-/* The shared canvas: over the page (2), under the header, tab bar, sheets, toasts and curtains. */
+/* The still poster: fills the slot with the same framing as the 3D model (rig/bus.ts STAGE and
+   FEET), so the model can crossfade in over it without a jump. Stays up when WebGL is missing. */
+.mascot__poster {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-select: none;
+  transform-origin: 50% 94%;
+  transition:
+    opacity 280ms ease-out 60ms,
+    transform 260ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.ume[data-ready='true'] .mascot__poster {
+  opacity: 0;
+}
+
+/* Without the model, the poster still answers a pet with a little squish. */
+.ume[data-ready='false'][data-mood='petted'] .mascot__poster {
+  transform: scale(1.06, 0.92);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mascot__poster {
+    transition: opacity 160ms linear;
+  }
+  .ume[data-ready='false'][data-mood='petted'] .mascot__poster {
+    transform: none;
+  }
+}
+
+/* The shared layer on <body>: over the page (2), under the header, tab bar, sheets, toasts and
+   curtains. The canvas first, then the bubbles, so words always sit above the models. */
 .mascot-layer {
   position: fixed;
   inset: 0;
   z-index: 2;
+  pointer-events: none;
+}
+
+.mascot-layer__gl,
+.mascot-layer__bubbles {
+  position: absolute;
+  inset: 0;
+}
+
+/* One per lifted bubble, moved to its mascot's slot every frame by FloatOver. */
+.mascot-float {
+  position: absolute;
+  top: 0;
+  left: 0;
   pointer-events: none;
 }
 
@@ -137,10 +187,10 @@
   position: fixed;
   z-index: 40;
   right: var(--s6);
-  bottom: calc(var(--ume-dock-bottom-desktop, var(--s6)) + env(safe-area-inset-bottom, 0px));
+  /* Room under the slot for the contact shadow (STAGE.bottom in rig/bus.ts), so the whole
+     mascot always sits above the viewport edge and the safe area. */
+  bottom: calc(var(--ume-dock-bottom-desktop, var(--s6)) + var(--dock-size, 106px) * 0.15 + env(safe-area-inset-bottom, 0px));
   pointer-events: none;
-  /* Clip only the bottom edge, so Ume can peek up from it while the bubble stays free. */
-  clip-path: inset(-400px -400px 0 -400px);
 }
 
 /* Keep in step with DOCK_QUERY in dock.ts. */
@@ -148,10 +198,6 @@
   .ume-dock {
     display: block;
   }
-}
-
-.ume-dock[data-free='true'] {
-  clip-path: none;
 }
 
 .ume-dock > * {
@@ -234,4 +280,14 @@
   inset: 0;
   pointer-events: none;
   z-index: 2;
+}
+
+/* Holds the bubble's space in the layout; the visible copy floats above the 3D layer on top of it. */
+.ume-inline__bubble--ghost {
+  visibility: hidden;
+}
+
+.ume-inline__bubble--live {
+  width: 100%;
+  max-width: none;
 }

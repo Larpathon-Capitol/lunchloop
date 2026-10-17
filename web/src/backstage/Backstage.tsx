@@ -112,7 +112,7 @@ export function BackstageSimulated() {
           </section>
           <CountsStrip counts={counts} />
         </div>
-        <LiveLog rows={rows} status={status} fresh={fresh} />
+        <LiveLog rows={rows} status={status} fresh={fresh} heading={t.simulated.logHeading} />
       </div>
 
       <ForecastSteps />

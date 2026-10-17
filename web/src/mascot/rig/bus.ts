@@ -63,6 +63,19 @@ export const rigBus = {
     emit()
   },
   all: () => handles,
+  /** Called by the layer when a handle's model first mounts. */
+  markReady(h: MascotHandle) {
+    h.ready = true
+    h.onReady?.()
+  },
+  /** Takes the waiting pet impulse, leaving zero. */
+  takeKick(h: MascotHandle) {
+    const k = h.petKick
+    h.petKick = 0
+    return k
+  },
+  /** Takes the next waiting command, if any. */
+  nextCommand: (h: MascotHandle) => h.commands.shift(),
   subscribe(l: () => void) {
     listeners.add(l)
     return () => {
@@ -91,8 +104,48 @@ export const STAGE = { top: 0.9, side: 0.5, bottom: 0.15 } as const
 export const FEET = 0.94
 
 let layerStarted = false
+let webgl: boolean | null = null
 
-/** Mount the shared 3D layer once, on <body>, in its own React root. */
+/** True when the browser can make a WebGL context. Checked once; without it mascots stay as posters. */
+export function canDraw3D(): boolean {
+  if (webgl !== null) return webgl
+  try {
+    const c = document.createElement('canvas')
+    const gl = c.getContext('webgl2') ?? c.getContext('webgl')
+    webgl = !!gl
+    gl?.getExtension('WEBGL_lose_context')?.loseContext()
+  } catch {
+    webgl = false
+  }
+  return webgl
+}
+
+let host: HTMLDivElement | null = null
+let bubbles: HTMLDivElement | null = null
+
+/** The fixed layer on <body>: the canvas root first, then the bubble layer, so bubbles paint above the models. */
+function layerHost() {
+  if (!host) {
+    host = document.createElement('div')
+    host.className = 'mascot-layer'
+    const gl = document.createElement('div')
+    gl.className = 'mascot-layer__gl'
+    gl.setAttribute('aria-hidden', 'true')
+    bubbles = document.createElement('div')
+    bubbles.className = 'mascot-layer__bubbles'
+    host.append(gl, bubbles)
+    document.body.appendChild(host)
+  }
+  return host
+}
+
+/** Where speech bubbles portal to: just above the mascot canvas, below the header, tab bar and sheets. */
+export function bubbleLayer(): HTMLDivElement {
+  layerHost()
+  return bubbles!
+}
+
+/** Mount the shared 3D layer once, in its own React root. */
 function ensureLayer() {
   if (layerStarted || typeof document === 'undefined') return
   layerStarted = true
@@ -104,13 +157,11 @@ function ensureLayer() {
     },
     { passive: true },
   )
+  if (!canDraw3D()) return
+  const root = layerHost().firstElementChild as HTMLElement
   void Promise.all([import('react-dom/client'), import('react'), import('../three/MascotLayer')]).then(
     ([{ createRoot }, { createElement }, { MascotLayer }]) => {
-      const host = document.createElement('div')
-      host.className = 'mascot-layer'
-      host.setAttribute('aria-hidden', 'true')
-      document.body.appendChild(host)
-      createRoot(host).render(createElement(MascotLayer))
+      createRoot(root).render(createElement(MascotLayer))
     },
   )
 }

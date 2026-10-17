@@ -6,6 +6,7 @@ import { UmeInline, lines, pickLine, ume } from '../mascot'
 import { api, ApiError, type PrepItem } from '../shared/api'
 import { copy } from '../shared/copy'
 import { fmtDay } from '../shared/format'
+import { isTomorrow } from './days'
 import { Lock } from '../shared/icons'
 import { press } from '../shared/motion'
 import { sound } from '../shared/sound'
@@ -165,9 +166,11 @@ export function CallItScreen() {
       ) : (
         <section className="paper" aria-labelledby="guess-title">
           <h2 id="guess-title" className="section-title">
-            {t.question(fmtDay(next.date))}
+            {t.heading(fmtDay(next.date), isTomorrow(calendar.today, next.date))}
           </h2>
-          <p className="paper__lead">{t.lead}</p>
+          <p className="paper__lead">
+            {t.question(fmtDay(next.date))} {t.lead}
+          </p>
           {choices.length === 0 ? (
             <p className="paper__note">{t.empty}</p>
           ) : (

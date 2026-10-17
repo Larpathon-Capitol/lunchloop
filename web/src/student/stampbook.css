@@ -61,27 +61,38 @@
   max-width: 112px;
   margin-top: 2px;
 }
-.sbook__pencil {
+/* An unearned stamp: the world's seal as a faint shape, filled from the bottom by progress. */
+.sbook__ghost {
   position: relative;
   display: grid;
   place-items: center;
 }
-.sbook__pencil svg {
+.sbook__ghost svg {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
-  fill: none;
-  stroke: var(--ink-soft, #7a3f58);
-  stroke-width: 1.2;
-  stroke-dasharray: 2 3;
+  overflow: visible;
+}
+.sbook__ghost-base {
+  fill: var(--pink-2, #ffc2d1);
   opacity: 0.55;
 }
-.sbook__pencil-label {
+.sbook__ghost-fill {
+  fill: var(--pink-3, #ffb3c6);
+}
+.sbook__ghost-line {
+  fill: none;
+  stroke: var(--pink-4, #ff8fab);
+  stroke-width: 1.2;
+  stroke-dasharray: 3 3;
+  stroke-linejoin: round;
+}
+.sbook__ghost-label {
   position: relative;
-  font-family: var(--font-ui, 'Gabarito', system-ui, sans-serif);
-  font-weight: 700;
+  font-family: var(--font-display, 'Gabarito', system-ui, sans-serif);
   font-size: var(--text-base, 16px);
+  line-height: 1.1;
   color: var(--ink-soft, #7a3f58);
 }
 .sbook__rule {

@@ -228,6 +228,14 @@
 .b-row__kind[data-warn] {
   color: var(--warn);
 }
+/* Rows the server writes on its own sit back, so student taps stand out. */
+.b-row[data-engine] .b-row__kind {
+  font-weight: 500;
+  color: var(--ink-soft);
+}
+.b-row[data-engine] .b-row__summary {
+  color: var(--ink-soft);
+}
 .b-row__body {
   grid-area: body;
   display: grid;

@@ -11,17 +11,19 @@ import { MODELS } from '../models'
 
 const IDS: MascotId[] = ['chispa', 'ume', 'lafa']
 
+/** Advances the lab's rig input by one frame: the clock, and with auto on, a wandering look and a blink. */
+function drive(i: RigInput, dt: number, auto: boolean) {
+  i.time += dt
+  if (auto) {
+    const t = i.time
+    i.look = { x: Math.sin(t * 0.7) * 0.8, y: Math.sin(t * 0.43) * 0.5 }
+    i.blink = (t % 3.6) < 0.12 ? 1 : 0
+  }
+  i.bounce = Math.max(0, i.bounce - dt * 1.6)
+}
+
 function Driver({ input, auto }: { input: MutableRefObject<RigInput>; auto: boolean }) {
-  useFrame((_, dt) => {
-    const i = input.current
-    i.time += dt
-    if (auto) {
-      const t = i.time
-      i.look = { x: Math.sin(t * 0.7) * 0.8, y: Math.sin(t * 0.43) * 0.5 }
-      i.blink = (t % 3.6) < 0.12 ? 1 : 0
-    }
-    i.bounce = Math.max(0, i.bounce - dt * 1.6)
-  })
+  useFrame((_, dt) => drive(input.current, dt, auto))
   return null
 }
 

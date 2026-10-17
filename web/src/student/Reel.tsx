@@ -19,6 +19,8 @@ const WINDOW = 4
 /** Spinning row height in px. Matches --reel-row in student.css. */
 const ROW = 60
 const TICK_GAP_MS = 40
+/** Longest wait between reaching the ballot and opening the window. The spring rests in about 0.7s. */
+const OPEN_FALLBACK_MS = 800
 const t = copy.student.spin
 
 type Phase = 'idle' | 'spinning' | 'landed'
@@ -88,6 +90,15 @@ export function Reel({ options, pool, phase, selected, disabled, onLanded, onSel
     landedRef.current()
   }
 
+  // Once the parent knows the reel landed, the window must open, even if the spring never
+  // reports that it came to rest (stopped by a re-render, a remount or a hidden tab).
+  // The normal path opens sooner, from onComplete below.
+  useEffect(() => {
+    if (!live || open) return
+    const id = window.setTimeout(() => setOpen(true), reduce ? 0 : OPEN_FALLBACK_MS)
+    return () => window.clearTimeout(id)
+  }, [live, open, reduce])
+
   useMotionValueEvent(y, 'change', (v) => {
     const s = state.current
     const h = rowRef.current?.offsetHeight ?? 1
@@ -122,7 +133,11 @@ export function Reel({ options, pool, phase, selected, disabled, onLanded, onSel
         setOpen(true)
       },
     })
-    return () => controls.stop()
+    return () => {
+      controls.stop()
+      // Stopped after the strip reached the ballot: open now rather than wait for the fallback.
+      if (state.current.landed) setOpen(true)
+    }
     // `land` reads refs only; options and filler are frozen for the spin.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [spinning, reduce, y])

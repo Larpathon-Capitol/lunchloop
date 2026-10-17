@@ -30,6 +30,7 @@ export const backstage = {
     title: 'Behind the scenes: simulated school',
     lead: 'The demo school, live. Add students or change the day with the presenter controls and watch it happen.',
     docTitle: 'Simulated school, behind the scenes | LunchLoop',
+    logHeading: 'Server log, simulated school',
   },
 
   live: {
@@ -73,10 +74,13 @@ export const backstage = {
     simulate: 'Simulator',
     meter: 'Waste meter',
     rate_limited: 'Slowed down',
+    // Newer server kind, not yet in the api.ts union.
+    served: 'Checked in',
+    free: 'Free leftovers',
   } satisfies Record<EventKind, string>,
 
   counts: {
-    heading: 'Since you opened this page',
+    heading: 'Recent activity on the server',
     votes: (n: number) => plural(n, 'vote', 'votes'),
     guesses: (n: number) => plural(n, 'guess', 'guesses'),
     trays: (n: number) => plural(n, 'tray packed', 'trays packed'),

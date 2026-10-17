@@ -16,6 +16,7 @@ import { ErrorNotice } from '../shared/ui/Notice'
 import { useApi } from '../shared/useApi'
 import { FoodGlyph } from './FoodGlyph'
 import { Reel } from './Reel'
+import { isTomorrow, schoolDaysBetween } from './days'
 import { NeedsButton } from './NeedsSheet'
 import { fade, popSpring } from './springs'
 import { readStoredVote, useStudent, type StoredVote } from './state'
@@ -158,7 +159,8 @@ function SpinPanel({ spin, device, catalog, addToCatalog, showFood, stored, next
   }, [])
 
   const day = fmtDay(spin.target_date)
-  const slot = spin.target_slot
+  const shortDay = fmtDay(spin.target_date, { weekday: 'short', month: 'short', day: 'numeric' })
+  const when = t.spin.when(schoolDaysBetween(spin.date, spin.target_date), isTomorrow(spin.date, spin.target_date))
 
   // Learn food groups for the options (they're for a later menu day).
   useEffect(() => {
@@ -236,7 +238,7 @@ function SpinPanel({ spin, device, catalog, addToCatalog, showFood, stored, next
         <h2 id="done-title" className="section-title">
           {t.done.heading}
         </h2>
-        <p className="paper__lead">{t.done.body(slot, day)}</p>
+        <p className="paper__lead">{t.done.body(day)}</p>
         {error && <p className="paper__note">{error}</p>}
         <CallItLink>{nextLabel}</CallItLink>
       </section>
@@ -246,9 +248,12 @@ function SpinPanel({ spin, device, catalog, addToCatalog, showFood, stored, next
   const landed = phase === 'landed' || phase === 'voting'
   return (
     <section className="paper" aria-labelledby="spin-title" ref={panelRef}>
-      <h2 id="spin-title" className="section-title">
-        {t.spin.heading(slot, day)}
-      </h2>
+      <div className="vote-day">
+        <h2 id="spin-title" className="section-title">
+          {t.spin.heading(day)}
+        </h2>
+        <span className="vote-day__when">{when}</span>
+      </div>
       <p className="paper__lead">{t.spin.lead}</p>
 
       <div className="lacquer">
@@ -263,6 +268,7 @@ function SpinPanel({ spin, device, catalog, addToCatalog, showFood, stored, next
           onInfo={info}
         />
       </div>
+      <p className="vote-served">{t.spin.served(shortDay)}</p>
       <p className="visually-hidden" aria-live="polite">
         {phase === 'spinning' ? t.spin.spinning : landed ? t.spin.landed(options.map((o) => o.name)) : ''}
       </p>
@@ -349,7 +355,7 @@ function VotedPanel({ spin, result, chosen, storedXp, fresh, nextLabel }: VotedP
       <h2 id="voted-title" className="section-title" tabIndex={-1} ref={titleRef}>
         {t.voted.heading}
       </h2>
-      <p className="paper__lead">{t.voted.body(chosen.name, spin.target_slot, fmtDay(spin.target_date))}</p>
+      <p className="paper__lead">{t.voted.body(chosen.name, fmtDay(spin.target_date))}</p>
 
       <ul className="tally">
         {spin.options.map((o) => {

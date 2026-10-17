@@ -40,14 +40,18 @@ export function DietBadges({ food, full = false }: { food: FoodFacts; full?: boo
   )
 }
 
-/** "Has milk, wheat", or "No listed allergens". */
-export function AllergenLine({ allergens }: { allergens: FoodFacts['allergens'] }) {
+/**
+ * "Has milk, wheat", or "No listed allergens". With `also`, the allergens are the ones left
+ * after the needs warning already named some, and the line reads "Also has wheat".
+ */
+export function AllergenLine({ allergens, also = false }: { allergens: FoodFacts['allergens']; also?: boolean }) {
+  const list = allergens.map((a) => allergenName(a).toLowerCase()).join(', ')
   return (
     <span className="food-line">
       {allergens.length ? (
         <>
           <Allergen />
-          {t.has(allergens.map((a) => allergenName(a).toLowerCase()).join(', '))}
+          {also ? t.alsoHas(list) : t.has(list)}
         </>
       ) : (
         t.noAllergens
@@ -89,18 +93,20 @@ export function NeedsLine({ food }: { food: FoodFacts }) {
 }
 
 /**
- * All three, stacked: badges, the needs line, then the allergen line. The allergen line
- * is left out when the warning already names every allergen the food has.
+ * All three, stacked: badges, the needs line, then the allergen line. An allergen the needs
+ * warning already names is said once, in the warning: the allergen line drops it, and is left
+ * out when nothing else is left.
  */
 export function FoodMeta({ food, full = false }: { food: FoodFacts; full?: boolean }) {
   const needs = useNeeds()
   const check = checkFood(food, needs)
-  const covered = check.allergens.length > 0 && food.allergens.every((a) => check.allergens.includes(a))
+  const named = check.status === 'conflict' ? check.allergens : []
+  const rest = food.allergens.filter((a) => !named.includes(a))
   return (
     <span className="food-meta">
       <DietBadges food={food} full={full} />
       <NeedsLine food={food} />
-      {!covered && <AllergenLine allergens={food.allergens} />}
+      {named.length === 0 ? <AllergenLine allergens={food.allergens} /> : rest.length > 0 && <AllergenLine allergens={rest} also />}
     </span>
   )
 }

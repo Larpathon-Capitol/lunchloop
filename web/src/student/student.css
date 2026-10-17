@@ -998,6 +998,12 @@ span.chip__body {
   font-weight: 700;
   line-height: 20px;
 }
+/* Share bars: the empty track is only a faint trace, so a 0% row never reads as a full bar.
+   The painted fill (the food's own color) is the only thing that shows the share. */
+.share .brush,
+.tally__row .brush {
+  --brush-track: color-mix(in srgb, var(--pink-3, #ffb3c6) 45%, transparent);
+}
 .share__pct,
 .tally__count {
   margin-left: auto;
@@ -1079,6 +1085,32 @@ span.chip__body {
 }
 
 /* ---------- Vote ---------- */
+
+/* The vote is for a future day: the heading names it and a small chip says how far off it is. */
+.vote-day {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s2) var(--s3);
+}
+.vote-day .section-title {
+  margin: 0;
+}
+.vote-day__when {
+  padding: 2px var(--s3);
+  border-radius: var(--radius-pill);
+  background: var(--pink-2);
+  color: var(--ink);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.vote-served {
+  margin: var(--s3) 0 0;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--leaf-deep);
+}
 
 .lacquer {
   padding: 8px;

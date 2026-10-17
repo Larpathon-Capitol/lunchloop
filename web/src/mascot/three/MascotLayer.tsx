@@ -7,7 +7,7 @@
 // The rig here owns every whole-body motion (hops, squash and stretch, spins, tilt, breathing,
 // petting wobble) and feeds the model its RigInput each frame (see ./contract.ts).
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
-import { Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState, type MutableRefObject } from 'react'
+import { Component, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState, type MutableRefObject, type ReactNode } from 'react'
 import * as THREE from 'three'
 import type { MascotId } from '../../theme/types'
 import { FEET, STAGE, pointer, rigBus, type MascotHandle, type RigCommand } from '../rig/bus'
@@ -182,9 +182,8 @@ function moodTick(sim: Sim, mood: string, dt: number, entered: boolean, time: nu
   }
 }
 
-let shadowTex: THREE.Texture | null = null
-function contactShadow() {
-  if (shadowTex) return shadowTex
+/** The soft contact shadow under each mascot. One per canvas, disposed with it (see Scene). */
+function makeContactShadow() {
   const c = document.createElement('canvas')
   c.width = c.height = 64
   const g = c.getContext('2d')!
@@ -194,8 +193,7 @@ function contactShadow() {
   grad.addColorStop(1, 'rgba(255,255,255,0)')
   g.fillStyle = grad
   g.fillRect(0, 0, 64, 64)
-  shadowTex = new THREE.CanvasTexture(c)
-  return shadowTex
+  return new THREE.CanvasTexture(c)
 }
 
 // Each mascot gets its own spot in the shared scene, far from the others, so no camera sees two.
@@ -212,14 +210,16 @@ function Ready({ onReady }: { onReady: () => void }) {
   return null
 }
 
-function Instance({ h }: { h: MascotHandle }) {
+function Instance({ h, shadowMap }: { h: MascotHandle; shadowMap: THREE.Texture }) {
   const { gl, size: canvas } = useThree()
   const [shown, setShown] = useState<MascotId>(h.mascot)
   const body = useRef<THREE.Group>(null)
   const shadow = useRef<THREE.Mesh>(null)
-  const [sim] = useState(makeSim)
+  // The motion state and the camera are mutated every frame, so they live in refs, made on first use.
+  const simRef = useRef<Sim | null>(null)
+  const getSim = () => (simRef.current ??= makeSim())
+  const camRef = useRef<THREE.PerspectiveCamera | null>(null)
   const input = useRef<RigInput>({ mood: h.mood, pet: 0, look: { x: 0, y: 0 }, blink: 0, talk: 0, time: 0, bounce: 0 })
-  const camera = useMemo(() => new THREE.PerspectiveCamera(FOV, 1, 0.1, 30), [])
   const [spot] = useState(takeSpot)
   useEffect(() => () => void taken.delete(spot), [spot])
   const gx = spot * SPACING
@@ -228,6 +228,7 @@ function Instance({ h }: { h: MascotHandle }) {
 
   const onReady = useMemo(
     () => () => {
+      const sim = getSim()
       loaded.current = true
       if (!wasReady.current) {
         wasReady.current = true
@@ -237,8 +238,7 @@ function Instance({ h }: { h: MascotHandle }) {
           sim.scale.x = 0.55
           sim.sy.x = 1.15
         }
-        h.ready = true
-        h.onReady?.()
+        rigBus.markReady(h)
       } else if (sim.swapping) {
         sim.swapping = false
         if (!h.reduced) {
@@ -248,13 +248,14 @@ function Instance({ h }: { h: MascotHandle }) {
         } else sim.scale.x = 1
       }
     },
-    [h, sim],
+    [h],
   )
 
   useFrame((state, dt) => {
     const i = input.current
     const g = body.current
     if (!g) return
+    const sim = getSim()
     i.time += dt
     const t = i.time
     const reduced = h.reduced
@@ -283,7 +284,7 @@ function Instance({ h }: { h: MascotHandle }) {
     const leaving = h.mascot !== shown
 
     // ---- Commands, mood, idle habits.
-    while (h.commands.length) runCommand(sim, h.commands.shift()!, reduced, t)
+    for (let cmd = rigBus.nextCommand(h); cmd; cmd = rigBus.nextCommand(h)) runCommand(sim, cmd, reduced, t)
     const mood = h.mood
     i.mood = mood
     const entered = mood !== sim.lastMood
@@ -339,10 +340,8 @@ function Instance({ h }: { h: MascotHandle }) {
     }
 
     // ---- Pet level builds with each pet and drains smoothly.
-    if (h.petKick) {
-      sim.pet = Math.min(1, sim.pet + h.petKick)
-      h.petKick = 0
-    }
+    const kick = rigBus.takeKick(h)
+    if (kick) sim.pet = Math.min(1, sim.pet + kick)
     sim.pet = Math.max(0, sim.pet - dt * 0.45)
     i.pet = damp(i.pet, sim.pet, 6, dt)
     const pet = i.pet
@@ -448,6 +447,7 @@ function Instance({ h }: { h: MascotHandle }) {
     const viewH = r.height * u
     const feetFromCenter = ((STAGE.top + FEET) * S - r.height / 2) * u
     const dist = viewH / 2 / Math.tan(THREE.MathUtils.degToRad(FOV / 2))
+    const camera = (camRef.current ??= new THREE.PerspectiveCamera(FOV, 1, 0.1, 30))
     camera.aspect = r.width / r.height
     camera.fov = FOV
     camera.position.set(gx, feetFromCenter, dist)
@@ -472,7 +472,7 @@ function Instance({ h }: { h: MascotHandle }) {
       </group>
       <mesh ref={shadow} position={[gx, 0.002, 0]} rotation={[-Math.PI / 2, 0, 0]} renderOrder={-1}>
         <planeGeometry args={[1, 1]} />
-        <meshBasicMaterial map={contactShadow()} color="#5a1a33" transparent opacity={0} depthWrite={false} />
+        <meshBasicMaterial map={shadowMap} color="#5a1a33" transparent opacity={0} depthWrite={false} />
       </mesh>
     </group>
   )
@@ -498,37 +498,61 @@ function useHandles(): MascotHandle[] {
   return list
 }
 
-/** Mounted once on <body> by the bus. Keeps a canvas only while mascots exist. */
+/** Everything inside the canvas. Owns the shared shadow texture, so it goes when the canvas goes. */
+function Scene({ list }: { list: MascotHandle[] }) {
+  const [shadowMap] = useState(makeContactShadow)
+  useEffect(() => () => shadowMap.dispose(), [shadowMap])
+  return (
+    <>
+      <ToyLights />
+      <Clear />
+      {list.map((h) => (
+        <Instance key={h.id} h={h} shadowMap={shadowMap} />
+      ))}
+    </>
+  )
+}
+
+/** If the canvas cannot start (no WebGL context, a lost driver), draw nothing: the posters stay up. */
+class NoCanvas extends Component<{ children: ReactNode }, { failed: boolean }> {
+  state = { failed: false }
+  static getDerivedStateFromError() {
+    return { failed: true }
+  }
+  render() {
+    return this.state.failed ? null : this.props.children
+  }
+}
+
+/** Mounted once by the bus. Keeps a canvas only while mascots exist. */
 export function MascotLayer() {
   const list = useHandles()
   useEffect(() => {
     // Handy in the console and in screenshot scripts.
     if (import.meta.env.DEV) (window as unknown as { __mascots?: unknown }).__mascots = rigBus
   }, [])
-  const [alive, setAlive] = useState(list.length > 0)
+  const any = list.length > 0
+  const [alive, setAlive] = useState(any)
+  // A new mascot brings the canvas back right away (set during render, not in an effect).
+  if (any && !alive) setAlive(true)
   useEffect(() => {
-    if (list.length > 0) {
-      setAlive(true)
-      return
-    }
+    if (any) return
     const id = window.setTimeout(() => setAlive(false), LINGER_MS)
     return () => window.clearTimeout(id)
-  }, [list.length])
+  }, [any])
   if (!alive) return null
   return (
-    <Canvas
-      className="mascot-layer__canvas"
-      dpr={[1, 2]}
-      gl={{ alpha: true, antialias: true, powerPreference: 'low-power' }}
-      camera={{ fov: FOV, position: [0, 0.5, 6] }}
-      style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}
-      events={undefined}
-    >
-      <ToyLights />
-      <Clear />
-      {list.map((h) => (
-        <Instance key={h.id} h={h} />
-      ))}
-    </Canvas>
+    <NoCanvas>
+      <Canvas
+        className="mascot-layer__canvas"
+        dpr={[1, 2]}
+        gl={{ alpha: true, antialias: true, powerPreference: 'low-power' }}
+        camera={{ fov: FOV, position: [0, 0.5, 6] }}
+        style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}
+        events={undefined}
+      >
+        <Scene list={list} />
+      </Canvas>
+    </NoCanvas>
   )
 }
