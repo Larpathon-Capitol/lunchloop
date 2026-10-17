@@ -159,6 +159,7 @@ python -c "import engine, json; print(json.dumps({k: v for k, v in engine.backte
 - `engine/`: the forecast, meal check, backtest and simulator
 - `api/`: the FastAPI app and the student game logic
 - `tests/`: tests for the data, engine and API
+- `web/`: the frontend, plain HTML, CSS and JS with no build step. With the API running, run `python3 -m http.server 8080 --directory web` and open `http://127.0.0.1:8080` (add `?api=URL` to point at another API)
 - `docs/`: the [backend contract](docs/backend-contract.md)
 
 ---
