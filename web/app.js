@@ -160,12 +160,13 @@ async function guess(box, me, today, device, mine) {
 
 const ORDER = ["meat_alternate", "grain", "vegetable", "fruit", "milk"];
 const LABEL = { meat_alternate: "Entrees", grain: "Grains", vegetable: "Vegetables", fruit: "Fruit", milk: "Milk" };
-let adminTab = "prep";
+let adminTab = "dash", poll = null;
+const stopPoll = () => { clearInterval(poll); poll = null; };
 
 async function adminView() {
-  loading();
-  let prep, savings;
-  try { [prep, savings] = await Promise.all([api("/prep"), api("/savings")]); }
+  stopPoll(); loading();
+  let prep, savings, meter;
+  try { [prep, savings, meter] = await Promise.all([api("/prep"), api("/savings"), api("/meter")]); }
   catch { return message("Can't reach LunchLoop."); }
 
   const root = mount($(`<section>
@@ -173,12 +174,21 @@ async function adminView() {
     <div class="body"></div>
   </section>`));
   const body = root.querySelector(".body"), tabs = root.querySelector(".tabs");
+  const titles = { dash: ["Overview", null], prep: ["Today's prep", longDate(prep.date)], savings: ["Savings", `Last ${savings.weeks} weeks`] };
   const show = (k) => {
-    adminTab = k;
-    root.querySelector("h1").textContent = k === "prep" ? "Today's prep" : "Savings";
-    root.querySelector(".sub").textContent = k === "prep" ? longDate(prep.date) : `Last ${savings.weeks} weeks`;
-    seg(tabs, [{ k: "prep", label: "Prep" }, { k: "savings", label: "Savings" }], k, show);
-    body.replaceChildren(k === "prep" ? prepPane(prep) : savingsPane(savings));
+    stopPoll(); adminTab = k;
+    view.classList.toggle("wide", k === "dash");
+    root.querySelector("h1").textContent = titles[k][0];
+    root.querySelector(".sub").innerHTML = titles[k][1] ? esc(titles[k][1]) : `${esc(longDate(prep.date))} <span class="live" id="live"><i></i><span>Live</span></span>`;
+    seg(tabs, [{ k: "dash", label: "Dashboard" }, { k: "prep", label: "Prep" }, { k: "savings", label: "Savings" }], k, show);
+    if (k === "dash") {
+      const pane = dashPane(); body.replaceChildren(pane.el); pane.update({ prep, savings, meter });
+      poll = setInterval(async () => {
+        if (!document.body.contains(pane.el)) return stopPoll();
+        try { const [p, sv, m] = await Promise.all([api("/prep"), api("/savings"), api("/meter")]); pane.update({ prep: p, savings: sv, meter: m }); }
+        catch { pane.offline(); }
+      }, 10000);
+    } else body.replaceChildren(k === "prep" ? prepPane(prep) : savingsPane(savings));
   };
   show(adminTab);
 }
@@ -256,12 +266,96 @@ function savingsPane(s) {
   return el;
 }
 
+/* ---------- dashboard ---------- */
+
+const PALETTE = { meat_alternate: "#0071e3", grain: "#5e5ce6", vegetable: "#30b0c7", fruit: "#ff6482", milk: "#ff9f0a" };
+const C = 2 * Math.PI * 46;
+const weekLabel = (iso) => { const d = new Date(iso + "T12:00:00"); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return d.toLocaleDateString("en-US", { month: "short", day: "numeric" }); };
+
+function donut(el, parts, centerText) {
+  const total = parts.reduce((a, p) => a + p.v, 0) || 1; let at = 0;
+  el.querySelector(".dn").innerHTML = parts.map((p) => {
+    const len = (p.v / total) * C, gap = parts.length > 1 ? 3 : 0, seg_ = `<circle cx="60" cy="60" r="46" stroke="${p.c}" stroke-dasharray="${Math.max(0, len - gap)} ${C}" stroke-dashoffset="${-at}"/>`;
+    at += len; return seg_;
+  }).join("");
+  el.querySelector(".ctr").innerHTML = centerText;
+  el.querySelector(".lg").innerHTML = parts.map((p) => `<li><i style="background:${p.c}"></i><span>${esc(p.l)}</span><b>${Math.round((p.v / total) * 100)}%</b></li>`).join("");
+}
+const donutShell = () => `<div class="donut"><div class="ring2"><svg viewBox="0 0 120 120"><circle class="bgc" cx="60" cy="60" r="46"/><g class="dn"></g></svg><div class="ctr"></div></div><ul class="lg"></ul></div>`;
+
+function dashPane() {
+  const el = $(`<div class="stack">
+    <div class="kpis">
+      <div class="card kpi"><div class="kl">Servings to cook today</div><div class="kv" data-k="servings">0</div><div class="ks">across all items</div></div>
+      <div class="card kpi"><div class="kl">Students expected</div><div class="kv" data-k="students">0</div><div class="ks">based on recent Mondays</div></div>
+      <div class="card kpi"><div class="kl">Saved this week</div><div class="kv" data-k="saved">$0</div><div class="ks" data-k="savedSub"></div></div>
+      <div class="card kpi"><div class="kl">Fewer leftovers</div><div class="kv" data-k="cut">0%</div><div class="ks">compared with the usual amount</div></div>
+    </div>
+    <div class="card"><div class="ct">What to cook today</div><p class="cs">Servings to prepare for each item.</p><div class="rows" data-k="bars"></div></div>
+    <div class="grid2">
+      <div class="card"><div class="ct">Where today's servings go</div><p class="cs">Share of the total by food group.</p><div data-k="mix">${donutShell()}</div></div>
+      <div class="card"><div class="ct">How accurate the forecast was</div><p class="cs" data-k="outSub"></p><div data-k="out">${donutShell()}</div></div>
+      <div class="card"><div class="ct">Leftovers each week</div><p class="cs">Servings cooked but not eaten.</p><div class="cols" data-k="cols"></div>
+        <div class="key"><span><i class="b"></i>LunchLoop</span><span><i></i>Usual amount</span></div></div>
+      <div class="card"><div class="ct">Cost of uneaten food</div><p class="cs">Money spent on food that went to waste over the last 4 weeks.</p><div class="rows" data-k="cost"></div></div>
+    </div>
+  </div>`);
+  const q = (k) => el.querySelector(`[data-k="${k}"]`);
+  let built = "";
+  const live = () => document.getElementById("live");
+
+  function update({ prep, savings, meter }) {
+    const items = [...prep.items].sort((a, b) => b.prep - a.prep), max = items[0] ? items[0].prep : 1;
+    const sum = items.reduce((a, i) => a + i.prep, 0);
+    countTo(q("servings"), sum, { dur: 900 }); countTo(q("students"), prep.attendance, { dur: 900 });
+    countTo(q("saved"), meter.dollars_saved, { dur: 1000, fmt: money });
+    q("savedSub").textContent = `${Math.round(meter.servings_saved).toLocaleString()} fewer servings wasted`;
+    countTo(q("cut"), savings.leftover_cut_pct, { dur: 1000, fmt: (n) => n.toFixed(1) + "%" });
+
+    const key = items.map((i) => i.item_id).join();
+    if (key !== built) {
+      built = key;
+      q("bars").innerHTML = items.map((i) => `<div class="row"><div class="l"><span>${esc(i.name)}</span><span class="num">0</span></div><div class="track"><i style="background:${PALETTE[i.component]}"></i></div></div>`).join("");
+    }
+    q("bars").querySelectorAll(".row").forEach((r, n) => {
+      countTo(r.querySelector(".num"), items[n].prep, { dur: 900 });
+      nextFrame(() => (r.querySelector(".track i").style.width = (items[n].prep / max) * 100 + "%"));
+    });
+
+    const groups = ORDER.map((c) => ({ l: LABEL[c], c: PALETTE[c], v: items.filter((i) => i.component === c).reduce((a, i) => a + i.prep, 0) })).filter((g) => g.v);
+    donut(q("mix"), groups, `<b>${sum.toLocaleString()}</b><span>servings</span>`);
+
+    let over = 0, short = 0, exact = 0;
+    savings.series.forEach((r) => { if (r.prep_lunchloop > r.taken) over++; else if (r.prep_lunchloop < r.taken) short++; else exact++; });
+    const n = savings.series.length;
+    q("outSub").textContent = `Out of ${n} item-days in the last ${savings.weeks} weeks.`;
+    donut(q("out"), [{ l: "Made a little too much", c: "#0071e3", v: over }, { l: "Ran short", c: "#ff9f0a", v: short }, { l: "Exactly right", c: "#30d158", v: exact }].filter((p) => p.v),
+      `<b>${Math.round((over / n) * 100)}%</b><span>had leftovers</span>`);
+
+    const wk = {};
+    savings.series.forEach((r) => { const w = (wk[weekLabel(r.date)] ||= { a: 0, b: 0 }); w.a += Math.max(0, r.prep_usual - r.taken); w.b += Math.max(0, r.prep_lunchloop - r.taken); });
+    const names = Object.keys(wk), top = Math.max(...names.map((w) => Math.max(wk[w].a, wk[w].b))) || 1;
+    q("cols").innerHTML = names.map((w) => `<div class="cg"><div class="pair"><div class="bar a" style="height:0" data-h="${(wk[w].a / top) * 100}"><em>${Math.round(wk[w].a).toLocaleString()}</em></div><div class="bar b" style="height:0" data-h="${(wk[w].b / top) * 100}"><em>${Math.round(wk[w].b).toLocaleString()}</em></div></div><span>Week of ${esc(w)}</span></div>`).join("");
+    nextFrame(() => q("cols").querySelectorAll(".bar").forEach((b) => (b.style.height = b.dataset.h + "%")));
+
+    const cm = Math.max(savings.usual.dollars_wasted, savings.lunchloop.dollars_wasted) || 1;
+    q("cost").innerHTML = [["LunchLoop", savings.lunchloop.dollars_wasted, "var(--accent)"], ["Usual amount", savings.usual.dollars_wasted, "#b9bcc6"]].map(([l, v, c]) =>
+      `<div class="row"><div class="l"><span>${l}</span><span>${money(v)}</span></div><div class="track"><i style="background:${c}" data-w="${(v / cm) * 100}"></i></div></div>`).join("");
+    nextFrame(() => q("cost").querySelectorAll("i").forEach((i) => (i.style.width = i.dataset.w + "%")));
+
+    const lv = live(); if (lv) { lv.classList.remove("off"); lv.lastElementChild.textContent = "Live · updated " + new Date().toLocaleTimeString("en-US"); }
+  }
+  const offline = () => { const lv = live(); if (lv) { lv.classList.add("off"); lv.lastElementChild.textContent = "Reconnecting…"; } };
+  return { el, update, offline };
+}
+
 /* ---------- router ---------- */
 
 function route() {
   const tab = location.hash.startsWith("#/admin") ? "admin" : "vote";
   const top = document.querySelector(".top"), modes = document.getElementById("modes"), people = document.getElementById("people");
   top.classList.toggle("admin", tab === "admin");
+  stopPoll(); if (tab !== "admin") view.classList.remove("wide");
   people.style.display = tab === "admin" ? "none" : "";
   modes.querySelectorAll("a").forEach((a) => a.classList.toggle("on", a.dataset.tab === tab));
   if (!modes.querySelector(".thumb")) modes.insertAdjacentHTML("beforeend", `<i class="thumb"></i>`);
