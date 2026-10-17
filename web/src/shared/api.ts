@@ -412,22 +412,26 @@ const school = () => (currentSchool === DEFAULT_SCHOOL ? undefined : currentScho
 // The server signs each browser's id so scripts can't invent voters. The first call that needs a
 // player trades the plain id for a signed one (keeping its streak) and saves it. If the server is
 // older and has no /device route yet, the plain id keeps working.
-let signing: Promise<string> | null = null
+const signing = new Map<string, Promise<string>>()
 function signed(device: string): Promise<string> {
   if (SIGNED_DEVICE.test(device)) return Promise.resolve(device)
-  signing ??= request<{ device: string }>('/device', post({ legacy: device }))
-    .then((r) => {
-      if (SIGNED_DEVICE.test(r.device)) {
-        saveDeviceId(r.device)
-        return r.device
-      }
-      return device
-    })
-    .catch(() => {
-      signing = null
-      return device
-    })
-  return signing
+  let pending = signing.get(device)
+  if (!pending) {
+    pending = request<{ device: string }>('/device', post({ legacy: device }))
+      .then((r) => {
+        if (SIGNED_DEVICE.test(r.device)) {
+          saveDeviceId(r.device)
+          return r.device
+        }
+        return device
+      })
+      .catch(() => {
+        signing.delete(device)
+        return device
+      })
+    signing.set(device, pending)
+  }
+  return pending
 }
 
 export const api = {

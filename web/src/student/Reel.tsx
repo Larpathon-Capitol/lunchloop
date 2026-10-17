@@ -142,10 +142,10 @@ export function Reel({ options, pool, phase, selected, disabled, onLanded, onSel
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [spinning, reduce, y])
 
-  // Hand keyboard and screen reader focus to the first choice once the reel lands.
+  // Hand keyboard and screen reader focus to the first choice once the reel lands and opens.
   useEffect(() => {
-    if (live) groupRef.current?.querySelector<HTMLButtonElement>('.choice__main')?.focus({ preventScroll: true })
-  }, [live])
+    if (live && open) groupRef.current?.querySelector<HTMLButtonElement>('.choice__main')?.focus({ preventScroll: true })
+  }, [live, open])
 
   if (!spinning || !options.length) return <Idle />
 

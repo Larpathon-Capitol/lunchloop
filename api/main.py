@@ -582,11 +582,16 @@ def create_app(max_requests=None, max_actions=None, body_limit=16 * 1024, reques
                 (selected_school, player_device, current_date),
             ).fetchone():
                 raise HTTPException(409, "already packed a tray today")
-            for component in (group["component"] for group in groups):
-                connection.execute(
-                    "INSERT INTO trays(school_id, device, date, target_date, component, item_id) VALUES(?,?,?,?,?,?)",
-                    (selected_school, player_device, current_date, target_date, component, body.picks[component]),
-                )
+            try:
+                for component in (group["component"] for group in groups):
+                    connection.execute(
+                        "INSERT INTO trays(school_id, device, date, target_date, component, item_id) VALUES(?,?,?,?,?,?)",
+                        (selected_school, player_device, current_date, target_date, component, body.picks[component]),
+                    )
+            except sqlite3.IntegrityError:
+                # Two packs from one player at the same moment: the first one wins.
+                connection.rollback()
+                raise HTTPException(409, "already packed a tray today")
             ensure_player(connection, player_device, selected_school)
             streak, xp, _, last_vote_date = stats(connection, player_device, current_date, request.app.state.taken, selected_school)
             connection.execute(
