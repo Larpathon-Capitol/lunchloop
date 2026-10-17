@@ -63,6 +63,8 @@ forecast(item_id, date, attendance=None, ratio=3.0, as_of=None, data_dir=None) -
 # service_level = ratio / (ratio + 1);  buffer = ceil(z(service_level) * sigma)
 # prep = max(predicted + buffer, floor)
 
+validate(data_dir=None) -> list[str]  # plain-English data warnings; never raises for a folder path
+
 explain(item_id, date, ratio=3.0, as_of=None, data_dir=None) -> str
 # one plain line, e.g. "Fridays run 15% higher, attendance is normal, buffer +18"
 
@@ -80,20 +82,26 @@ meal_check(menu, prep=None, data_dir=None) -> dict
 backtest(weeks=4, ratio=3.0, data_dir=None) -> dict
 # Holds out the last `weeks` weeks of meals.csv, forecasts each day with only earlier data.
 # "usual" = what the simulated kitchen actually prepared (servings_prepared).
-# {"simulated": true, "weeks", "ratio",
-#  "lunchloop": {"avg_miss", "leftover_servings", "dollars_wasted", "servings_short"},
+# {"simulated": true, "weeks", "ratio", "shortage_ratio",
+#  "lunchloop": {"avg_miss", "leftover_servings", "dollars_wasted", "servings_short", "dollars_short"},
 #  "usual": {same keys},
-#  "leftover_cut_pct": float,
+#  "leftover_cut_pct": float, "net_dollars_saved": float,
 #  "series": [{"date", "item_id", "prep_lunchloop", "prep_usual", "taken"}]}
 # waste = max(0, prep - taken); short = max(0, taken - prep). Taken understates demand on sold-out days.
+# dollars_short is short servings multiplied by cost_per_serving.
+# net_dollars_saved = usual waste dollars + shortage_ratio x usual shortage dollars
+#   minus the same two amounts for lunchloop.
 
 simulate(date=None, attendance_multiplier=1.0, price_multiplier=1.0, ratio=3.0, data_dir=None) -> dict
 # prep_list() with attendance and costs scaled, plus
 # {"totals": {"prep_servings", "expected_leftover_servings", "food_cost", "expected_waste_cost"}}
 
 meter(date=None, data_dir=None) -> dict
-# {"simulated": true, "week_start", "servings_saved", "dollars_saved"}
+# {"simulated": true, "week_start", "servings_saved", "dollars_saved",
+#  "net_dollars_saved", "extra_short_servings"}
 # from backtest() rows in the latest simulated week up to date.
+# servings_saved and dollars_saved are leftover-only values.
+# net_dollars_saved nets leftover dollars saved against shortages at the default ratio of 3.0.
 ```
 
 ## API (FastAPI, `api/`)

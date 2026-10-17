@@ -13,16 +13,25 @@ _CACHE = {}
 
 def _metric(rows, prep_key):
     if not rows:
-        return {"avg_miss": 0.0, "leftover_servings": 0, "dollars_wasted": 0.0, "servings_short": 0}
+        return {
+            "avg_miss": 0.0,
+            "leftover_servings": 0,
+            "dollars_wasted": 0.0,
+            "servings_short": 0,
+            "dollars_short": 0.0,
+        }
     misses = [abs(row[prep_key] - row["taken"]) for row in rows]
     leftover = sum(max(0, row[prep_key] - row["taken"]) for row in rows)
     wasted = sum(max(0, row[prep_key] - row["taken"]) * row["cost"] for row in rows)
     short = sum(max(0, row["taken"] - row[prep_key]) for row in rows)
+    # Shortages are scored against servings_taken, which understates demand on sold-out days.
+    short_dollars = sum(max(0, row["taken"] - row[prep_key]) * row["cost"] for row in rows)
     return {
         "avg_miss": round(statistics.mean(misses), 2),
         "leftover_servings": int(leftover),
         "dollars_wasted": round(wasted, 2),
         "servings_short": int(short),
+        "dollars_short": round(short_dollars, 2),
     }
 
 
@@ -65,13 +74,21 @@ def backtest(weeks=4, ratio=3.0, data_dir=None):
         leftover_cut = 0.0
     else:
         leftover_cut = round(100 * (usual["leftover_servings"] - lunchloop["leftover_servings"]) / usual["leftover_servings"], 1)
+    net_dollars_saved = (
+        usual["dollars_wasted"]
+        + ratio * usual["dollars_short"]
+        - lunchloop["dollars_wasted"]
+        - ratio * lunchloop["dollars_short"]
+    )
     result = {
         "simulated": True,
         "weeks": weeks,
         "ratio": ratio,
+        "shortage_ratio": ratio,
         "lunchloop": lunchloop,
         "usual": usual,
         "leftover_cut_pct": leftover_cut,
+        "net_dollars_saved": round(net_dollars_saved, 2),
         "series": series,
     }
     _CACHE[cache_key] = copy.deepcopy(result)
@@ -90,14 +107,27 @@ def meter(date=None, data_dir=None):
     rows = [row for row in rows if week_start <= parse_date(row["date"]) <= target]
     costs = {(row["date"].isoformat(), row["item_id"]): row["cost_per_serving"] for row in data["meals"]}
     saved = 0
-    dollars = 0.0
+    waste_dollars = 0.0
+    shortage_dollars = 0.0
+    usual_short = 0
+    lunchloop_short = 0
+    ratio = result["shortage_ratio"]
     for row in rows:
-        difference = max(0, row["prep_usual"] - row["taken"]) - max(0, row["prep_lunchloop"] - row["taken"])
-        saved += difference
-        dollars += difference * costs[(row["date"], row["item_id"])]
+        cost = costs[(row["date"], row["item_id"])]
+        usual_left = max(0, row["prep_usual"] - row["taken"])
+        lunchloop_left = max(0, row["prep_lunchloop"] - row["taken"])
+        usual_row_short = max(0, row["taken"] - row["prep_usual"])
+        lunchloop_row_short = max(0, row["taken"] - row["prep_lunchloop"])
+        saved += usual_left - lunchloop_left
+        waste_dollars += (usual_left - lunchloop_left) * cost
+        shortage_dollars += ratio * (usual_row_short - lunchloop_row_short) * cost
+        usual_short += usual_row_short
+        lunchloop_short += lunchloop_row_short
     return {
         "simulated": True,
         "week_start": week_start.isoformat(),
         "servings_saved": int(saved),
-        "dollars_saved": round(dollars, 2),
+        "dollars_saved": round(waste_dollars, 2),
+        "net_dollars_saved": round(waste_dollars + shortage_dollars, 2),
+        "extra_short_servings": int(lunchloop_short - usual_short),
     }

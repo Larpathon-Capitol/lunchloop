@@ -68,6 +68,7 @@ def test_backtest_is_deterministic_and_totals_match_csv(tmp_path):
     assert (usual["leftover_servings"], usual["servings_short"], usual["dollars_wasted"], usual["avg_miss"]) == (
         usual_left, usual_short, usual_waste, usual_miss
     )
+    assert usual["dollars_short"] == 0.0
     assert usual["servings_short"] == 0
 
     series = first["series"]
@@ -80,8 +81,13 @@ def test_backtest_is_deterministic_and_totals_match_csv(tmp_path):
         "leftover_servings": lunch_left,
         "servings_short": lunch_short,
         "dollars_wasted": lunch_waste,
+        "dollars_short": 52.50,
         "avg_miss": lunch_miss,
     }
+    # The held-out arithmetic is $980.00 usual waste versus $157.50 lunchloop
+    # shortage cost at ratio 3, so net savings are 980 - 3 * 52.50 = $822.50.
+    assert first["shortage_ratio"] == 3.0
+    assert first["net_dollars_saved"] == 822.50
     assert first["leftover_cut_pct"] == round(100 * (usual_left - lunch_left) / usual_left, 1)
     assert usual_left - usual_short == sum(r[1] - r[2] for r in held)
     assert usual["leftover_servings"] - usual["servings_short"] == sum(r[1] - r[2] for r in held)
@@ -101,13 +107,18 @@ def test_backtest_last_heldout_data_cannot_change_prep_values(tmp_path):
     expected = backtest(weeks=4, ratio=3.0, data_dir=str(original))["series"]
 
     changed = list(rows)
-    last = changed[-1]
-    changed[-1] = (last[0], last[1], 999, 9999, last[4])
+    target_index = 5
+    target = changed[target_index]
+    changed[target_index] = (target[0], target[1], 999, 9999, target[4])
     write_fixture(mutated, changed)
     actual = backtest(weeks=4, ratio=3.0, data_dir=str(mutated))["series"]
     expected_preps = {row["date"]: row["prep_lunchloop"] for row in expected}
     actual_preps = {row["date"]: row["prep_lunchloop"] for row in actual}
-    assert actual_preps == expected_preps
+    # The target day's own row is excluded from its forecast history.
+    assert actual_preps[target[0]] == expected_preps[target[0]]
+    for row in expected:
+        if row["date"] < target[0]:
+            assert actual_preps[row["date"]] == expected_preps[row["date"]]
 
 
 def test_backtest_rejects_invalid_weeks(tmp_path):
@@ -135,8 +146,11 @@ def test_meter_sums_latest_week_and_rejects_dates_before_series(tmp_path):
         for r in week
     ]
     assert result["servings_saved"] == sum(saved)
-    cost_by_date = {r[0]: float(r[4]) for r in rows}
-    assert result["dollars_saved"] == round(sum(x * cost_by_date[r["date"]] for x, r in zip(saved, week)), 2)
+    assert result["extra_short_servings"] == 5
+    # One held-out day saves 92 leftover servings at $2.50, while net savings
+    # subtract the five lunchloop shortage servings at three times the cost.
+    assert result["dollars_saved"] == 230.00
+    assert result["net_dollars_saved"] == 230.00 - 3.0 * 5 * 2.50
     with pytest.raises(UnknownDateError):
         meter(date="2020-01-01", data_dir=str(tmp_path))
 
