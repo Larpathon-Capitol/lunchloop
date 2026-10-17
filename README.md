@@ -271,8 +271,8 @@ That prints 48.5% fewer leftovers (6,201 servings against 12,043) and a net savi
 
 ## Credits
 
-- [Ekansh Simgekar](https://github.com/magicKansh) built the first forecasting prototype and the simulated cafeteria data this project started from.
-- [Yojith](https://github.com/yojithprograms), LunchLoop team member.
+- [Ekansh Simgekar](https://github.com/magicKansh) built the first forecasting prototype and the simulated cafeteria data this project started from. He also helped with the simulated school dataset (3da8b1a, d24c487), the API and database (9c0d6b1), and the README and data notes (b8baa8c, fd7ffe7).
+- [Yojith](https://github.com/yojithprograms), LunchLoop team member, helped with the forecast engine (31d2753), the API and database (9c0d6b1), the first web frontend (328d934) and serving the app pages on GitHub Pages (f24038f).
 - The shortage-aware scoring, the data checks and the no-history fallback build on ideas from Ekansh's TrayTrack branch.
 
 ## License
