@@ -117,10 +117,38 @@ def test_prep_list_keys_allergens_shared_attendance_and_unknown_date(tmp_path):
     assert all(entry["prep"] >= entry["floor"] for entry in out["items"])
     assert item["reason"]==explain("a","2026-10-19",data_dir=str(tmp_path))
     no_history=out["items"][1]
-    assert no_history["item_id"]=="b" and no_history["reason"]=="No history for this item yet"
+    assert no_history["item_id"]=="b" and "rough guess" in no_history["reason"].lower() and "no history" in no_history["reason"].lower()
     with pytest.raises(UnknownDateError): prep_list("2026-10-18",data_dir=str(tmp_path))
     with pytest.raises(ValueError): prep_list("bad-date",data_dir=str(tmp_path))
     with pytest.raises(UnknownItemError): forecast("missing","2026-10-19",data_dir=str(tmp_path))
+
+
+def test_prep_list_no_history_uses_component_rate_and_ratio_buffer(tmp_path):
+    make_data(tmp_path, monday_rows(5, 50, 100), menu_dates=["2026-10-19"], menu_items=("b",))
+    with open(tmp_path / "meals.csv", "a", newline="") as handle:
+        handle.write("2026-10-07,c,fruit,100,100,60,1.00,,,0,\n")
+        handle.write("2026-10-08,c,fruit,100,100,80,1.00,,,0,\n")
+    result = prep_list("2026-10-19", attendance=100, data_dir=str(tmp_path))
+    item = result["items"][0]
+    # The same-component rates are .60 and .80, so predicted is 70.
+    # At ratio 3, z is about .6745, so the fallback buffer is ceil(.6745 x 7) = 5.
+    assert item["predicted"] == 70
+    assert item["buffer"] == 5
+    assert item["prep"] == 75
+    ratio_two = prep_list("2026-10-19", attendance=100, ratio=2, data_dir=str(tmp_path))["items"][0]
+    assert ratio_two["buffer"] == 4 and ratio_two["prep"] == 74
+    assert "rough guess" in item["reason"].lower()
+    assert "no history" in item["reason"].lower()
+
+
+def test_no_history_component_fallback_ignores_rows_on_cutoff(tmp_path):
+    make_data(tmp_path, monday_rows(5, 50, 100), menu_dates=["2026-10-19"], menu_items=("b",))
+    with open(tmp_path / "meals.csv", "a", newline="") as handle:
+        handle.write("2026-10-07,c,fruit,100,100,60,1.00,,,0,\n")
+        handle.write("2026-10-08,c,fruit,100,100,80,1.00,,,0,\n")
+        handle.write("2026-10-19,c,fruit,100,100,100,1.00,,,0,\n")
+    result = prep_list("2026-10-19", attendance=100, data_dir=str(tmp_path))
+    assert result["items"][0]["predicted"] == 70
 
 def test_meal_check_order_floors_unknown_and_no_mutation(tmp_path):
     make_data(tmp_path, floor=80)

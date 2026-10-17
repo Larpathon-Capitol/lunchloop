@@ -60,8 +60,28 @@ def prep_list(date=None, attendance=None, ratio=3.0, data_dir=None):
         history = [r for r in data["meals"] if r["item_id"] == item_id and r["date"] < cutoff]
         if not history:
             floor = item["prep_floor"]
-            result = {"item_id": item_id, "predicted": 0, "buffer": 0, "prep": floor, "floor": floor}
-            reason = f"No history for this item yet, prepping the {floor}-serving minimum" if floor else "No history for this item yet"
+            component_rates = [
+                row["servings_taken"] / row["attendance"]
+                for row in data["meals"]
+                if row["component"] == item["component"]
+                and row["date"] < cutoff
+                and row["attendance"] > 0
+            ]
+            predicted = round_half_up(statistics.mean(component_rates) * actual_attendance) if component_rates else 0
+            service_level = ratio / (ratio + 1)
+            cdf_level = min(service_level, math.nextafter(1.0, 0.0))
+            z = statistics.NormalDist().inv_cdf(cdf_level)
+            buffer = math.ceil(z * 0.1 * predicted)
+            result = {
+                "item_id": item_id,
+                "predicted": predicted,
+                "buffer": buffer,
+                "prep": max(predicted + buffer, floor),
+                "floor": floor,
+            }
+            reason = "Rough guess, no history for this item"
+            if floor and result["prep"] == floor:
+                reason += f", kept at the {floor}-serving minimum"
         else:
             result = core(item_id, target, actual_attendance, ratio, cutoff, data_dir)
             reason = reason_for(result, data)
