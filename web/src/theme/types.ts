@@ -75,12 +75,16 @@ export interface ThemeKit {
   Seal: ComponentType<SealProps>
   /** Decoration layer inside the game header bar, absolutely positioned, pointer-events none (was the noren band). */
   HeaderBand: ComponentType
-  /** Full-bleed layered backdrop behind the hero tray, with parallax on the pointer. */
+  /**
+   * Full-bleed layered backdrop behind the hero tray, with parallax on the pointer. Decoration
+   * gathers at the edges and the top; the middle stays calm for the tray, the headline and the button.
+   */
   HeroBackdrop: ComponentType<HeroBackdropProps>
   /**
    * Covers the screen while the hero hands over to the game, then opens (was the noren curtain).
-   * Mount it with the run id from useNoren(); call onOpen-complete via noren.done() when it is off screen.
-   * It must start fully closed, looking exactly like the hero backdrop's ground color, and open once `ready` is true.
+   * The host mounts it fresh for each run. It starts fully closed, looking like the hero's ground,
+   * holds while `ready` is false (the game screen is still mounting), opens once `ready` turns true,
+   * and calls onDone when it is fully off screen. Fixed, full viewport, pointer-events none.
    */
   Curtain: ComponentType<{ ready: boolean; onDone: () => void }>
   /** A seamless tile as a CSS background-image value (url("data:image/svg+xml,...")), drawn faintly on grounds. */
@@ -88,6 +92,4 @@ export interface ThemeKit {
   /** Size of one pattern tile, e.g. '48px 48px'. */
   patternSize: string
   particles: ParticleStyle
-  /** Eight rising notes in Hz, low to high. Picks pluck steps 0 to 4; rewards use the top. */
-  scale: readonly number[]
 }

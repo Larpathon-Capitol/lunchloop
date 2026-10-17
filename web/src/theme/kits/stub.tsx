@@ -17,7 +17,5 @@ export function stubKit(): ThemeKit {
     pattern: 'none',
     patternSize: '48px 48px',
     particles: { kinds: ['petal', 'blossom', 'fleck'], colors: ['--pink-3', '--pink-4', '--pink-5'] },
-    // C major pentatonic, C4 up to E5.
-    scale: [261.63, 293.66, 329.63, 392.0, 440.0, 523.25, 587.33, 659.25],
   }
 }
