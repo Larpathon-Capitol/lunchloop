@@ -63,6 +63,8 @@ forecast(item_id, date, attendance=None, ratio=3.0, as_of=None, data_dir=None) -
 # service_level = ratio / (ratio + 1);  buffer = ceil(z(service_level) * sigma)
 # prep = max(predicted + buffer, floor)
 
+validate(data_dir=None) -> list[str]  # plain-English data warnings; never raises for a folder path
+
 explain(item_id, date, ratio=3.0, as_of=None, data_dir=None) -> str
 # one plain line, e.g. "Fridays run 15% higher, attendance is normal, buffer +18"
 

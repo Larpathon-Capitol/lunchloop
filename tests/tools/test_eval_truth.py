@@ -114,3 +114,15 @@ def test_prep_ratio_override_changes_result_and_is_restored():
     assert changed["pooled"]["true_demand"]["net_dollars_saved"] != baseline["pooled"]["true_demand"]["net_dollars_saved"]
     assert simulate.COMPONENT_PREP_RATIOS == original
 
+
+def test_cli_rejects_nonpositive_or_nonfinite_prep_ratio():
+    for value in ("nan", "0"):
+        completed = subprocess.run(
+            [sys.executable, "tools/eval_truth.py", "--seeds", "1", "--prep-ratio", f"milk={value}"],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+        )
+        assert completed.returncode != 0
+        assert "must be a finite number greater than 0" in completed.stderr
+

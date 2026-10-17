@@ -9,6 +9,7 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import math
 import random
 import statistics
 import sys
@@ -404,9 +405,15 @@ def main(argv: list[str] | None = None) -> int:
         if component not in simulate.COMPONENT_PREP_RATIOS:
             parser.error(f"unknown component in --prep-ratio: {component}")
         try:
-            prep_ratios[component] = float(value)
+            parsed = float(value)
         except ValueError:
             parser.error(f"invalid value for --prep-ratio {component}: {value}")
+        if not math.isfinite(parsed) or parsed <= 0:
+            parser.error(
+                f"invalid value for --prep-ratio {component}: {value} "
+                "(must be a finite number greater than 0)"
+            )
+        prep_ratios[component] = parsed
     report = evaluate(args.seeds, args.weeks, args.ratio, args.enroll, args.bootstrap_resamples, prep_ratios=prep_ratios)
     print(_table(report))
     if args.json:

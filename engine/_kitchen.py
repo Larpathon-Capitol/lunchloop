@@ -8,6 +8,7 @@ from ._forecast import core, reason_for, school_attendance
 
 
 _COMPONENTS = ("meat_alternate", "grain", "vegetable", "fruit", "milk")
+_NO_HISTORY_SIGMA_RATE = 0.1
 
 
 def meal_check(menu, prep=None, data_dir=None):
@@ -71,7 +72,7 @@ def prep_list(date=None, attendance=None, ratio=3.0, data_dir=None):
             service_level = ratio / (ratio + 1)
             cdf_level = min(service_level, math.nextafter(1.0, 0.0))
             z = statistics.NormalDist().inv_cdf(cdf_level)
-            buffer = math.ceil(z * 0.1 * predicted)
+            buffer = math.ceil(z * _NO_HISTORY_SIGMA_RATE * predicted)
             result = {
                 "item_id": item_id,
                 "predicted": predicted,
@@ -136,7 +137,7 @@ def simulate(date=None, attendance_multiplier=1.0, price_multiplier=1.0, ratio=3
             forecast_result = core(item_result["item_id"], target, attendance, ratio, cutoff, data_dir)
             sigma = forecast_result["sigma"]
         except ValueError:
-            sigma = 0.0
+            sigma = _NO_HISTORY_SIGMA_RATE * item_result["predicted"]
         expected = _expected_leftover(item_result["prep"], item_result["predicted"], sigma)
         total_leftover += expected
         food_cost += item_result["prep"] * scaled_cost
