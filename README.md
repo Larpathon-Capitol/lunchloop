@@ -71,6 +71,7 @@ forecast.
 - `data/cafeteria_history_synthetic.csv`: the synthetic history (see below).
 - `prediction.py`: forecast, buffers, cost model, backtests. Documented inline.
 - `simulation.py`: synthetic school generator and the strategy study.
+- `forecast_search.py`: the 72-variant forecast search (training and validation schools only).
 - `app.py`: FastAPI wrapper and the dashboard.
 - `tests/test_lunchloop.py`, `tests/test_simulation.py`: pytest suite (about 90 s; one test
   reruns the full simulation study). `test_prototype.py`, `test_api.py`: older script checks.
