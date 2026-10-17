@@ -9,6 +9,8 @@ export const copy = {
     name: 'LunchLoop',
     simulated: 'Simulated data',
     simulatedHelp: 'Every number here comes from a made-up school, not a real cafeteria.',
+    simulatedLive: 'Simulated menu',
+    simulatedLiveHelp: 'The menu and history are simulated. Votes are real taps from people in the room.',
     navSchool: 'School',
     navStudent: 'Student',
     navBackstage: 'Behind the scenes',

@@ -27,8 +27,8 @@ export const hub = {
     },
     liveAdmin: {
       name: 'Live school panel',
-      line: 'Watch the live votes arrive. Sign in with your own password.',
-      password: 'your password',
+      line: 'Watch the live votes arrive, as people tap.',
+      passwordNote: 'Sign in with the staff password you set',
     },
     backstage: {
       name: 'Behind the scenes',

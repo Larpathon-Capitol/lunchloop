@@ -1,4 +1,4 @@
-// Called It: guess which entree will be most popular on the next school day.
+// Called it: guess which entree will be most popular on the next school day.
 // The API only accepts entrees (meat_alternate) on that day's menu, so those are the choices.
 import { motion, useReducedMotion } from 'framer-motion'
 import { useEffect, useRef, useState } from 'react'
@@ -7,6 +7,7 @@ import { copy } from '../shared/copy'
 import { fmtDay } from '../shared/format'
 import { sound } from '../shared/sound'
 import { ErrorNotice, Loading } from '../shared/ui/Notice'
+import { LIVE_SCHOOL, activeStudentSchool } from '../shared/studentSchool'
 import { SimulatedTag } from '../shared/ui/SimulatedTag'
 import { FoodGlyph } from './FoodGlyph'
 import { ChoiceRow } from './ChoiceRow'
@@ -40,7 +41,7 @@ export function CalledItScreen() {
   const header = (
     <header className="screen__head">
       <h1 className="screen__title">{t.title}</h1>
-      <SimulatedTag />
+      <SimulatedTag live={activeStudentSchool() === LIVE_SCHOOL} />
     </header>
   )
 

@@ -1,6 +1,7 @@
 // Badges: a plain grid of the three badges, earned or not, each with how to earn it.
 import { copy } from '../shared/copy'
 import { ErrorNotice, Loading } from '../shared/ui/Notice'
+import { LIVE_SCHOOL, activeStudentSchool } from '../shared/studentSchool'
 import { SimulatedTag } from '../shared/ui/SimulatedTag'
 import { useStudent } from './state'
 import { Flame } from './Stats'
@@ -32,7 +33,7 @@ export function BadgesScreen() {
     <div className="screen">
       <header className="screen__head">
         <h1 className="screen__title">{t.title}</h1>
-        <SimulatedTag />
+        <SimulatedTag live={activeStudentSchool() === LIVE_SCHOOL} />
       </header>
       {meError && <ErrorNotice error={meError} onRetry={refreshMe} />}
       {!me && !meError && <Loading label={copy.student.loading.badges} />}

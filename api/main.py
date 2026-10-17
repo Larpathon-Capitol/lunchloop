@@ -112,6 +112,11 @@ def create_app(max_requests=3000, max_actions=300, body_limit=16 * 1024, request
         application.state.schools = schools
         application.state.passwords = configured_passwords()
         application.state.settings = settings
+        # Warm the engine's caches so the first visitor doesn't wait for the backtest.
+        try:
+            engine.meter(date=settings["today"], data_dir=settings["data"])
+        except Exception:
+            pass
         application.state.events = EventStore()
         yield
 
@@ -193,7 +198,7 @@ def create_app(max_requests=3000, max_actions=300, body_limit=16 * 1024, request
         selected = body.school_id
         # An unknown school has nothing to guess, so it is never counted.
         if selected not in request.app.state.schools:
-            record(request, "staff_sign_in_failed", None, summary="A staff sign in failed", detail={"school_id": None})
+            record(request, "staff_sign_in_failed", None, summary="A staff sign-in failed", detail={"school_id": None})
             raise HTTPException(401, "wrong school or password")
         configured = request.app.state.passwords.get(selected)
         public_demo = selected == "demo" and not configured
@@ -214,7 +219,7 @@ def create_app(max_requests=3000, max_actions=300, body_limit=16 * 1024, request
         else:
             valid = public_demo and hmac.compare_digest(body.password.encode(), b"lunchloop")
         if not valid:
-            record(request, "staff_sign_in_failed", selected, summary="A staff sign in failed", detail={"school_id": selected})
+            record(request, "staff_sign_in_failed", selected, summary="A staff sign-in failed", detail={"school_id": selected})
             raise HTTPException(401, "wrong school or password")
         if not public_demo:
             with failures_lock:
@@ -314,7 +319,7 @@ def create_app(max_requests=3000, max_actions=300, body_limit=16 * 1024, request
                 ).fetchone()
             )
         if player_device:
-            record(request, "spin", selected_school, player_device, "A player spun the menu", {"date": current_date})
+            record(request, "spin", selected_school, player_device, "A player opened today's vote", {"date": current_date})
         return {
             "date": current_date,
             "target_date": option_row["target_date"],
@@ -476,7 +481,11 @@ def create_app(max_requests=3000, max_actions=300, body_limit=16 * 1024, request
                 connection.rollback()
                 raise HTTPException(409, "already guessed today") from error
             connection.commit()
-        record(request, "guess", selected_school, player_device, f"A player made a guess for {body.item_id}", {"item_id": body.item_id, "target_date": target_row[0]}, started)
+        name_row = None
+        with closing(connect(request_settings["db"])) as connection:
+            name_row = connection.execute("SELECT name FROM items WHERE item_id=?", (body.item_id,)).fetchone()
+        guess_name = name_row[0] if name_row else body.item_id
+        record(request, "guess", selected_school, player_device, f"A player guessed {guess_name} will be most popular", {"item_id": body.item_id, "target_date": target_row[0]}, started)
         return {"ok": True, "target_date": target_row[0], "simulated": True}
 
     def engine_call(request, function_name, **arguments):
@@ -503,7 +512,13 @@ def create_app(max_requests=3000, max_actions=300, body_limit=16 * 1024, request
             if total_prep is None:
                 total_prep = sum(item.get("prep", 0) for item in items)
             detail = {"date": arguments.get("date"), "item_count": len(items), "total_prep_servings": total_prep, "leftover_cut_pct": result.get("leftover_cut_pct")}
-            record(request, kind, summary=f"The engine finished {kind}", detail=detail, started=started)
+            summaries = {
+                "prep": "The engine made a prep list",
+                "savings": "The engine replayed the last few weeks",
+                "simulate": "The engine ran a what-if",
+                "meter": "The engine added up this week's leftovers",
+            }
+            record(request, kind, summary=summaries[kind], detail=detail, started=started)
         return result
 
     @application.get("/api/prep")

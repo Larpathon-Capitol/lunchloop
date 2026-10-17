@@ -1,18 +1,38 @@
 # LunchLoop
 
-LunchLoop tells a school cafeteria how many servings of each item to cook, so less food ends up in the trash. It also has the backend for a daily student game: spin to see menu options, vote, and guess what will be popular.
+LunchLoop tells a school cafeteria how many servings of each item to cook, so less food ends up in the trash. It also has a daily student game: spin to see menu options, vote, and guess what will be popular.
 
-We're building it for Hack Club Capitol. The demo runs on a simulated school, a large Texas high school of 2,750 students, not real cafeteria records. The backend works today. The screens do not exist yet.
+It is a web app with a Python backend. We're building it for Hack Club Capitol. The main demo runs on a simulated school, a large Texas high school of 2,750 students, not real cafeteria records.
 
 ---
 
-## How to download / install
+## Try it
 
-You need Python 3.12 or newer and git.
+Open the site: **https://larpathon-capitol.github.io/lunchloop/**
 
-### macOS
+The site is hosted on GitHub Pages and talks to a backend that we run ourselves. If the backend is off, the pages will load but show no data.
 
-Get Python 3.12 or newer if you don't have it: download it from [python.org](https://www.python.org/downloads/) or run `brew install python@3.12`. Check with `python3 --version`. If it says something older than 3.12, use `python3.12` in place of `python3` below.
+- `/` is the home page.
+- `/hub` lists every page and has a QR code for the live game, so a room can join from their phones.
+- `/student` is the student game on the simulated school: spin, vote, make a "Called It" guess, build streaks, earn badges, and watch the leftovers meter.
+- `/school` is the staff sign-in. Each school signs in on its own and only sees its own votes. The "What students want" panel updates live.
+- `/school/kitchen` is the cafeteria manager's view: the prep list, a meal check, what-if sliders for attendance and price, and the savings.
+- `/live` is a separate live demo school where real votes are counted. `/live/admin` is its staff view. The staff password is set by whoever runs the server.
+- `/behind-the-scenes` shows the server's anonymous event log, the path a request takes, and a forecast worked out step by step.
+
+The simulated school's demo staff password is `lunchloop`. It is public on purpose, so anyone can try the staff view.
+
+Students do not need an account. The browser makes a random device ID and keeps it. There is no name or email.
+
+---
+
+## Run it yourself
+
+You need Python 3.12 or newer, Node.js 22 and git.
+
+### macOS and Linux
+
+Get Python 3.12 or newer if you don't have it. On macOS, download it from [python.org](https://www.python.org/downloads/) or run `brew install python@3.12`. Check with `python3 --version`. If it says something older than 3.12, use `python3.12` in place of `python3` below. Get Node.js from [nodejs.org](https://nodejs.org/) and check with `node --version`.
 
 ```
 git clone https://github.com/Larpathon-Capitol/lunchloop.git
@@ -28,13 +48,23 @@ Run the tests:
 python -m pytest -q
 ```
 
-Start the API:
+Start the backend (port 8000):
 
 ```
 uvicorn api.main:app --reload
 ```
 
-In a second terminal, try it:
+In a second terminal, start the web app:
+
+```
+cd lunchloop/web
+npm ci
+npm run dev
+```
+
+Open the address that Vite prints. It sends anything under `/api` to the backend on `127.0.0.1:8000`.
+
+To check the backend by itself:
 
 ```
 curl http://127.0.0.1:8000/api/health
@@ -43,9 +73,15 @@ curl "http://127.0.0.1:8000/api/prep"
 
 The first one should answer `{"ok":true,"today":"2026-10-19","simulated":true}`. The second returns a prep amount and a one-line reason for each menu item, for example `"prep": 560` and `"reason": "Attendance is normal, buffer +22"` for cheese pizza.
 
+To build the site the way it is published:
+
+```
+npm run build
+```
+
 ### Windows
 
-Get Python 3.12 or newer from [python.org](https://www.python.org/downloads/) and git from [git-scm.com](https://git-scm.com/download/win). Check with `py -3 --version`. Then, in PowerShell or Command Prompt:
+Get Python 3.12 or newer from [python.org](https://www.python.org/downloads/), Node.js from [nodejs.org](https://nodejs.org/) and git from [git-scm.com](https://git-scm.com/download/win). Check with `py -3 --version` and `node --version`. Then, in PowerShell or Command Prompt:
 
 ```
 git clone https://github.com/Larpathon-Capitol/lunchloop.git
@@ -63,33 +99,57 @@ Run the tests:
 python -m pytest -q
 ```
 
-Start the API:
+Start the backend (port 8000):
 
 ```
 uvicorn api.main:app --reload
 ```
 
-Then open these in your browser:
+In a second terminal, start the web app:
 
 ```
-http://127.0.0.1:8000/api/health
-http://127.0.0.1:8000/api/prep
+cd lunchloop\web
+npm ci
+npm run dev
 ```
 
-You should see the same answers described in the macOS steps above.
+Open the address that Vite prints. It sends anything under `/api` to the backend on `127.0.0.1:8000`. You can also open `http://127.0.0.1:8000/api/health` and `http://127.0.0.1:8000/api/prep` in your browser to check the backend by itself, with the same answers described in the macOS steps above.
+
+To build the site the way it is published:
+
+```
+npm run build
+```
 
 ### Settings
 
-All optional. Set them as environment variables before starting the API.
+All optional. Set them as environment variables before starting the backend.
 
 - `LUNCHLOOP_DATA_DIR`: where the CSV data lives (default `data`)
 - `LUNCHLOOP_TODAY`: the demo "today" (default `2026-10-19`)
 - `LUNCHLOOP_DB`: the SQLite file for votes and streaks (default `lunchloop.db`)
-- `LUNCHLOOP_CORS_ORIGIN`: allowed web origin (default `*`)
+- `LUNCHLOOP_CORS_ORIGIN`: allowed web origin, or several separated by commas (default `*`)
+- `LUNCHLOOP_SCHOOL_PASSWORDS`: staff passwords for real schools, as `school_id=hash` pairs separated by commas
+- `LUNCHLOOP_SECRET`: the secret that signs staff sign-ins and anonymous player tags (random on each start if unset, so sign-ins end on restart)
+- `LUNCHLOOP_DOCS`: set to `1` to turn on the interactive API docs at `/docs` (off by default)
 
-For example, `export LUNCHLOOP_TODAY=2026-10-20` on macOS, `$env:LUNCHLOOP_TODAY="2026-10-20"` in PowerShell, or `set LUNCHLOOP_TODAY=2026-10-20` in Command Prompt.
+For example, `export LUNCHLOOP_TODAY=2026-10-20` on macOS and Linux, `$env:LUNCHLOOP_TODAY="2026-10-20"` in PowerShell, or `set LUNCHLOOP_TODAY=2026-10-20` in Command Prompt.
 
-You can also move the demo clock for a single request with a header, like `X-Demo-Date: 2026-10-20`.
+You can also move the demo clock for a single request with a header, like `X-Demo-Date: 2026-10-20`. The live demo school ignores that header, so nobody can vote twice by changing the date.
+
+### Staff passwords
+
+Passwords never live in the repo. To give a school a password, make a hash and put it in `LUNCHLOOP_SCHOOL_PASSWORDS`:
+
+```
+python tools/hash_password.py
+```
+
+It asks for the password and prints a hash. Then set, for example, `LUNCHLOOP_SCHOOL_PASSWORDS=live=<the hash>`. A school with no hash cannot sign in. The one exception is the simulated `demo` school, which uses the public password above.
+
+### Publishing your own copy
+
+The site is built and published by GitHub Actions from `main`. Set the repository variable `LUNCHLOOP_API_URL` to the `https` address of your backend first, or the publish step stops.
 
 The full list of routes and response shapes is in the [API reference](docs/backend-contract.md).
 
@@ -104,34 +164,34 @@ The full list of routes and response shapes is in the [API reference](docs/backe
 - A backtest that scores the forecast on the last 4 weeks of history, with shortages priced in.
 - `tools/eval_truth.py`, which scores the forecast against how much food students really wanted in the simulation, not just what was served.
 - A what-if simulator for attendance and price changes.
-- An API (FastAPI and SQLite) with routes under `/api`: health, prep, savings, simulate, spin, vote, guess, me, meter.
-- Streaks, XP and badges for students, in the API.
-- Students are identified only by a device ID, not a name or email.
+- A student game: spin for menu options, vote, guess the most popular item (Called It), streaks, XP, badges, and a school leftovers meter.
+- Students are identified only by a device ID, not a name or email. Votes are stored per school.
+- Staff sign-in for each school, with a live "What students want" panel.
+- A kitchen view with the prep list, meal check, what-if sliders and savings.
+- A live demo school where real votes are counted.
+- A "Behind the scenes" page with the server's anonymous event log, the path a request takes, and a forecast worked out step by step.
+- A hub page that lists every page and shows a QR code for the live game.
+- Safety limits: requests and votes are rate limited per IP address, request bodies over 16 KB are refused, and the interactive API docs are off by default.
+- An API (FastAPI and SQLite) with routes under `/api`.
 
 ---
 
-## Planned features
-
-Planned means not built yet.
-
-- Kitchen view: a web screen for the cafeteria manager showing the prep list.
-- Student view: a phone screen to spin, vote, and guess.
-- A live hosted link for the demo.
-
----
-
-## Known bugs / limitations
+## Known limitations
 
 - All data is simulated. No real school has used LunchLoop.
+- Every school shares the one simulated menu for now.
+- The prep, savings and simulate routes are open. They are not behind staff sign-in.
+- The live page counts real taps, but anyone can make a new device ID. It is a demo, not a secure poll.
+- The event log on the "Behind the scenes" page is kept in memory. It holds the newest 300 events and is gone when the server restarts.
+- The hosted backend runs on a single machine, so the site only works while that machine is up.
+- Votes and streaks live in a local SQLite file, so a fresh deploy resets them.
 - Allergens in the data are placeholders, not product labels. Do not use them for real food safety.
 - At the default setting, LunchLoop runs short more often than the kitchen's usual amount (see the results below).
 - Entrees and grains sell out on some days in the simulated history (22.6% of entree and grain item-days), so the history undercounts what students wanted. `tools/eval_truth.py` scores against the true demand to check this.
 - Packaged items (milk cartons, fruit cups, mandarin oranges) are counted as waste when they are not eaten. Some of them may be stored and served again, so the results may overstate their waste.
 - The kitchen's "usual amount" is a fixed over-prep per food group (7.5% for entrees and grains, 20% for fruit and vegetables, 12% for milk). These margins are our assumptions. No published standard sets them.
-- The 4-week backtest (`engine.backtest()` and the dashboard meter) can only see what was served, so the usual amount never shows a shortage there and only LunchLoop's shortages are charged. `tools/eval_truth.py` scores both against true demand and is the fairer check.
+- The 4-week backtest (`engine.backtest()` and the leftovers meter) can only see what was served, so the usual amount never shows a shortage there and only LunchLoop's shortages are charged. `tools/eval_truth.py` scores both against true demand and is the fairer check.
 - The vote options are the same three entrees every day in the current data.
-- Votes and streaks live in a local SQLite file, so a fresh deploy resets them.
-- There is no frontend yet. For now you use the API directly.
 
 ---
 
@@ -200,8 +260,10 @@ That prints 49.4% fewer leftovers (5,361 servings against 10,603) and a net savi
 
 - `data/`: the simulated school and the script that makes it (see `data/README.md` and `data/sources.md`)
 - `engine/`: the forecast, meal check, backtest, simulator and data checks
-- `tools/`: `eval_truth.py`, the true-demand scoring script
-- `api/`: the FastAPI app and the student game logic
+- `tools/`: `eval_truth.py`, the true-demand scoring script, and `hash_password.py`, which makes staff password hashes
+- `api/`: the FastAPI app, the student game logic and staff sign-in
+- `web/`: the web app (React and Vite)
+- `.github/workflows/`: the build check and the GitHub Pages publish
 - `tests/`: tests for the data, engine and API
 - `docs/`: the [backend contract](docs/backend-contract.md)
 

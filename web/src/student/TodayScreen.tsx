@@ -8,7 +8,7 @@ import { fmtDay } from '../shared/format'
 import { sound } from '../shared/sound'
 import { ErrorNotice, Loading } from '../shared/ui/Notice'
 import { SimulatedTag } from '../shared/ui/SimulatedTag'
-import { useGameBase } from '../shared/studentSchool'
+import { LIVE_SCHOOL, activeStudentSchool, useGameBase } from '../shared/studentSchool'
 import { useApi } from '../shared/useApi'
 import { burstFrom } from './confetti'
 import { FoodGlyph } from './FoodGlyph'
@@ -78,7 +78,7 @@ export function TodayScreen() {
     <div className="screen">
       <header className="screen__head">
         <h1 className="screen__title">{today ? fmtDay(today) : t.tabs.today}</h1>
-        <SimulatedTag />
+        <SimulatedTag live={activeStudentSchool() === LIVE_SCHOOL} />
       </header>
 
       {merged && <ErrorNotice error={offline[0]} onRetry={retryAll} />}

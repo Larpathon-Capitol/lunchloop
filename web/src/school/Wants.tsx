@@ -161,7 +161,7 @@ export function Wants({ session, onExpired }: { session: SchoolSession; onExpire
           <h1 className="s-head__title">{t.title}</h1>
           <p className="s-head__sub">{fmtDay(data.today)}</p>
         </div>
-        <SimulatedTag />
+        <SimulatedTag live={session.school.school_id === LIVE_SCHOOL} />
       </header>
 
       <div className="s-grid">

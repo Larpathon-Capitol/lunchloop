@@ -21,6 +21,7 @@ export const backstage = {
     listLabel: 'Newest server events first',
     player: (tag: string) => `Player ${tag}`,
     ms: (ms: string) => `${ms} ms`,
+    count: (n: number) => `x${n}`,
     schoolLive: 'Live demo',
     schoolSimulated: 'Simulated school',
     announceOne: (summary: string) => summary,
@@ -70,8 +71,8 @@ export const backstage = {
     empty: 'There is no menu for this day yet.',
     servings: 'servings',
 
-    step1: (weekday: string) => `Look back at the last ${weekday}s`,
-    step1Note: 'Students who took it, out of students who ate lunch that day.',
+    step1: (n: number, weekday: string) => `Look back at the last ${n} ${weekday}s this dish was on the menu`,
+    step1Note: 'Students who took this dish, out of students who ate lunch that day. Days it was not served are skipped.',
     step1Date: 'Day',
     step1Took: 'Took it',
     step1Present: 'At lunch',
@@ -80,7 +81,7 @@ export const backstage = {
 
     step2: 'Multiply by how many students should come',
     step2Note: (n: number, weekday: string) =>
-      `Expected attendance is the average of the last ${n} ${weekday}s: `,
+      `Expected attendance is the average of the last ${n} ${weekday}s for the whole school, whatever was served: `,
     predicted: 'predicted servings',
     attendanceLabel: 'students expected',
 

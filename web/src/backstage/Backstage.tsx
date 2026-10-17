@@ -27,7 +27,7 @@ export function Backstage() {
           <p className="b-head__lead">{t.lead}</p>
           <p className="b-head__sim">{t.simulatedNote}</p>
         </div>
-        <SimulatedTag />
+        <SimulatedTag live />
       </header>
 
       <div className="b-live">

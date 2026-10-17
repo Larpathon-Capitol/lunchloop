@@ -38,7 +38,6 @@
   min-height: var(--touch);
   display: flex;
   align-items: center;
-  border-bottom: var(--hairline);
 }
 .s-field__error {
   color: var(--bad);

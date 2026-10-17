@@ -215,6 +215,10 @@
   grid-area: kind;
   font-weight: 600;
 }
+.b-row__count {
+  color: var(--slate);
+  font-weight: 400;
+}
 .b-row__kind[data-warn] {
   color: var(--warn);
 }
@@ -243,7 +247,7 @@
 }
 @media (min-width: 640px) {
   .b-row {
-    grid-template-columns: calc(var(--s16) * 1.5) calc(var(--s16) * 1.75) minmax(0, 1fr) auto;
+    grid-template-columns: calc(var(--s16) * 1.5) calc(var(--s16) * 2.25) minmax(0, 1fr) auto;
     grid-template-areas: 'time kind body ms';
     align-items: baseline;
   }

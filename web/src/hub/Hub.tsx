@@ -20,13 +20,14 @@ interface Page {
   key: keyof typeof t.pages
   path: string
   password?: string
+  passwordNote?: string
 }
 
 const PAGES: Page[] = [
   { key: 'student', path: 'student' },
   { key: 'school', path: 'school', password: t.pages.school.password },
   { key: 'live', path: 'live' },
-  { key: 'liveAdmin', path: 'live/admin', password: t.pages.liveAdmin.password },
+  { key: 'liveAdmin', path: 'live/admin', passwordNote: t.pages.liveAdmin.passwordNote },
   { key: 'backstage', path: 'behind-the-scenes' },
 ]
 
@@ -133,10 +134,12 @@ export function Hub() {
                 <h2 className="hub-row__name">{page.name}</h2>
                 <p className="hub-row__line">{page.line}</p>
                 <p className="hub-row__url">{short(url)}</p>
-                {p.password && (
+                {p.password ? (
                   <p className="hub-row__pw">
                     {t.passwordLabel}: <span className="hub-row__pw-value">{p.password}</span>
                   </p>
+                ) : (
+                  p.passwordNote && <p className="hub-row__pw">{p.passwordNote}</p>
                 )}
               </div>
               <div className="hub-row__actions">

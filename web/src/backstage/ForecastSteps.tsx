@@ -104,7 +104,7 @@ function Trace({ tr, listPrep }: { tr: ForecastTrace; listPrep: number | undefin
   const weekday = tr.weekday
   return (
     <ol className="b-steps">
-      <Step n={1} title={t.step1(weekday)}>
+      <Step n={1} title={t.step1(tr.history.length, weekday)}>
         <p className="b-note">{t.step1Note}</p>
         <table className="b-table">
           <thead>

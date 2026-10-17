@@ -24,7 +24,7 @@ export const school = {
     name: 'LunchLoop live demo',
     title: 'Live demo sign-in',
     lead: 'See what the people in the room are voting for, as they vote.',
-    note: 'Real votes from real people, not simulated.',
+    note: 'Real votes from real people.',
   },
 
   wants: {
@@ -50,7 +50,7 @@ export const school = {
     ofPlayers: (n: string) => `of ${n} players`,
     ofStudents: (n: string) => `of ${n} students`,
 
-    guessesHeading: 'Called It guesses',
+    guessesHeading: 'Called it guesses',
     guessesSub: (day: string) => `Guesses for ${day}, most guessed first.`,
     guessesEmpty: 'No guesses yet today.',
     guesses: (n: number) => (n === 1 ? '1 guess' : `${n} guesses`),
