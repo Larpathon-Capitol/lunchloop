@@ -25,6 +25,10 @@ Not ready yet. Setup steps for macOS and Windows will go here once the app runs.
 
 - All data is simulated. LunchLoop has not been tested with a real school.
 
+## Credits
+
+- [Ekansh Simgekar](https://github.com/magicKansh) built the first forecasting prototype and the simulated cafeteria data this project started from.
+
 ## License
 
 MIT. See [LICENSE](LICENSE).
