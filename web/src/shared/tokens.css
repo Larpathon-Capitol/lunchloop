@@ -1,0 +1,54 @@
+/* Design tokens. Every color, size and duration in the app comes from here. */
+:root {
+  /* Color */
+  --paper: #f2f4f3;
+  --surface: #ffffff;
+  --ink: #15181a;
+  --slate: #55606a;
+  --line: #d5dbd8;
+  --accent: #c2410c;
+  --accent-ink: #ffffff;
+  --accent-mark: #ea580c;
+  --ok: #1f7a4d;
+  --warn: #9a5b00;
+  --bad: #b42318;
+
+  /* Type */
+  --font-display: 'Bricolage Grotesque', system-ui, sans-serif;
+  --font-ui: 'Public Sans', system-ui, sans-serif;
+  --text-sm: 14px;
+  --text-base: 16px;
+  --text-md: 18px;
+  --text-lg: 22px;
+  --text-xl: 28px;
+  --text-2xl: 36px;
+  --text-hero: 48px;
+  --leading: 1.5;
+  --leading-tight: 1.15;
+
+  /* Spacing, 4px scale */
+  --s1: 4px;
+  --s2: 8px;
+  --s3: 12px;
+  --s4: 16px;
+  --s5: 20px;
+  --s6: 24px;
+  --s8: 32px;
+  --s10: 40px;
+  --s12: 48px;
+  --s16: 64px;
+
+  /* Layout and shape */
+  --max-width: 1100px;
+  --radius: 8px;
+  --hairline: 1px solid var(--line);
+  --touch: 44px;
+  --focus-ring: 0 0 0 3px var(--paper), 0 0 0 5px var(--accent);
+
+  /* Motion */
+  --t-fast: 120ms;
+  --t-med: 200ms;
+  --t-slow: 300ms;
+  --ease: cubic-bezier(0.2, 0, 0, 1);
+  --press-scale: 0.96;
+}

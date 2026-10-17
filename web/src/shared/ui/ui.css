@@ -1,0 +1,176 @@
+/* Shared building blocks. Views add their own CSS next to their components. */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s2);
+  min-height: var(--touch);
+  padding: 0 var(--s5);
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  font-weight: 600;
+  font-size: var(--text-base);
+  cursor: pointer;
+  transition: background-color var(--t-fast) var(--ease), transform var(--t-fast) var(--ease);
+  -webkit-tap-highlight-color: transparent;
+}
+.btn:active {
+  transform: scale(var(--press-scale));
+}
+.btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+.btn--primary {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+.btn--quiet {
+  background: transparent;
+  border-color: var(--line);
+  color: var(--ink);
+}
+.btn--quiet:hover {
+  background: var(--surface);
+}
+
+.sim-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s1);
+  font-size: var(--text-sm);
+  color: var(--slate);
+  white-space: nowrap;
+}
+.sim-tag svg {
+  flex: none;
+}
+
+.notice {
+  padding: var(--s6);
+  border-top: var(--hairline);
+  border-bottom: var(--hairline);
+  display: grid;
+  gap: var(--s3);
+  justify-items: start;
+}
+.notice__text {
+  color: var(--slate);
+}
+
+a.btn {
+  text-decoration: none;
+}
+
+/* App shell */
+:root {
+  --bar-h: 56px;
+}
+.shell__bar {
+  border-bottom: var(--hairline);
+  background: var(--paper);
+}
+.shell__inner {
+  max-width: var(--max-width);
+  margin: 0 auto;
+  padding: 0 var(--s4);
+  height: var(--bar-h);
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+}
+.shell__brand {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: var(--text-md);
+  color: var(--ink);
+  text-decoration: none;
+  margin-right: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s2);
+  min-height: var(--touch);
+}
+.shell__nav {
+  display: flex;
+  gap: var(--s1);
+}
+.shell__link {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--touch);
+  padding: 0 var(--s2);
+  color: var(--slate);
+  text-decoration: none;
+  font-weight: 500;
+  position: relative;
+  transition: color var(--t-fast) var(--ease);
+}
+.shell__link:hover {
+  color: var(--ink);
+}
+.shell__link[aria-current='page'] {
+  color: var(--ink);
+}
+.shell__underline {
+  position: absolute;
+  left: var(--s2);
+  right: var(--s2);
+  bottom: var(--s1);
+  height: 2px;
+  border-radius: 1px;
+  background: var(--accent-mark);
+}
+.shell__mute {
+  display: inline-grid;
+  place-items: center;
+  width: var(--touch);
+  height: var(--touch);
+  border: 0;
+  background: transparent;
+  color: var(--slate);
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+.shell__mute:hover {
+  color: var(--ink);
+}
+/* Below ~420px the nav needs the room: the logo stays, the name is read aloud only. */
+@media (max-width: 419px) {
+  .shell__brand-name {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+  }
+}
+.skip-link {
+  position: absolute;
+  top: var(--s2);
+  left: var(--s4);
+  z-index: 10;
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--touch);
+  padding: 0 var(--s4);
+  background: var(--surface);
+  color: var(--ink);
+  border: 1px solid var(--ink);
+  border-radius: var(--radius);
+  font-weight: 600;
+  text-decoration: none;
+  transform: translateY(calc(-100% - var(--s4)));
+}
+.skip-link:focus-visible {
+  transform: none;
+}
+.shell__main:focus {
+  outline: none;
+}
+.shell__main {
+  max-width: var(--max-width);
+  margin: 0 auto;
+  padding: var(--s6) var(--s4) var(--s16);
+}
