@@ -3,19 +3,16 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="color-scheme" content="light dark">
+<meta name="color-scheme" content="light">
+<meta name="theme-color" content="#ffffff">
 <title>LunchLoop</title>
 <link rel="stylesheet" href="styles.css">
 </head>
-<body>
+<body class="login">
 <header class="top">
   <div class="wrap">
-    <span class="mark">Lunchloop</span>
-    <nav class="seg people" id="people" aria-label="Student"></nav>
-    <nav class="seg modes" id="modes">
-      <a href="#/" data-tab="vote">Vote</a>
-      <a href="#/admin" data-tab="admin">Admin</a>
-    </nav>
+    <span class="brand"><span class="logo sm"></span><span class="mark">Lunchloop</span></span>
+    <div class="user" id="user"></div>
   </div>
 </header>
 <main id="view" aria-live="polite"></main>

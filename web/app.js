@@ -13,14 +13,18 @@ const store = {
   set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
 };
 
-/* demo students: each has its own device, so each can vote and guess */
+/* demo accounts: each student has their own device, so each can vote and guess */
 const PEOPLE = ["Maya", "Liam", "Zoe", "Ethan"];
+const session = {
+  get() { try { return JSON.parse(sessionStorage.getItem("ll-session")); } catch { return null; } },
+  set(v) { try { v ? sessionStorage.setItem("ll-session", JSON.stringify(v)) : sessionStorage.removeItem("ll-session"); } catch {} },
+};
 const browserId = (() => {
   let id = store.get("ll-browser");
   if (!id) { id = (crypto.randomUUID ? crypto.randomUUID() : String(Math.random()).slice(2)).replace(/[^a-z0-9-]/gi, "").slice(0, 24); store.set("ll-browser", id); }
   return id;
 })();
-let person = PEOPLE.includes(store.get("ll-person")) ? store.get("ll-person") : PEOPLE[0];
+let person = PEOPLE[0];
 const deviceOf = (name) => `ll-${name.toLowerCase()}-${browserId}`;
 
 async function api(path, body) {
@@ -274,7 +278,7 @@ function savingsPane(s) {
 
 /* ---------- dashboard ---------- */
 
-const PALETTE = { meat_alternate: "#0071e3", grain: "#5e5ce6", vegetable: "#30b0c7", fruit: "#ff6482", milk: "#ff9f0a" };
+const PALETTE = { meat_alternate: "#d92d6f", grain: "#8e5cf7", vegetable: "#1bb394", fruit: "#ff8a3d", milk: "#4c8dff" };
 const C = 2 * Math.PI * 46;
 const weekLabel = (iso) => { const d = new Date(iso + "T12:00:00"); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return d.toLocaleDateString("en-US", { month: "short", day: "numeric" }); };
 
@@ -313,7 +317,7 @@ function dashPane() {
   </div>`);
   const q = (k) => el.querySelector(`[data-k="${k}"]`);
   let built = "", vbuilt = "";
-  const VC = ["#0071e3", "#5e5ce6", "#ff9f0a"];
+  const VC = ["#d92d6f", "#8e5cf7", "#ff8a3d"];
   function voteBlock(v) {
     const total = v ? v.total : 0;
     countTo(q("votes"), total, { dur: 700 });
@@ -366,7 +370,7 @@ function dashPane() {
     savings.series.forEach((r) => { if (r.prep_lunchloop > r.taken) over++; else if (r.prep_lunchloop < r.taken) short++; else exact++; });
     const n = savings.series.length;
     q("outSub").textContent = `Out of ${n} item-days in the last ${savings.weeks} weeks.`;
-    donut(q("out"), [{ l: "Made a little too much", c: "#0071e3", v: over }, { l: "Ran short", c: "#ff9f0a", v: short }, { l: "Exactly right", c: "#30d158", v: exact }].filter((p) => p.v),
+    donut(q("out"), [{ l: "Made a little too much", c: "#d92d6f", v: over }, { l: "Ran short", c: "#ff8a3d", v: short }, { l: "Exactly right", c: "#30d158", v: exact }].filter((p) => p.v),
       `<b>${Math.round((over / n) * 100)}%</b><span>had leftovers</span>`);
 
     const wk = {};
@@ -376,7 +380,7 @@ function dashPane() {
     nextFrame(() => q("cols").querySelectorAll(".bar").forEach((b) => (b.style.height = b.dataset.h + "%")));
 
     const cm = Math.max(savings.usual.dollars_wasted, savings.lunchloop.dollars_wasted) || 1;
-    q("cost").innerHTML = [["LunchLoop", savings.lunchloop.dollars_wasted, "var(--accent)"], ["Usual amount", savings.usual.dollars_wasted, "#b9bcc6"]].map(([l, v, c]) =>
+    q("cost").innerHTML = [["LunchLoop", savings.lunchloop.dollars_wasted, "var(--accent)"], ["Usual amount", savings.usual.dollars_wasted, "#cfc7cb"]].map(([l, v, c]) =>
       `<div class="row"><div class="l"><span>${l}</span><span>${money(v)}</span></div><div class="track"><i style="background:${c}" data-w="${(v / cm) * 100}"></i></div></div>`).join("");
     nextFrame(() => q("cost").querySelectorAll("i").forEach((i) => (i.style.width = i.dataset.w + "%")));
 
@@ -388,20 +392,51 @@ function dashPane() {
 
 /* ---------- router ---------- */
 
-function route() {
-  const tab = location.hash.startsWith("#/admin") ? "admin" : "vote";
-  const top = document.querySelector(".top"), modes = document.getElementById("modes"), people = document.getElementById("people");
-  top.classList.toggle("admin", tab === "admin");
-  stopPoll(); if (tab !== "admin") view.classList.remove("wide");
-  people.style.display = tab === "admin" ? "none" : "";
-  modes.querySelectorAll("a").forEach((a) => a.classList.toggle("on", a.dataset.tab === tab));
-  if (!modes.querySelector(".thumb")) modes.insertAdjacentHTML("beforeend", `<i class="thumb"></i>`);
-  placeThumb(modes);
-  if (tab === "vote") {
-    seg(people, PEOPLE.map((p) => ({ k: p, label: p })), person, (k) => { person = k; store.set("ll-person", k); route(); });
-    voteView();
-  } else adminView();
+/* ---------- sign in ---------- */
+
+function loginView() {
+  let role = "student";
+  const root = mount($(`<section class="auth"><div class="auth-card">
+    <div class="logo"></div>
+    <h1>Welcome to Lunchloop</h1><p class="sub">Sign in to continue</p>
+    <nav class="seg full role"></nav>
+    <form novalidate></form>
+    <p class="fine">Demo environment. All school data is simulated.</p>
+  </div></section>`));
+  const roleBox = root.querySelector(".role"), form = root.querySelector("form");
+  const fields = () => {
+    form.innerHTML = (role === "student"
+      ? `<label class="fld">Student<select name="who">${PEOPLE.map((p) => `<option>${p}</option>`).join("")}</select></label>`
+      : `<label class="fld">Email<input value="kitchen@school.demo" readonly></label>`)
+      + `<label class="fld">Password<input type="password" value="demo-password" autocomplete="off"></label><button class="btn" type="submit">Sign in</button>`;
+  };
+  const pick = (k) => { role = k; seg(roleBox, [{ k: "student", label: "Student" }, { k: "admin", label: "Admin" }], role, pick); fields(); };
+  form.onsubmit = (e) => {
+    e.preventDefault();
+    const who = role === "student" ? form.elements.who.value : "Kitchen";
+    form.querySelector(".btn").classList.add("busy");
+    setTimeout(() => { session.set({ role, name: who }); route(); }, 750);
+  };
+  pick("student");
 }
-addEventListener("hashchange", route);
+
+function renderUser(sess) {
+  const box = document.getElementById("user");
+  if (!sess) { box.innerHTML = ""; return; }
+  box.innerHTML = `<div class="who"><span class="av">${esc(sess.name[0])}</span><span>${esc(sess.name)}<small>${sess.role === "admin" ? "Admin" : "Student"}</small></span></div><button class="link" id="out">Sign out</button>`;
+  box.querySelector("#out").onclick = () => { session.set(null); stopPoll(); route(); };
+}
+
+/* ---------- router ---------- */
+
+function route() {
+  const sess = session.get();
+  stopPoll(); view.classList.remove("wide");
+  document.body.classList.toggle("login", !sess);
+  renderUser(sess);
+  if (!sess) return loginView();
+  if (sess.role === "admin") return adminView();
+  person = sess.name; voteView();
+}
 addEventListener("resize", () => document.querySelectorAll(".seg").forEach(placeThumb));
 document.fonts.ready.then(route);
