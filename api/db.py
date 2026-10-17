@@ -30,6 +30,11 @@ def init_db(path, data_dir):
                 school_id TEXT NOT NULL DEFAULT 'demo', device TEXT, streak INTEGER, xp INTEGER,
                 last_vote_date TEXT, PRIMARY KEY(school_id, device)
             );
+            CREATE TABLE IF NOT EXISTS trays(
+                school_id TEXT NOT NULL DEFAULT 'demo', device TEXT, date TEXT,
+                target_date TEXT, component TEXT, item_id TEXT,
+                PRIMARY KEY(school_id, device, date, component)
+            );
             DROP TABLE IF EXISTS items;
             DROP TABLE IF EXISTS meals;
             DROP TABLE IF EXISTS menu;

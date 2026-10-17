@@ -7,6 +7,7 @@ import hmac
 import re
 import threading
 import time
+from typing import Any
 from datetime import datetime, timezone
 from pathlib import Path
 from contextlib import asynccontextmanager, closing
@@ -59,6 +60,14 @@ class GuessBody(BaseModel):
 
     device: str
     item_id: str
+    school: str | None = None
+
+
+class TrayBody(BaseModel):
+    model_config = ConfigDict(strict=True)
+
+    device: Any = None
+    picks: Any = None
     school: str | None = None
 
 
@@ -188,6 +197,49 @@ def create_app(max_requests=3000, max_actions=300, body_limit=16 * 1024, request
             raise HTTPException(401, "sign in again")
         return payload["s"]
 
+    components = ("meat_alternate", "grain", "vegetable", "fruit", "milk")
+
+    def tray_groups(connection, target_date):
+        rows_for_day = connection.execute(
+            """SELECT menu.item_id, items.name, items.component, items.allergens
+               FROM menu JOIN items ON items.item_id=menu.item_id
+               WHERE menu.date=? ORDER BY menu.rowid""",
+            (target_date,),
+        ).fetchall()
+        grouped = {component: [] for component in components}
+        for row in rows_for_day:
+            grouped[row["component"]].append({
+                "item_id": row["item_id"],
+                "name": row["name"],
+                "allergens": [value for value in (row["allergens"] or "").split(";") if value],
+            })
+        return [
+            {"component": component, "items": grouped[component]}
+            for component in components if grouped[component]
+        ]
+
+    def tray_tally(connection, selected_school, current_date, target_date, groups):
+        total = connection.execute(
+            "SELECT COUNT(DISTINCT device) FROM trays WHERE school_id=? AND date=? AND target_date=?",
+            (selected_school, current_date, target_date),
+        ).fetchone()[0]
+        output_groups = []
+        for group in groups:
+            component = group["component"]
+            skips = connection.execute(
+                "SELECT COUNT(*) FROM trays WHERE school_id=? AND date=? AND target_date=? AND component=? AND item_id IS NULL",
+                (selected_school, current_date, target_date, component),
+            ).fetchone()[0]
+            items = []
+            for item in group["items"]:
+                picks = connection.execute(
+                    "SELECT COUNT(*) FROM trays WHERE school_id=? AND date=? AND target_date=? AND component=? AND item_id=?",
+                    (selected_school, current_date, target_date, component, item["item_id"]),
+                ).fetchone()[0]
+                items.append({"item_id": item["item_id"], "name": item["name"], "picks": picks, "share": picks / total if total else 0})
+            output_groups.append({"component": component, "skips": skips, "items": items})
+        return {"target_date": target_date, "total": total, "groups": output_groups}
+
     @application.get("/api/schools")
     def schools(request: Request):
         passwords = request.app.state.passwords
@@ -272,7 +324,13 @@ def create_app(max_requests=3000, max_actions=300, body_limit=16 * 1024, request
             school_dates = [row[0] for row in connection.execute("SELECT DISTINCT date FROM menu WHERE date<=? ORDER BY date DESC LIMIT 5", (current_date,))]
             placeholders = ",".join("?" for _ in school_dates)
             voted_last = connection.execute(f"SELECT COUNT(DISTINCT device) FROM votes WHERE school_id=? AND date IN ({placeholders})", (selected, *school_dates)).fetchone()[0] if school_dates else 0
-        return {"school": school, "today": current_date, "vote": vote, "recent_votes": recent, "past_winners": past, "guesses": guesses, "players": {"total": player_total, "voted_today": voted_today, "voted_last_5_days": voted_last}, "simulated": True}
+            target_row = next_day(connection, current_date)
+            tray = None
+            if target_row:
+                groups = tray_groups(connection, target_row[0])
+                if connection.execute("SELECT 1 FROM trays WHERE school_id=? AND date=? LIMIT 1", (selected, current_date)).fetchone():
+                    tray = tray_tally(connection, selected, current_date, target_row[0], groups)
+        return {"school": school, "today": current_date, "vote": vote, "recent_votes": recent, "past_winners": past, "guesses": guesses, "tray": tray, "players": {"total": player_total, "voted_today": voted_today, "voted_last_5_days": voted_last}, "simulated": True}
 
     @application.get("/api/health")
     def health(request: Request):
@@ -328,6 +386,76 @@ def create_app(max_requests=3000, max_actions=300, body_limit=16 * 1024, request
             "already_voted": already_voted,
             "simulated": True,
         }
+
+    @application.get("/api/tray")
+    def get_tray(request: Request, device_id: str | None = Query(None, alias="device"), school: str | None = None):
+        selected_school = school_id(request, school)
+        request_settings, current_date = request_context(request, selected_school)
+        player_device = device(device_id, required=False)
+        with closing(connect(request_settings["db"])) as connection:
+            target_row = next_day(connection, current_date)
+            if target_row is None:
+                raise HTTPException(404, "no next school day")
+            target_date = target_row[0]
+            groups = tray_groups(connection, target_date)
+            picks = None
+            tally = None
+            if player_device:
+                packed = connection.execute(
+                    "SELECT component, item_id FROM trays WHERE school_id=? AND device=? AND date=? AND target_date=?",
+                    (selected_school, player_device, current_date, target_date),
+                ).fetchall()
+                if packed:
+                    picks = {row["component"]: row["item_id"] for row in packed}
+                    tally = tray_tally(connection, selected_school, current_date, target_date, groups)
+        return {"open_date": current_date, "target_date": target_date, "groups": groups, "picks": picks, "tally": tally, "simulated": True}
+
+    @application.post("/api/tray")
+    def post_tray(request: Request, body: TrayBody):
+        player_device = device(body.device)
+        selected_school = school_id(request, body.school)
+        request_settings, current_date = request_context(request, selected_school)
+        if not isinstance(body.picks, dict):
+            raise HTTPException(400, "picks must be an object")
+        started = time.perf_counter()
+        with closing(connect(request_settings["db"])) as connection:
+            target_row = next_day(connection, current_date)
+            if target_row is None:
+                raise HTTPException(404, "no next school day")
+            target_date = target_row[0]
+            groups = tray_groups(connection, target_date)
+            valid_groups = {group["component"] for group in groups}
+            if any(key not in valid_groups for key in body.picks):
+                raise HTTPException(400, "unknown food group")
+            if any(component not in body.picks for component in valid_groups):
+                raise HTTPException(400, "pick or skip every food group")
+            valid_items = {(group["component"], item["item_id"]) for group in groups for item in group["items"]}
+            for component, item_id in body.picks.items():
+                if item_id is not None and (not isinstance(item_id, str) or (component, item_id) not in valid_items):
+                    raise HTTPException(400, "that food is not on this tray")
+            if all(item_id is None for item_id in body.picks.values()):
+                raise HTTPException(400, "pick at least one food")
+            if connection.execute(
+                "SELECT 1 FROM trays WHERE school_id=? AND device=? AND date=? LIMIT 1",
+                (selected_school, player_device, current_date),
+            ).fetchone():
+                raise HTTPException(409, "already packed a tray today")
+            for component in (group["component"] for group in groups):
+                connection.execute(
+                    "INSERT INTO trays(school_id, device, date, target_date, component, item_id) VALUES(?,?,?,?,?,?)",
+                    (selected_school, player_device, current_date, target_date, component, body.picks[component]),
+                )
+            ensure_player(connection, player_device, selected_school)
+            streak, xp, _, last_vote_date = stats(connection, player_device, current_date, request.app.state.taken, selected_school)
+            connection.execute(
+                "UPDATE players SET streak=?, xp=?, last_vote_date=? WHERE school_id=? AND device=?",
+                (streak, xp, last_vote_date, selected_school, player_device),
+            )
+            connection.commit()
+            tally = tray_tally(connection, selected_school, current_date, target_date, groups)
+        picked = sum(item_id is not None for item_id in body.picks.values())
+        record(request, "tray", selected_school, player_device, f"A player packed a tray for {target_date}", {"picked": picked, "total": tally["total"]}, started)
+        return {"ok": True, "target_date": target_date, "streak": streak, "xp": xp, "tally": tally, "simulated": True}
 
     @application.get("/api/events")
     def events(request: Request, after: str = "0", limit: str = "50"):
@@ -435,14 +563,19 @@ def create_app(max_requests=3000, max_actions=300, body_limit=16 * 1024, request
                 (streak, xp, last_vote_date, selected_school, player_device),
             )
             connection.commit()
-        return {
+            voted_today = bool(connection.execute("SELECT 1 FROM votes WHERE school_id=? AND device=? AND date=?", (selected_school, player_device, current_date)).fetchone())
+            packed_today = bool(connection.execute("SELECT 1 FROM trays WHERE school_id=? AND device=? AND date=?", (selected_school, player_device, current_date)).fetchone())
+        response = {
             "device": player_device,
             "streak": streak,
             "xp": xp,
             "badges": badges,
             "last_guess": last_guess,
+            "voted_today": voted_today,
+            "packed_today": packed_today,
             "simulated": True,
         }
+        return response
 
     @application.post("/api/guess")
     def guess(request: Request, body: GuessBody):

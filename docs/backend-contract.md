@@ -119,8 +119,16 @@ Errors are `{"error": "<plain message>"}` with status 400 (bad input), 404 (unkn
 | GET /api/spin?device= | | `{"date", "target_date", "target_slot", "options": [{"item_id", "name", "allergens": [str]}], "already_voted": bool, "simulated": true}` |
 | POST /api/vote | `{"device", "item_id"}` | `{"ok": true, "streak", "xp", "tally": {item_id: count}, "simulated": true}` |
 | POST /api/guess | `{"device", "item_id"}` (most popular item next school day) | `{"ok": true, "target_date", "simulated": true}` |
-| GET /api/me?device= | | `{"device", "streak", "xp", "badges": [str], "last_guess": {"target_date", "item_id", "correct": bool or null} or null, "simulated": true}` |
+| GET /api/me?device= | | `{"device", "streak", "xp", "badges": [str], "last_guess": {"target_date", "item_id", "correct": bool or null} or null, "voted_today", "packed_today", "simulated": true}` |
 | GET /api/meter | | engine `meter()` |
+
+## Tray
+
+Students can pack one tray for the next school day. `GET /api/tray?device=&school=` returns the target date and that day's menu grouped in fixed component order: `meat_alternate`, `grain`, `vegetable`, `fruit`, `milk`. A device's `picks` are item ids or null for a skipped group. The response includes a `tally` only after that device has packed today.
+
+`POST /api/tray` accepts `{"device", "school"?, "picks": {component: item_id or null}}`. Every target-day group must be picked or skipped, and at least one group must be picked. A device can pack once per school day. The response includes the target date, current streak and XP, and a tally. The tally counts packed trays, skips, and each menu item's picks and share.
+
+Packing a tray earns 10 XP. A school day is active for streaks and longest-run badges when the device voted or packed a tray. The `tray` key in `/api/admin/summary` is the current school's tally, or null when no trays were packed today. Tray submissions use the same per-IP limit as votes and guesses.
 
 - `device` is a random ID the browser makes (8 to 64 letters, digits or dashes). No names or emails. The first call with a new device creates its player row.
 - One vote and one guess per device per school day.
@@ -130,7 +138,7 @@ Errors are `{"error": "<plain message>"}` with status 400 (bad input), 404 (unkn
 
 ## Database (SQLite, owned by `api/`)
 
-Built fresh at startup from the data folder (hosting disks may be wiped), at `LUNCHLOOP_DB` (default `lunchloop.db`, git-ignored). Tables: `items`, `meals`, `menu`, `vote_options`, `votes(device, date, item_id)`, `guesses(device, date, target_date, item_id)`, `players(device, streak, xp, last_vote_date)`. Votes, guesses and players survive restarts only if the file does.
+Built fresh at startup from the data folder (hosting disks may be wiped), at `LUNCHLOOP_DB` (default `lunchloop.db`, git-ignored). Tables: `items`, `meals`, `menu`, `vote_options`, `votes(device, date, item_id)`, `guesses(device, date, target_date, item_id)`, `trays(school_id, device, date, target_date, component, item_id)`, `players(device, streak, xp, last_vote_date)`. Votes, guesses, trays and players survive restarts only if the file does.
 
 ## School accounts
 
@@ -179,7 +187,7 @@ These routes are public and show only anonymous data, so judges can watch the ba
 | GET /api/events?after=&limit= | `after` = last event id seen (default 0), `limit` 1 to 100 (default 50) | `{"events": [{"id", "at", "kind", "school_id", "player", "summary", "detail": {}, "ms"}], "latest_id", "simulated": true}` oldest first |
 | GET /api/trace/forecast?item_id=&date=&ratio= | date default today, ratio default 3.0 | see below |
 
-Events: the server keeps the newest 300 in memory (lost on restart). `kind` is one of `spin`, `vote`, `guess`, `staff_sign_in`, `staff_sign_in_failed`, `prep`, `savings`, `simulate`, `meter`, `rate_limited`. `at` is an ISO UTC time. `player` is a 6-character anonymous tag (an HMAC of the device id with the server secret), or null. `summary` is one plain sentence (for example "A player voted for Beef nachos"). `detail` holds small numbers (for example the new tally, or the prep total and item count). `ms` is how long the work took, or null. Events never hold device ids, passwords, tokens, IP addresses or user agents. Admin summary polls are not events.
+Events: the server keeps the newest 300 in memory (lost on restart). `kind` is one of `spin`, `vote`, `guess`, `tray`, `staff_sign_in`, `staff_sign_in_failed`, `prep`, `savings`, `simulate`, `meter`, `rate_limited`. A tray event says that a player packed a tray for the target date, with picked count and tally total in `detail`. `at` is an ISO UTC time. `player` is a 6-character anonymous tag (an HMAC of the device id with the server secret), or null. `summary` is one plain sentence (for example "A player voted for Beef nachos"). `detail` holds small numbers (for example the new tally, or the prep total and item count). `ms` is how long the work took, or null. Events never hold device ids, passwords, tokens, IP addresses or user agents. Admin summary polls are not events.
 
 `/api/trace/forecast` shows every step of `forecast()` for one item, with the same inputs the engine used:
 
