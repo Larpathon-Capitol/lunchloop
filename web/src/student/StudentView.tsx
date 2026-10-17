@@ -4,6 +4,7 @@ import { LayoutGroup, motion, useReducedMotion } from 'framer-motion'
 import { useEffect, useRef, useState, type ComponentType } from 'react'
 import { NavLink, Route, Routes, useLocation } from 'react-router-dom'
 import { greetingLine, ume } from '../mascot'
+import { api, type FreeItem } from '../shared/api'
 import { copy } from '../shared/copy'
 import { Ballot, Crystal, Seal, Tray, type IconProps } from '../shared/icons'
 import { press } from '../shared/motion'
@@ -17,6 +18,8 @@ import { fade, screenSpring, tabSpring } from './springs'
 import { StampsScreen } from './StampsScreen'
 import { useDemoDate } from '../shared/demo'
 import { StudentProvider, useStudent } from './state'
+import { FreeBanner } from './FreeBanner'
+import { LunchCheckIn } from './LunchCheckIn'
 import { TrayScreen } from './TrayScreen'
 import { VoteScreen } from './VoteScreen'
 import './student.css'
@@ -138,6 +141,38 @@ function useGreeting() {
   }, [])
 }
 
+const FREE_POLL_MS = 20_000
+
+/**
+ * Today's lunch, above every tab: free leftovers staff just announced, and the after-lunch
+ * check-in for students who packed a tray for today. Free food is rechecked every 20 seconds
+ * while the page is visible, since staff free it near the end of service.
+ */
+function TodayStrip() {
+  const { me, refreshMe } = useStudent()
+  const [free, setFree] = useState<FreeItem[] | null>(null)
+  useEffect(() => {
+    let alive = true
+    const check = () => {
+      if (document.hidden) return
+      api.free().then((r) => alive && setFree(r.free)).catch(() => {})
+    }
+    const id = window.setInterval(check, FREE_POLL_MS)
+    document.addEventListener('visibilitychange', check)
+    return () => {
+      alive = false
+      window.clearInterval(id)
+      document.removeEventListener('visibilitychange', check)
+    }
+  }, [])
+  return (
+    <>
+      <FreeBanner free={free ?? me?.free_today ?? []} />
+      <LunchCheckIn lunch={me?.today_lunch ?? null} onAnswered={() => void refreshMe()} />
+    </>
+  )
+}
+
 function Game() {
   const { me, calendar, tray, hudBump } = useStudent()
   useGreeting()
@@ -153,6 +188,7 @@ function Game() {
           <SimulatedTag live={activeStudentSchool() === LIVE_SCHOOL} />
         </span>
       </div>
+      <TodayStrip />
       <Screens />
       <p className="game__sim game__sim--foot">
         <SimulatedTag live={activeStudentSchool() === LIVE_SCHOOL} />

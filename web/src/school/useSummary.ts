@@ -84,5 +84,7 @@ export function useSummary(token: string, onExpired: () => void) {
     setValue({ state: 'loading' })
     setTick((n) => n + 1)
   }, [])
-  return [value, retry] as const
+  // Load again now without a loading state, for example right after staff change something.
+  const refresh = useCallback(() => setTick((n) => n + 1), [])
+  return [value, retry, refresh] as const
 }

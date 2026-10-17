@@ -9,6 +9,7 @@ import { ErrorNotice, Loading } from '../shared/ui/Notice'
 import { SimulatedTag } from '../shared/ui/SimulatedTag'
 import { LiveCount } from './LiveCount'
 import type { SchoolSession } from './session'
+import { ServicePanel } from './ServicePanel'
 import { TrayPanel } from './TrayPanel'
 import { useSummary } from './useSummary'
 
@@ -122,7 +123,7 @@ function Stat({ value, label, of }: { value: number; label: string; of: string |
 
 export function Wants({ session, onExpired }: { session: SchoolSession; onExpired: () => void }) {
   const reduce = !!useReducedMotion()
-  const [summary, retry] = useSummary(session.token, onExpired)
+  const [summary, retry, refresh] = useSummary(session.token, onExpired)
 
   if (summary.state === 'loading') return <Loading label={t.loading} />
   if (summary.state === 'error') return <ErrorNotice error={summary.error} onRetry={retry} />
@@ -145,6 +146,14 @@ export function Wants({ session, onExpired }: { session: SchoolSession; onExpire
         </div>
         <SimulatedTag live={session.school.school_id === LIVE_SCHOOL} />
       </header>
+
+      <ServicePanel
+        service={data.service ?? null}
+        freeList={data.free ?? []}
+        token={session.token}
+        onChanged={refresh}
+        onExpired={onExpired}
+      />
 
       <TrayPanel tray={tray} reduce={reduce} />
 

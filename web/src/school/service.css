@@ -1,0 +1,280 @@
+/* Lunch service: today's check-ins and free leftovers. One raised sheet like Tomorrow's trays. */
+.s-svc {
+  background: var(--surface);
+  border: var(--hairline);
+  border-radius: var(--radius);
+  padding: var(--s5) var(--s4);
+  display: grid;
+  gap: var(--s5);
+}
+.s-svc__none {
+  margin: 0;
+  min-height: 0;
+}
+
+.s-svc__status {
+  display: grid;
+  gap: var(--s2);
+}
+.s-svc__line {
+  font-size: var(--text-md);
+  line-height: 1.4;
+  max-width: 76ch;
+}
+.s-svc__line strong {
+  font-weight: 700;
+}
+.s-svc__brush {
+  max-width: 420px;
+}
+.s-svc__left {
+  color: var(--ink-soft);
+  font-size: var(--text-sm);
+}
+
+.s-svc__groups {
+  display: grid;
+  gap: var(--s6) var(--s10);
+  grid-template-columns: minmax(0, 1fr);
+}
+.s-svc__rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.s-svc__row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--s2) var(--s3);
+  align-items: center;
+  padding: var(--s3) 0;
+}
+.s-svc__row + .s-svc__row {
+  border-top: var(--hairline);
+}
+/* A free food sits on a soft leaf wash that bleeds a little past the column. */
+.s-svc__row[data-free] {
+  margin: 0 calc(var(--s2) * -1);
+  padding-left: var(--s2);
+  padding-right: var(--s2);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--leaf) 16%, #ffffff);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--leaf) 45%, #ffffff);
+  border-top-color: transparent;
+}
+.s-svc__row[data-free] + .s-svc__row {
+  border-top-color: transparent;
+}
+.s-svc__main {
+  min-width: 0;
+  display: grid;
+  gap: var(--s1);
+}
+.s-svc__title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s1) var(--s2);
+}
+.s-svc__name {
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+.s-svc__pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 10px 2px 8px;
+  border-radius: var(--radius-pill);
+  background: var(--leaf);
+  color: var(--ink);
+  font-size: var(--text-sm);
+  font-weight: 700;
+  white-space: nowrap;
+}
+.s-svc__pill::before {
+  content: '';
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--surface);
+}
+
+/* Figures double as the bar's legend: each one wears its segment's color as a dot. */
+.s-svc__figs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px var(--s3);
+  color: var(--ink-soft);
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+}
+.s-svc__figs--none {
+  font-style: italic;
+}
+.s-svc__fig {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.s-svc__fig::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--seg);
+  box-shadow: inset 0 0 0 1px var(--seg-edge, transparent);
+}
+.s-svc__fig[data-k='waiting'] {
+  color: var(--ink);
+  font-weight: 700;
+}
+.s-svc [data-k='got'] {
+  --seg: var(--leaf);
+}
+.s-svc [data-k='missed'] {
+  --seg: var(--pink-5);
+}
+.s-svc [data-k='waiting'] {
+  --seg: var(--pink-2);
+  --seg-edge: var(--pink-4);
+}
+
+.s-svc__bar {
+  display: flex;
+  height: 8px;
+  margin-top: var(--s1);
+  max-width: 300px;
+  border-radius: var(--radius-pill);
+  background: var(--pink-1);
+  box-shadow: inset 0 0 0 1px var(--hairline-color);
+  overflow: hidden;
+}
+.s-svc__seg {
+  display: block;
+  height: 100%;
+  background: var(--seg);
+  transition: width 420ms var(--ease-out);
+}
+.s-svc__seg[data-k='waiting'] {
+  background: repeating-linear-gradient(-45deg, var(--pink-2) 0 4px, var(--pink-3) 4px 8px);
+}
+.s-svc__since {
+  color: var(--leaf-deep);
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+
+.s-svc__act {
+  display: flex;
+  justify-content: flex-end;
+}
+.s-svc__btn {
+  min-height: var(--touch);
+  padding: 0 var(--s4);
+  border-radius: var(--radius-pill);
+  border: 1.5px solid var(--pink-4);
+  background: var(--pink-1);
+  color: var(--ink);
+  font: inherit;
+  font-weight: 700;
+  font-size: var(--text-sm);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color var(--t-fast) var(--ease), border-color var(--t-fast) var(--ease);
+}
+.s-svc__btn:hover:not(:disabled) {
+  background: var(--pink-2);
+}
+.s-svc__btn:focus-visible {
+  outline: 3px solid var(--ink);
+  outline-offset: 2px;
+}
+.s-svc__btn:disabled {
+  cursor: progress;
+  opacity: 0.6;
+}
+.s-svc__btn--end {
+  border-color: var(--leaf-deep);
+  background: transparent;
+  color: var(--leaf-deep);
+}
+.s-svc__btn--end:hover:not(:disabled) {
+  background: var(--pink-1);
+}
+
+.s-svc__note {
+  font-size: var(--text-sm);
+  color: var(--leaf-deep);
+  font-weight: 600;
+}
+.s-svc__note:empty {
+  display: none;
+}
+.s-svc__note--bad {
+  color: var(--bad);
+}
+
+/* Confirm dialog */
+.s-svc__dialog {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  max-width: min(440px, calc(100vw - 32px));
+  width: 100%;
+  overflow: visible;
+}
+.s-svc__dialog::backdrop {
+  background: rgba(58, 22, 38, 0.42);
+}
+.s-svc__dlg {
+  background: var(--surface);
+  color: var(--ink);
+  border-radius: var(--radius-lg);
+  padding: var(--s6);
+  display: grid;
+  gap: var(--s3);
+  box-shadow: 0 24px 60px -20px rgba(58, 22, 38, 0.45);
+}
+.s-svc__dlg-title {
+  font-family: var(--font-ui);
+  font-size: var(--text-lg);
+  font-weight: 800;
+}
+.s-svc__dlg-body {
+  color: var(--ink);
+  line-height: 1.45;
+}
+.s-svc__dlg-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--s3);
+  margin-top: var(--s3);
+}
+.s-svc__dlg-actions .btn--quiet {
+  min-height: 54px;
+  border-radius: var(--radius-pill);
+  border: 2px solid var(--pink-4);
+}
+.s-svc__dlg-actions .btn--quiet:focus-visible {
+  outline: 3px solid var(--ink);
+  outline-offset: 2px;
+}
+
+@media (min-width: 900px) {
+  .s-svc {
+    padding: var(--s6);
+  }
+  .s-svc__groups {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .s-svc__seg,
+  .s-svc__btn {
+    transition: none;
+  }
+}
