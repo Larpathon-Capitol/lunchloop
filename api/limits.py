@@ -92,7 +92,7 @@ class LimitsMiddleware:
     async def _limited(self, send, scope, which):
         ip = (scope.get("client") or ("unknown", 0))[0]
         now = time.monotonic()
-        if now - self.last_event.get(ip, 0) >= 60:
+        if ip not in self.last_event or now - self.last_event[ip] >= 60:
             self.last_event[ip] = now
             store = self.event_store() if self.event_store else None
             if store:

@@ -378,3 +378,15 @@ def test_savings_cache_stays_bounded(client):
 
 def test_savings_weeks_are_capped_at_twelve(client):
     assert client.get("/api/savings?weeks=52").status_code == 400
+
+
+def test_first_rate_limit_is_logged_soon_after_boot(monkeypatch):
+    # The limiter's clock starts at boot; a fresh machine must still log the first block.
+    import api.limits
+
+    monkeypatch.setattr(api.limits.time, "monotonic", lambda: 5.0)
+    app = make_app(request_limit=1)
+    with TestClient(app) as client:
+        client.get("/api/health")
+        assert client.get("/api/health").status_code == 429
+    assert [e["kind"] for e in app.state.events.events].count("rate_limited") == 1
