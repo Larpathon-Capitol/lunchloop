@@ -39,6 +39,8 @@ export function WasteMeter({ meter }: { meter: Meter }) {
   const count = Math.max(1, Math.ceil(meter.servings_saved / unit))
   const trays = Array.from({ length: count }, (_, i) => Math.min(1, Math.max(0, meter.servings_saved / unit - i)))
   const stagger = dur.med / count
+  // Show dollars only when LunchLoop still comes out ahead after counting shortages.
+  const showDollars = meter.net_dollars_saved >= 0.5
   const week = fmtDay(meter.week_start, { month: 'short', day: 'numeric' })
 
   return (
@@ -56,14 +58,16 @@ export function WasteMeter({ meter }: { meter: Meter }) {
           </span>
           <span className="meter__label">{t.servings}</span>
         </p>
-        <p className="meter__figure">
-          <span className="meter__big">
-            <CountUp id="meter-dollars" value={meter.dollars_saved} format={fmtMoney} />
-          </span>
-          <span className="meter__label">{t.dollars}</span>
-        </p>
+        {showDollars && (
+          <p className="meter__figure">
+            <span className="meter__big">
+              <CountUp id="meter-dollars" value={meter.net_dollars_saved} format={fmtMoney} />
+            </span>
+            <span className="meter__label">{t.dollars}</span>
+          </p>
+        )}
       </div>
-      <div className="meter__trays" style={{ gridTemplateColumns: `repeat(${count}, minmax(0, 1fr))` }} role="img" aria-label={t.figure(fmtInt(meter.servings_saved), fmtMoney(meter.dollars_saved), week)}>
+      <div className="meter__trays" style={{ gridTemplateColumns: `repeat(${count}, minmax(0, 1fr))` }} role="img" aria-label={t.figure(fmtInt(meter.servings_saved), showDollars ? fmtMoney(meter.net_dollars_saved) : null, week)}>
         {trays.map((fill, i) => (
           <span className="meter__tray" key={i}>
             <span className="meter__tray-empty">

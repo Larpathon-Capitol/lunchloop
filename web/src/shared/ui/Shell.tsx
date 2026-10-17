@@ -40,7 +40,7 @@ export function Shell() {
   firstRender.current = false
 
   useEffect(() => {
-    document.title = view === 'kitchen' ? copy.app.titleKitchen : view === 'student' ? copy.app.titleStudent : copy.app.titleHome
+    document.title = view === 'school' ? copy.app.titleSchool : view === 'student' ? copy.app.titleStudent : copy.app.titleHome
   }, [view])
 
   return (
@@ -62,8 +62,8 @@ export function Shell() {
             <span className="shell__brand-name">{copy.app.name}</span>
           </Link>
           <nav className="shell__nav" aria-label={copy.app.navLabel}>
-            <NavItem to="/kitchen" label={copy.app.navKitchen} reduce={reduce} />
             <NavItem to="/student" label={copy.app.navStudent} reduce={reduce} />
+            <NavItem to="/school" label={copy.app.navSchool} reduce={reduce} />
           </nav>
           <button
             className="shell__mute"

@@ -374,6 +374,23 @@
 .k-savings__rest {
   color: var(--slate);
 }
+.k-savings__net {
+  margin-bottom: var(--s2);
+  max-width: 70ch;
+}
+.k-savings__netbig {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: var(--text-xl);
+  line-height: var(--leading-tight);
+  margin-right: var(--s1);
+}
+.k-savings__how {
+  margin-bottom: var(--s5);
+  color: var(--slate);
+  font-size: var(--text-sm);
+  max-width: 70ch;
+}
 .k-cmp {
   width: 100%;
   max-width: 640px;

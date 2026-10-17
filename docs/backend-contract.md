@@ -131,3 +131,70 @@ Errors are `{"error": "<plain message>"}` with status 400 (bad input), 404 (unkn
 ## Database (SQLite, owned by `api/`)
 
 Built fresh at startup from the data folder (hosting disks may be wiped), at `LUNCHLOOP_DB` (default `lunchloop.db`, git-ignored). Tables: `items`, `meals`, `menu`, `vote_options`, `votes(device, date, item_id)`, `guesses(device, date, target_date, item_id)`, `players(device, streak, xp, last_vote_date)`. Votes, guesses and players survive restarts only if the file does.
+
+## School accounts
+
+Students play without an account. School staff sign in to see what their students want. Each school has its own password, and a school's staff only ever see their own school's votes.
+
+**schools.csv** (in the data folder): `school_id, name, students`. `school_id` is a lowercase slug. The repo ships one school: `demo`, the simulated school.
+
+- Passwords never live in the repo. Env var `LUNCHLOOP_SCHOOL_PASSWORDS` holds `school_id=hash` pairs separated by commas. A hash is `pbkdf2_sha256$<iterations>$<salt hex>$<hash hex>`, made with `python tools/hash_password.py`.
+- If the env var does not set a hash for `demo`, the demo school uses the public demo password `lunchloop`, so anyone can try the school view. Every other school without a hash cannot sign in.
+- Sign-in returns a token: `<payload>.<signature>`, where payload is base64url JSON `{"s": school_id, "exp": unix seconds}` and signature is the hex HMAC-SHA256 of the payload with env var `LUNCHLOOP_SECRET` (a random secret per process if unset, so sign-ins end on restart). Tokens last 12 hours.
+- Five failed sign-ins for one school from one client in 10 minutes block more tries for that pair until the window passes (status 429).
+
+Student routes (`spin`, `vote`, `guess`, `me`) take an optional `school` (query param on GET, body field on POST), default `demo`. An unknown school is a 404. Votes, guesses and players are stored per school. Every school uses the same simulated menu data for now.
+
+| method and path | request | response |
+| --- | --- | --- |
+| GET /api/schools | | `{"schools": [{"school_id", "name", "demo_password": str or null}], "simulated": true}` (`demo_password` is set only when the school uses the public demo password) |
+| POST /api/admin/login | `{"school_id", "password"}` | `{"token", "school": {"school_id", "name"}, "expires_at", "simulated": true}`; 401 `{"error": "wrong school or password"}`; 429 when blocked |
+| GET /api/admin/summary | header `Authorization: Bearer <token>` | see below; 401 when the token is missing, wrong or expired |
+
+`/api/admin/summary` response, for the token's school and the demo clock's today:
+
+```
+{"school": {"school_id", "name", "students"}, "today",
+ "vote": {"target_date", "target_slot", "total",
+          "options": [{"item_id", "name", "votes", "share"}]} or null,   # today's live vote; share is 0 to 1, 0 when total is 0
+ "recent_votes": [{"open_date", "target_date", "total", "winner": {"item_id", "name", "votes"}}],
+                                                                        # this school's last 10 vote days before today that had votes, newest first
+ "past_winners": [{"date", "item_id", "name", "vote_share"}],           # meals.csv rows before today with a vote_share, newest first, at most 10 (simulated history)
+ "guesses": {"target_date", "total", "items": [{"item_id", "name", "guesses"}]} or null,
+                                                                        # Called It guesses made today, most guessed first
+ "players": {"total", "voted_today", "voted_last_5_days"},              # last 5 school days up to and including today
+ "simulated": true}
+```
+
+## Live demo school
+
+`schools.csv` also has `live` (name "LunchLoop live demo", students empty). It is where real people vote during a presentation. It has no public password: it signs in only when `LUNCHLOOP_SCHOOL_PASSWORDS` sets a hash for it. For `live`, the `X-Demo-Date` header is ignored (its clock is always `LUNCHLOOP_TODAY`), so nobody can vote twice by changing the date.
+
+## Behind the scenes
+
+These routes are public and show only anonymous data, so judges can watch the backend work.
+
+| method and path | request | response |
+| --- | --- | --- |
+| GET /api/events?after=&limit= | `after` = last event id seen (default 0), `limit` 1 to 100 (default 50) | `{"events": [{"id", "at", "kind", "school_id", "player", "summary", "detail": {}, "ms"}], "latest_id", "simulated": true}` oldest first |
+| GET /api/trace/forecast?item_id=&date=&ratio= | date default today, ratio default 3.0 | see below |
+
+Events: the server keeps the newest 300 in memory (lost on restart). `kind` is one of `spin`, `vote`, `guess`, `staff_sign_in`, `staff_sign_in_failed`, `prep`, `savings`, `simulate`, `meter`, `rate_limited`. `at` is an ISO UTC time. `player` is a 6-character anonymous tag (an HMAC of the device id with the server secret), or null. `summary` is one plain sentence (for example "A player voted for Beef nachos"). `detail` holds small numbers (for example the new tally, or the prep total and item count). `ms` is how long the work took, or null. Events never hold device ids, passwords, tokens, IP addresses or user agents. Admin summary polls are not events.
+
+`/api/trace/forecast` shows every step of `forecast()` for one item, with the same inputs the engine used:
+
+```
+{"item_id", "name", "date", "weekday", "ratio",
+ "history": [{"date", "attendance", "taken", "rate"}],   # the rows behind the baseline rate (same weekday, newest 4)
+ "mean_rate", "attendance", "attendance_history": [{"date", "attendance"}],
+ "predicted", "misses": [float], "sigma", "sigma_fallback": bool,
+ "service_level", "z", "buffer", "floor", "prep", "reason", "simulated": true}
+```
+`predicted`, `sigma`, `buffer`, `floor` and `prep` must equal what `forecast()` returns for the same arguments.
+
+## Limits
+
+- The interactive docs (`/docs`, `/redoc`, `/openapi.json`) are off unless env `LUNCHLOOP_DOCS=1`.
+- Request bodies over 16 KB get 413.
+- Each client IP may make 600 requests a minute, and 60 votes plus guesses in 10 minutes (a whole class can share one school Wi-Fi address). Over the limit: 429 `{"error": "slow down a little"}`.
+- Every response carries `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer` and `X-Frame-Options: DENY`; admin responses also carry `Cache-Control: no-store`.

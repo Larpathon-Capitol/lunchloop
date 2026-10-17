@@ -51,10 +51,12 @@ export const student = {
     heading: 'Leftovers avoided in our simulated school',
     week: (day: string) => `Week of ${day}`,
     servings: 'fewer leftover servings than the usual amount',
-    dollars: 'less food money wasted than the usual amount',
+    dollars: 'saved, even after counting the times it ran short',
     unit: (n: number) => `Each tray is ${n} servings.`,
-    figure: (servings: string, dollars: string, week: string) =>
-      `Week of ${week}: ${servings} fewer leftover servings than the usual amount, and ${dollars} less food money wasted.`,
+    figure: (servings: string, dollars: string | null, week: string) =>
+      dollars
+        ? `Week of ${week}: ${servings} fewer leftover servings than the usual amount, and ${dollars} saved, even after counting the times it ran short.`
+        : `Week of ${week}: ${servings} fewer leftover servings than the usual amount.`,
   },
 
   calledIt: {

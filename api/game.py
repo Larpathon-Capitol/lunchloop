@@ -55,10 +55,10 @@ def next_day(connection, current_date):
     ).fetchone()
 
 
-def ensure_player(connection, player_device):
+def ensure_player(connection, player_device, school_id="demo"):
     connection.execute(
-        "INSERT OR IGNORE INTO players(device, streak, xp, last_vote_date) VALUES(?,?,?,NULL)",
-        (player_device, 0, 0),
+        "INSERT OR IGNORE INTO players(school_id, device, streak, xp, last_vote_date) VALUES(?,?,?,?,NULL)",
+        (school_id, player_device, 0, 0),
     )
 
 
@@ -79,7 +79,7 @@ def score_guess(guess, current_date, taken):
     return guessed is not None and guessed["servings_taken"] == highest
 
 
-def stats(connection, player_device, current_date, taken):
+def stats(connection, player_device, current_date, taken, school_id="demo"):
     """Return streak, XP, badges, and latest vote date through the current date.
 
     Streaks run across school days ending today or the previous school day.
@@ -88,8 +88,8 @@ def stats(connection, player_device, current_date, taken):
     """
     vote_rows = rows(
         connection,
-        "SELECT date FROM votes WHERE device=? AND date<=?",
-        (player_device, current_date),
+        "SELECT date FROM votes WHERE school_id=? AND device=? AND date<=?",
+        (school_id, player_device, current_date),
     )
     voted_dates = {row[0] for row in vote_rows}
     last_vote_date = max(voted_dates) if voted_dates else None
@@ -104,8 +104,8 @@ def stats(connection, player_device, current_date, taken):
 
     guess_rows = rows(
         connection,
-        "SELECT * FROM guesses WHERE device=? AND date<=?",
-        (player_device, current_date),
+        "SELECT * FROM guesses WHERE school_id=? AND device=? AND date<=?",
+        (school_id, player_device, current_date),
     )
     correct_guesses = sum(
         score_guess(guess, current_date, taken) is True for guess in guess_rows

@@ -2,6 +2,12 @@
 
 import os
 import sqlite3
+import csv
+import hmac
+import re
+import threading
+import time
+from pathlib import Path
 from contextlib import asynccontextmanager, closing
 
 import engine
@@ -9,10 +15,11 @@ from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, ConfigDict, StrictFloat
+from pydantic import BaseModel, ConfigDict, Field, StrictFloat
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from .db import connect, init_db, load_taken
+from .auth import configured_passwords, make_token, read_token, verify_password
 from .game import (
     device,
     ensure_player,
@@ -26,6 +33,7 @@ from .game import (
 
 MAX_RATIO = 99
 MAX_MULTIPLIER = 10
+SCHOOL_PATTERN = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*")
 
 
 def not_found_errors():
@@ -39,6 +47,7 @@ class VoteBody(BaseModel):
 
     device: str
     item_id: str
+    school: str | None = None
 
 
 class GuessBody(BaseModel):
@@ -46,6 +55,7 @@ class GuessBody(BaseModel):
 
     device: str
     item_id: str
+    school: str | None = None
 
 
 class SimulateBody(BaseModel):
@@ -57,17 +67,42 @@ class SimulateBody(BaseModel):
     ratio: StrictFloat = 3.0
 
 
+class LoginBody(BaseModel):
+    model_config = ConfigDict(strict=True)
+
+    school_id: str = Field(max_length=64)
+    password: str = Field(max_length=1024)
+
+
+FAILURE_WINDOW = 600
+MAX_FAILURES = 5
+
+
 def create_app():
     settings = {
         "data": os.getenv("LUNCHLOOP_DATA_DIR", "data"),
         "db": os.getenv("LUNCHLOOP_DB", "lunchloop.db"),
         "today": os.getenv("LUNCHLOOP_TODAY", "2026-10-19"),
     }
+    failures = {}
+    failures_lock = threading.Lock()
 
     @asynccontextmanager
     async def lifespan(application):
         init_db(settings["db"], settings["data"])
         application.state.taken = load_taken(settings["data"])
+        schools_path = Path(settings["data"]) / "schools.csv"
+        schools = {}
+        if schools_path.exists():
+            with schools_path.open(newline="") as handle:
+                for row in csv.DictReader(handle):
+                    if SCHOOL_PATTERN.fullmatch(row.get("school_id", "")):
+                        students = row.get("students") or None
+                        schools[row["school_id"]] = {"school_id": row["school_id"], "name": row.get("name", ""), "students": int(students) if students and students.isdigit() else None}
+        if not schools:
+            schools["demo"] = {"school_id": "demo", "name": "Simulated high school", "students": None}
+        application.state.schools = schools
+        application.state.passwords = configured_passwords()
         application.state.settings = settings
         yield
 
@@ -103,18 +138,116 @@ def create_app():
         request_settings = request.app.state.settings
         return request_settings, today(request, request_settings)
 
+    def school_id(request, value):
+        selected = value or "demo"
+        if not isinstance(selected, str) or not SCHOOL_PATTERN.fullmatch(selected) or selected not in request.app.state.schools:
+            raise HTTPException(404, "unknown school")
+        return selected
+
+    def admin_school(request):
+        header = request.headers.get("Authorization", "")
+        if not header.startswith("Bearer "):
+            raise HTTPException(401, "sign in again")
+        payload = read_token(header[7:])
+        if not payload or not isinstance(payload.get("s"), str) or payload["s"] not in request.app.state.schools:
+            raise HTTPException(401, "sign in again")
+        return payload["s"]
+
+    @application.get("/api/schools")
+    def schools(request: Request):
+        passwords = request.app.state.passwords
+        return {"schools": [{"school_id": row["school_id"], "name": row["name"], "demo_password": "lunchloop" if row["school_id"] == "demo" and row["school_id"] not in passwords else None} for row in request.app.state.schools.values()], "simulated": True}
+
+    @application.post("/api/admin/login")
+    def admin_login(request: Request, body: LoginBody):
+        selected = body.school_id
+        # An unknown school has nothing to guess, so it is never counted.
+        if selected not in request.app.state.schools:
+            raise HTTPException(401, "wrong school or password")
+        configured = request.app.state.passwords.get(selected)
+        public_demo = selected == "demo" and not configured
+        key = (selected, request.client.host if request.client else "unknown")
+        if not public_demo:
+            now = time.time()
+            with failures_lock:
+                for stale in [k for k, stamps in failures.items() if now - stamps[-1] >= FAILURE_WINDOW]:
+                    del failures[stale]
+                attempts = [stamp for stamp in failures.get(key, []) if now - stamp < FAILURE_WINDOW]
+                if len(attempts) >= MAX_FAILURES:
+                    raise HTTPException(429, "too many tries, wait a few minutes")
+                # Count the try before checking it, so parallel guesses can't slip past the limit.
+                attempts.append(now)
+                failures[key] = attempts
+        if configured:
+            valid = verify_password(body.password, configured)
+        else:
+            valid = public_demo and hmac.compare_digest(body.password.encode(), b"lunchloop")
+        if not valid:
+            raise HTTPException(401, "wrong school or password")
+        if not public_demo:
+            with failures_lock:
+                failures.pop(key, None)
+        token, expires = make_token(selected)
+        school = request.app.state.schools[selected]
+        return {"token": token, "school": {"school_id": school["school_id"], "name": school["name"]}, "expires_at": expires, "simulated": True}
+
+    @application.get("/api/admin/summary")
+    def admin_summary(request: Request):
+        selected = admin_school(request)
+        settings, current_date = request_context(request)
+        school = request.app.state.schools[selected]
+        with closing(connect(settings["db"])) as connection:
+            option = connection.execute("SELECT * FROM vote_options WHERE open_date=?", (current_date,)).fetchone()
+            vote = None
+            if option:
+                ids = [option[f"option_{n}"] for n in (1, 2, 3)]
+                options = []
+                total = connection.execute("SELECT COUNT(*) FROM votes WHERE school_id=? AND date=?", (selected, current_date)).fetchone()[0]
+                for item_id in ids:
+                    item = connection.execute("SELECT name FROM items WHERE item_id=?", (item_id,)).fetchone()
+                    count = connection.execute("SELECT COUNT(*) FROM votes WHERE school_id=? AND date=? AND item_id=?", (selected, current_date, item_id)).fetchone()[0]
+                    options.append({"item_id": item_id, "name": item[0], "votes": count, "share": count / total if total else 0})
+                vote = {"target_date": option["target_date"], "target_slot": option["target_slot"], "total": total, "options": options}
+            recent = []
+            dates = connection.execute("SELECT date, COUNT(*) total FROM votes WHERE school_id=? AND date<? GROUP BY date ORDER BY date DESC LIMIT 10", (selected, current_date)).fetchall()
+            for row in dates:
+                winner = connection.execute("SELECT item_id, COUNT(*) votes FROM votes WHERE school_id=? AND date=? GROUP BY item_id ORDER BY votes DESC, item_id LIMIT 1", (selected, row["date"])).fetchone()
+                item = connection.execute("SELECT name FROM items WHERE item_id=?", (winner["item_id"],)).fetchone()
+                target = connection.execute("SELECT target_date FROM vote_options WHERE open_date=?", (row["date"],)).fetchone()
+                recent.append({"open_date": row["date"], "target_date": target[0] if target else row["date"], "total": row["total"], "winner": {"item_id": winner["item_id"], "name": item[0], "votes": winner["votes"]}})
+            past_rows = connection.execute("SELECT date,item_id,vote_share FROM meals WHERE date<? AND vote_share IS NOT NULL ORDER BY date DESC LIMIT 10", (current_date,)).fetchall()
+            past = []
+            for row in past_rows:
+                item = connection.execute("SELECT name FROM items WHERE item_id=?", (row["item_id"],)).fetchone()
+                past.append({"date": row["date"], "item_id": row["item_id"], "name": item[0], "vote_share": row["vote_share"]})
+            guess = connection.execute("SELECT target_date, COUNT(*) total FROM guesses WHERE school_id=? AND date=? GROUP BY target_date", (selected, current_date)).fetchone()
+            guesses = None
+            if guess:
+                items = []
+                for row in connection.execute("SELECT item_id, COUNT(*) guesses FROM guesses WHERE school_id=? AND date=? GROUP BY item_id ORDER BY guesses DESC, item_id", (selected, current_date)):
+                    item = connection.execute("SELECT name FROM items WHERE item_id=?", (row["item_id"],)).fetchone()
+                    items.append({"item_id": row["item_id"], "name": item[0], "guesses": row["guesses"]})
+                guesses = {"target_date": guess["target_date"], "total": guess["total"], "items": items}
+            player_total = connection.execute("SELECT COUNT(*) FROM players WHERE school_id=?", (selected,)).fetchone()[0]
+            voted_today = connection.execute("SELECT COUNT(*) FROM votes WHERE school_id=? AND date=?", (selected, current_date)).fetchone()[0]
+            school_dates = [row[0] for row in connection.execute("SELECT DISTINCT date FROM menu WHERE date<=? ORDER BY date DESC LIMIT 5", (current_date,))]
+            placeholders = ",".join("?" for _ in school_dates)
+            voted_last = connection.execute(f"SELECT COUNT(DISTINCT device) FROM votes WHERE school_id=? AND date IN ({placeholders})", (selected, *school_dates)).fetchone()[0] if school_dates else 0
+        return {"school": school, "today": current_date, "vote": vote, "recent_votes": recent, "past_winners": past, "guesses": guesses, "players": {"total": player_total, "voted_today": voted_today, "voted_last_5_days": voted_last}, "simulated": True}
+
     @application.get("/api/health")
     def health(request: Request):
         _, current_date = request_context(request)
         return {"ok": True, "today": current_date, "simulated": True}
 
     @application.get("/api/spin")
-    def spin(request: Request, device_id: str | None = Query(None, alias="device")):
+    def spin(request: Request, device_id: str | None = Query(None, alias="device"), school: str | None = None):
         request_settings, current_date = request_context(request)
+        selected_school = school_id(request, school)
         player_device = device(device_id, required=False)
         with closing(connect(request_settings["db"])) as connection:
             if player_device:
-                ensure_player(connection, player_device)
+                ensure_player(connection, player_device, selected_school)
                 connection.commit()
             option_row = connection.execute(
                 "SELECT * FROM vote_options WHERE open_date=?", (current_date,)
@@ -142,8 +275,8 @@ def create_app():
             already_voted = bool(
                 player_device
                 and connection.execute(
-                    "SELECT 1 FROM votes WHERE device=? AND date=?",
-                    (player_device, current_date),
+                    "SELECT 1 FROM votes WHERE school_id=? AND device=? AND date=?",
+                    (selected_school, player_device, current_date),
                 ).fetchone()
             )
         return {
@@ -158,6 +291,7 @@ def create_app():
     @application.post("/api/vote")
     def vote(request: Request, body: VoteBody):
         request_settings, current_date = request_context(request)
+        selected_school = school_id(request, body.school)
         player_device = device(body.device)
         with closing(connect(request_settings["db"])) as connection:
             option_row = connection.execute(
@@ -174,25 +308,25 @@ def create_app():
                 raise HTTPException(400, "item is not an option")
             try:
                 connection.execute(
-                    "INSERT INTO votes(device, date, item_id) VALUES(?,?,?)",
-                    (player_device, current_date, body.item_id),
+                    "INSERT INTO votes(school_id, device, date, item_id) VALUES(?,?,?,?)",
+                    (selected_school, player_device, current_date, body.item_id),
                 )
             except sqlite3.IntegrityError as error:
                 connection.rollback()
                 raise HTTPException(409, "already voted today") from error
-            ensure_player(connection, player_device)
+            ensure_player(connection, player_device, selected_school)
             streak, xp, _, last_vote_date = stats(
-                connection, player_device, current_date, request.app.state.taken
+                connection, player_device, current_date, request.app.state.taken, selected_school
             )
             connection.execute(
-                "UPDATE players SET streak=?, xp=?, last_vote_date=? WHERE device=?",
-                (streak, xp, last_vote_date, player_device),
+                "UPDATE players SET streak=?, xp=?, last_vote_date=? WHERE school_id=? AND device=?",
+                (streak, xp, last_vote_date, selected_school, player_device),
             )
             connection.commit()
             tally = {
                 item_id: connection.execute(
-                    "SELECT COUNT(*) FROM votes WHERE date=? AND item_id=?",
-                    (current_date, item_id),
+                    "SELECT COUNT(*) FROM votes WHERE school_id=? AND date=? AND item_id=?",
+                    (selected_school, current_date, item_id),
                 ).fetchone()[0]
                 for item_id in option_ids
             }
@@ -205,17 +339,18 @@ def create_app():
         }
 
     @application.get("/api/me")
-    def me(request: Request, device_id: str | None = Query(None, alias="device")):
+    def me(request: Request, device_id: str | None = Query(None, alias="device"), school: str | None = None):
         request_settings, current_date = request_context(request)
+        selected_school = school_id(request, school)
         player_device = device(device_id)
         with closing(connect(request_settings["db"])) as connection:
-            ensure_player(connection, player_device)
+            ensure_player(connection, player_device, selected_school)
             streak, xp, badges, last_vote_date = stats(
-                connection, player_device, current_date, request.app.state.taken
+                connection, player_device, current_date, request.app.state.taken, selected_school
             )
             guess = connection.execute(
-                "SELECT * FROM guesses WHERE device=? AND date<=? ORDER BY date DESC LIMIT 1",
-                (player_device, current_date),
+                "SELECT * FROM guesses WHERE school_id=? AND device=? AND date<=? ORDER BY date DESC LIMIT 1",
+                (selected_school, player_device, current_date),
             ).fetchone()
             last_guess = None
             if guess is not None:
@@ -225,8 +360,8 @@ def create_app():
                     "correct": score_guess(guess, current_date, request.app.state.taken),
                 }
             connection.execute(
-                "UPDATE players SET streak=?, xp=?, last_vote_date=? WHERE device=?",
-                (streak, xp, last_vote_date, player_device),
+                "UPDATE players SET streak=?, xp=?, last_vote_date=? WHERE school_id=? AND device=?",
+                (streak, xp, last_vote_date, selected_school, player_device),
             )
             connection.commit()
         return {
@@ -241,9 +376,10 @@ def create_app():
     @application.post("/api/guess")
     def guess(request: Request, body: GuessBody):
         request_settings, current_date = request_context(request)
+        selected_school = school_id(request, body.school)
         player_device = device(body.device)
         with closing(connect(request_settings["db"])) as connection:
-            ensure_player(connection, player_device)
+            ensure_player(connection, player_device, selected_school)
             connection.commit()
             if not connection.execute(
                 "SELECT 1 FROM menu WHERE date=?", (current_date,)
@@ -266,8 +402,8 @@ def create_app():
                 raise HTTPException(400, "item is not a meat alternate")
             try:
                 connection.execute(
-                    "INSERT INTO guesses(device, date, target_date, item_id) VALUES(?,?,?,?)",
-                    (player_device, current_date, target_row[0], body.item_id),
+                    "INSERT INTO guesses(school_id, device, date, target_date, item_id) VALUES(?,?,?,?,?)",
+                    (selected_school, player_device, current_date, target_row[0], body.item_id),
                 )
             except sqlite3.IntegrityError as error:
                 connection.rollback()

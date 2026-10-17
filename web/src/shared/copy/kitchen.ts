@@ -40,9 +40,17 @@ export const kitchen = {
     leftovers: 'Leftover servings',
     wasted: 'Money wasted',
     short: 'Servings short',
+    shortCost: 'Food cost of servings short',
     shortNote: (ll: string, usual: string) =>
       `LunchLoop plans closer to what is eaten, so it runs short more often: ${ll} servings short, against ${usual} for the usual amount. Short counts only what students took, so on sold-out days real demand was higher.`,
     empty: 'No numbers to compare yet.',
+    net: {
+      saved: 'saved overall in our simulated school, after counting what running short would have cost.',
+      cost: 'more overall in our simulated school. Running short would have cost more than the leftovers saved.',
+      even: 'Overall, LunchLoop and the usual amount would have cost the same in our simulated school, after counting what running short would have cost.',
+      how: (ratio: number) =>
+        `A serving short is counted as ${ratio} times its food cost, so this number already pays for running short.`,
+    },
   },
 
   chart: {

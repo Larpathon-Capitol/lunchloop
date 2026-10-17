@@ -1,5 +1,6 @@
 // All user-facing words live here (and in the files it pulls in), so wording stays consistent.
 import { kitchen } from './copy/kitchen'
+import { school } from './copy/school'
 import { student } from './copy/student'
 
 export const copy = {
@@ -7,7 +8,7 @@ export const copy = {
     name: 'LunchLoop',
     simulated: 'Simulated data',
     simulatedHelp: 'Every number here comes from a made-up school, not a real cafeteria.',
-    navKitchen: 'Kitchen',
+    navSchool: 'School',
     navStudent: 'Student',
     navLabel: 'Main sections',
     skipToMain: 'Skip to main content',
@@ -15,14 +16,14 @@ export const copy = {
     soundTurnOff: 'Turn sound off',
     soundTurnOn: 'Turn sound on',
     titleHome: 'LunchLoop',
-    titleKitchen: 'Kitchen | LunchLoop',
+    titleSchool: 'School | LunchLoop',
     titleStudent: 'Student | LunchLoop',
   },
   home: {
     titleLines: ['Vote on lunch.', 'The kitchen cooks it.'],
     lead: 'Spin for three options and vote for one. The kitchen plans how much to cook from the numbers.',
-    studentCta: 'Spin and vote on lunch',
-    kitchenCta: 'Open the kitchen view',
+    studentCta: 'Play as a student',
+    schoolCta: 'Open the school view',
     trayLabel: 'A lunch tray with a plate, a bowl, fruit and a milk carton',
     meterSuffix: 'fewer leftover servings than the usual amount in our simulated school',
     meterWeek: (day: string) => `week of ${day}`,
@@ -37,4 +38,5 @@ export const copy = {
   loading: 'Loading…',
   kitchen,
   student,
+  school,
 }

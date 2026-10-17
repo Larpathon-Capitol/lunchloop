@@ -15,18 +15,20 @@ def connect(path):
 def init_db(path, data_dir):
     connection = connect(path)
     try:
+        _migrate_game_tables(connection)
         connection.executescript(
             """
             CREATE TABLE IF NOT EXISTS votes(
-                device TEXT, date TEXT, item_id TEXT, PRIMARY KEY(device, date)
+                school_id TEXT NOT NULL DEFAULT 'demo', device TEXT, date TEXT, item_id TEXT,
+                PRIMARY KEY(school_id, device, date)
             );
             CREATE TABLE IF NOT EXISTS guesses(
-                device TEXT, date TEXT, target_date TEXT, item_id TEXT,
-                PRIMARY KEY(device, date)
+                school_id TEXT NOT NULL DEFAULT 'demo', device TEXT, date TEXT, target_date TEXT, item_id TEXT,
+                PRIMARY KEY(school_id, device, date)
             );
             CREATE TABLE IF NOT EXISTS players(
-                device TEXT PRIMARY KEY, streak INTEGER, xp INTEGER,
-                last_vote_date TEXT
+                school_id TEXT NOT NULL DEFAULT 'demo', device TEXT, streak INTEGER, xp INTEGER,
+                last_vote_date TEXT, PRIMARY KEY(school_id, device)
             );
             DROP TABLE IF EXISTS items;
             DROP TABLE IF EXISTS meals;
@@ -74,6 +76,41 @@ def init_db(path, data_dir):
         connection.commit()
     finally:
         connection.close()
+
+
+def _migrate_game_tables(connection):
+    definitions = {
+        "votes": "school_id TEXT NOT NULL DEFAULT 'demo', device TEXT, date TEXT, item_id TEXT, PRIMARY KEY(school_id, device, date)",
+        "guesses": "school_id TEXT NOT NULL DEFAULT 'demo', device TEXT, date TEXT, target_date TEXT, item_id TEXT, PRIMARY KEY(school_id, device, date)",
+        "players": "school_id TEXT NOT NULL DEFAULT 'demo', device TEXT, streak INTEGER, xp INTEGER, last_vote_date TEXT, PRIMARY KEY(school_id, device)",
+    }
+    connection.commit()
+    for table, definition in definitions.items():
+        old = f"{table}_old"
+        columns = [row[1] for row in connection.execute(f"PRAGMA table_info({table})")]
+        leftover = connection.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name=?", (old,)
+        ).fetchone()
+        if "school_id" in columns and not leftover:
+            continue
+        if not columns and not leftover:
+            continue
+        fields = "device,date,item_id" if table == "votes" else "device,date,target_date,item_id" if table == "guesses" else "device,streak,xp,last_vote_date"
+        # One transaction per table, so a crash halfway leaves the old table as it was.
+        connection.execute("BEGIN")
+        try:
+            if columns and "school_id" not in columns:
+                connection.execute(f"DROP TABLE IF EXISTS {old}")
+                connection.execute(f"ALTER TABLE {table} RENAME TO {old}")
+                columns = []
+            if not columns:
+                connection.execute(f"CREATE TABLE {table}({definition})")
+            connection.execute(f"INSERT OR IGNORE INTO {table}(school_id,{fields}) SELECT 'demo',{fields} FROM {old}")
+            connection.execute(f"DROP TABLE {old}")
+            connection.execute("COMMIT")
+        except Exception:
+            connection.execute("ROLLBACK")
+            raise
 
 
 def load_taken(data_dir):

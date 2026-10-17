@@ -58,6 +58,8 @@ export function Savings({ data }: { data: SavingsData }) {
   const to = days.length ? short(days[days.length - 1].date) : ''
   const ll = data.lunchloop
   const us = data.usual
+  // fmtMoney rounds to whole dollars, so anything under 50 cents reads as $0.
+  const net = Math.abs(data.net_dollars_saved) < 0.5 ? 'even' : data.net_dollars_saved > 0 ? 'saved' : 'cost'
 
   if (days.length === 0) {
     return (
@@ -78,6 +80,18 @@ export function Savings({ data }: { data: SavingsData }) {
           {t.headline(data.weeks, from, to)}
         </span>
       </p>
+
+      <p className="k-savings__net">
+        {net === 'even' ? (
+          t.net.even
+        ) : (
+          <>
+            <span className="k-savings__netbig"><CountUp value={Math.abs(data.net_dollars_saved)} format={fmtMoney} /></span>{' '}
+            <span className="k-savings__rest">{net === 'saved' ? t.net.saved : t.net.cost}</span>
+          </>
+        )}
+      </p>
+      <p className="k-savings__how">{t.net.how(data.shortage_ratio)}</p>
 
       <table className="k-cmp">
         <caption className="visually-hidden">{t.tableCaption}</caption>
@@ -103,6 +117,11 @@ export function Savings({ data }: { data: SavingsData }) {
             <th scope="row">{t.short}</th>
             <td className="k-cmp__num">{fmtInt(ll.servings_short)}</td>
             <td className="k-cmp__num">{fmtInt(us.servings_short)}</td>
+          </tr>
+          <tr>
+            <th scope="row">{t.shortCost}</th>
+            <td className="k-cmp__num">{fmtMoney(ll.dollars_short)}</td>
+            <td className="k-cmp__num">{fmtMoney(us.dollars_short)}</td>
           </tr>
         </tbody>
       </table>

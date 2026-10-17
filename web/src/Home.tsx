@@ -131,8 +131,8 @@ export function Home() {
           <Link to="/student" className="btn btn--primary home__cta">
             {copy.home.studentCta}
           </Link>
-          <Link to="/kitchen" className="btn btn--quiet home__cta">
-            {copy.home.kitchenCta}
+          <Link to="/school" className="btn btn--quiet home__cta">
+            {copy.home.schoolCta}
           </Link>
         </div>
       </div>
