@@ -237,3 +237,24 @@
   outline: none;
   box-shadow: var(--focus-ring);
 }
+
+/* Who a page is for: a small tag beside its name. */
+.hub-row__for {
+  display: inline-block;
+  margin-left: var(--s2);
+  padding: 2px var(--s2);
+  border-radius: var(--radius-pill);
+  font-size: 12px;
+  font-weight: 700;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+.hub-row__for--student {
+  background: var(--pink-2);
+  color: var(--ink);
+}
+.hub-row__for--staff {
+  background: var(--surface);
+  color: var(--leaf-deep);
+  border: 1px solid var(--leaf-deep);
+}

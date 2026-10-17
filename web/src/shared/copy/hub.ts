@@ -1,6 +1,7 @@
 // Words for the Hub: the page Abyan opens during the presentation to jump around.
 export const hub = {
   title: 'Dashboard',
+  audience: { student: 'Student view', staff: 'Staff view' },
   lead: 'Every page in one place. Open one here, or copy its link.',
   nav: 'Dashboard',
   open: 'Open',

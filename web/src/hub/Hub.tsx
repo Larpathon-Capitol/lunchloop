@@ -22,19 +22,21 @@ interface Page {
   path: string
   password?: string
   passwordNote?: string
+  /** Who the page is for, shown as a tag so student and staff views never blur together. */
+  audience: 'student' | 'staff'
 }
 
 const SIMULATED: Page[] = [
-  { key: 'student', path: 'student' },
-  { key: 'school', path: 'school', password: t.pages.school.password },
-  { key: 'kitchen', path: 'school/kitchen', passwordNote: t.pages.kitchen.passwordNote },
-  { key: 'backstage', path: 'behind-the-scenes/simulated' },
+  { key: 'student', path: 'student', audience: 'student' },
+  { key: 'school', path: 'school', password: t.pages.school.password, audience: 'staff' },
+  { key: 'kitchen', path: 'school/kitchen', passwordNote: t.pages.kitchen.passwordNote, audience: 'staff' },
+  { key: 'backstage', path: 'behind-the-scenes/simulated', audience: 'staff' },
 ]
 
 const LIVE: Page[] = [
-  { key: 'live', path: 'live' },
-  { key: 'liveAdmin', path: 'live/admin', passwordNote: t.pages.liveAdmin.passwordNote },
-  { key: 'backstageLive', path: 'behind-the-scenes/live' },
+  { key: 'live', path: 'live', audience: 'student' },
+  { key: 'liveAdmin', path: 'live/admin', passwordNote: t.pages.liveAdmin.passwordNote, audience: 'staff' },
+  { key: 'backstageLive', path: 'behind-the-scenes/live', audience: 'staff' },
 ]
 
 /** The QR code drawn from its own modules, filled with token colors, so nothing is injected as markup. */
@@ -124,7 +126,10 @@ function PageRow({ p, onFullScreen }: { p: Page; onFullScreen: () => void }) {
   return (
     <li className="hub-row">
       <div className="hub-row__text">
-        <h3 className="hub-row__name">{page.name}</h3>
+        <h3 className="hub-row__name">
+          {page.name}
+          <span className={`hub-row__for hub-row__for--${p.audience}`}>{t.audience[p.audience]}</span>
+        </h3>
         <p className="hub-row__line">{page.line}</p>
         <p className="hub-row__url">{short(url)}</p>
         {p.password ? (

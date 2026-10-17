@@ -455,7 +455,12 @@ function Instance({ h, shadowMap }: { h: MascotHandle; shadowMap: THREE.Texture 
     camera.updateProjectionMatrix()
     const bottom = canvas.height - r.bottom
     gl.setViewport(r.left, bottom, r.width, r.height)
-    gl.setScissor(r.left, bottom, r.width, r.height)
+    // The phone tab bar sits inside the page's stacking context, under this canvas, so stop
+    // drawing at its top edge instead of painting over it.
+    const bar = document.querySelector('.tabbar')?.getBoundingClientRect()
+    const clipBottom = bar && bar.height > 0 && bar.top < r.bottom ? Math.max(r.top, bar.top) : r.bottom
+    if (clipBottom <= r.top) return
+    gl.setScissor(r.left, canvas.height - clipBottom, r.width, clipBottom - r.top)
     gl.setScissorTest(true)
     gl.render(state.scene, camera)
     gl.setScissorTest(false)
