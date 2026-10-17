@@ -41,7 +41,7 @@ class LimitsMiddleware:
         if len(request_times) >= self.max_requests:
             return await self._limited(send, scope, "requests")
         request_times.append(now)
-        action = scope.get("method") == "POST" and scope.get("path") in {"/api/vote", "/api/guess", "/api/tray", "/api/demo/crowd"}
+        action = scope.get("method") == "POST" and scope.get("path") in {"/api/vote", "/api/guess", "/api/tray", "/api/demo/crowd", "/api/served", "/api/admin/free"}
         if action and len(action_times) >= self.max_actions:
             return await self._limited(send, scope, "votes and guesses")
         if action:

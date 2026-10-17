@@ -257,7 +257,7 @@ def test_get_tray_shape_and_hand_listed_groups(client):
     response = get_tray(client, "device-0001")
     assert response.status_code == 200
     body = response.json()
-    assert set(body) == {"open_date", "target_date", "groups", "picks", "tally", "simulated"}
+    assert set(body) == {"open_date", "target_date", "groups", "picks", "tally", "today_lunch", "free_today", "simulated"}
     assert body["simulated"] is True
     assert body["open_date"] == TODAY
     assert body["target_date"] == TARGET

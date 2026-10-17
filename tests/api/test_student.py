@@ -242,7 +242,7 @@ def test_guess_scoring_xp_badge_and_clock_rewind(client):
     assert_success(scored_response.json())
     scored = scored_response.json()
     assert set(scored) == {
-        "device", "streak", "xp", "badges", "last_guess", "voted_today", "packed_today", "correct_calls", "simulated"
+        "device", "streak", "xp", "badges", "last_guess", "voted_today", "packed_today", "correct_calls", "today_lunch", "free_today", "simulated"
     }
     assert set(scored["last_guess"]) == {"target_date", "item_id", "correct"}
     assert scored["last_guess"]["correct"] is True and scored["xp"] == 25

@@ -35,6 +35,14 @@ def init_db(path, data_dir):
                 target_date TEXT, component TEXT, item_id TEXT,
                 PRIMARY KEY(school_id, device, date, component)
             );
+            CREATE TABLE IF NOT EXISTS served(
+                school_id TEXT NOT NULL DEFAULT 'demo', device TEXT, date TEXT, got INTEGER NOT NULL,
+                PRIMARY KEY(school_id, device, date)
+            );
+            CREATE TABLE IF NOT EXISTS freebies(
+                school_id TEXT NOT NULL DEFAULT 'demo', date TEXT, item_id TEXT, created_at TEXT NOT NULL,
+                PRIMARY KEY(school_id, date, item_id)
+            );
             DROP TABLE IF EXISTS items;
             DROP TABLE IF EXISTS meals;
             DROP TABLE IF EXISTS menu;

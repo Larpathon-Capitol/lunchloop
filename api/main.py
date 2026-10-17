@@ -88,6 +88,21 @@ class CrowdBody(BaseModel):
     count: Any = None
 
 
+class ServedBody(BaseModel):
+    model_config = ConfigDict(strict=True)
+
+    device: Any = None
+    school: str | None = None
+    got: Any = None
+
+
+class FreeBody(BaseModel):
+    model_config = ConfigDict(strict=True)
+
+    item_id: Any = None
+    free: Any = None
+
+
 class LoginBody(BaseModel):
     model_config = ConfigDict(strict=True)
 
@@ -252,6 +267,44 @@ def create_app(max_requests=3000, max_actions=300, body_limit=16 * 1024, request
             output_groups.append({"component": component, "skips": skips, "items": items})
         return {"target_date": target_date, "total": total, "groups": output_groups}
 
+    def free_items(connection, selected_school, current_date, include_component=False):
+        rows = connection.execute(
+            """SELECT freebies.item_id, items.name, items.component, freebies.created_at
+               FROM freebies JOIN items ON items.item_id=freebies.item_id
+               WHERE freebies.school_id=? AND freebies.date=? ORDER BY freebies.created_at, freebies.item_id""",
+            (selected_school, current_date),
+        ).fetchall()
+        if include_component:
+            return [{"item_id": row["item_id"], "name": row["name"], "component": row["component"], "since": row["created_at"]} for row in rows]
+        return [{"item_id": row["item_id"], "name": row["name"], "since": row["created_at"]} for row in rows]
+
+    def today_lunch(connection, selected_school, player_device, current_date):
+        if not player_device:
+            return None
+        tray_rows = connection.execute(
+            """SELECT date, component, item_id FROM trays
+               WHERE school_id=? AND device=? AND target_date=?
+               ORDER BY date DESC, rowid""",
+            (selected_school, player_device, current_date),
+        ).fetchall()
+        if not tray_rows:
+            return None
+        packed_date = tray_rows[0]["date"]
+        tray_rows = [row for row in tray_rows if row["date"] == packed_date]
+        picks = {row["component"]: row["item_id"] for row in tray_rows}
+        items = []
+        for row in tray_rows:
+            if row["item_id"] is None:
+                continue
+            item = connection.execute("SELECT name FROM items WHERE item_id=?", (row["item_id"],)).fetchone()
+            if item:
+                items.append({"component": row["component"], "item_id": row["item_id"], "name": item["name"]})
+        checked = connection.execute(
+            "SELECT got FROM served WHERE school_id=? AND device=? AND date=?",
+            (selected_school, player_device, current_date),
+        ).fetchone()
+        return {"date": current_date, "picks": picks, "items": items, "checked_in": None if checked is None else bool(checked[0])}
+
     @application.get("/api/schools")
     def schools(request: Request):
         passwords = request.app.state.passwords
@@ -342,7 +395,37 @@ def create_app(max_requests=3000, max_actions=300, body_limit=16 * 1024, request
                 groups = tray_groups(connection, target_row[0])
                 if connection.execute("SELECT 1 FROM trays WHERE school_id=? AND date=? LIMIT 1", (selected, current_date)).fetchone():
                     tray = tray_tally(connection, selected, current_date, target_row[0], groups)
-        return {"school": school, "today": current_date, "vote": vote, "recent_votes": recent, "past_winners": past, "guesses": guesses, "tray": tray, "players": {"total": player_total, "voted_today": voted_today, "voted_last_5_days": voted_last}, "simulated": True}
+            free = free_items(connection, selected, current_date)
+            menu_rows = connection.execute(
+                """SELECT menu.item_id, items.name, items.component FROM menu JOIN items ON items.item_id=menu.item_id
+                   WHERE menu.date=? ORDER BY menu.rowid, items.name""", (current_date,)
+            ).fetchall()
+            packed_devices = connection.execute(
+                "SELECT DISTINCT device FROM trays WHERE school_id=? AND target_date=?", (selected, current_date)
+            ).fetchall()
+            checked_rows = connection.execute(
+                "SELECT device, got FROM served WHERE school_id=? AND date=?", (selected, current_date)
+            ).fetchall()
+            checked_devices = {row["device"] for row in checked_rows}
+            got_devices = {row["device"] for row in checked_rows if row["got"]}
+            missed_devices = checked_devices - got_devices
+            service = None
+            if packed_devices:
+                service_items = []
+                free_ids = {entry["item_id"] for entry in free}
+                for item in menu_rows:
+                    wanted_devices = {row["device"] for row in connection.execute(
+                        "SELECT device FROM trays WHERE school_id=? AND target_date=? AND item_id=?",
+                        (selected, current_date, item["item_id"]),
+                    ).fetchall()}
+                    service_items.append({
+                        "item_id": item["item_id"], "name": item["name"], "component": item["component"],
+                        "wanted": len(wanted_devices), "got": len(wanted_devices & got_devices),
+                        "missed": len(wanted_devices & missed_devices), "waiting": len(wanted_devices - checked_devices),
+                        "free": item["item_id"] in free_ids,
+                    })
+                service = {"date": current_date, "packed": len(packed_devices), "checked_in": len(checked_devices), "got": len(got_devices), "missed": len(missed_devices), "items": service_items}
+        return {"school": school, "today": current_date, "vote": vote, "recent_votes": recent, "past_winners": past, "guesses": guesses, "tray": tray, "players": {"total": player_total, "voted_today": voted_today, "voted_last_5_days": voted_last}, "service": service, "free": free, "simulated": True}
 
     @application.get("/api/health")
     def health(request: Request):
@@ -418,7 +501,9 @@ def create_app(max_requests=3000, max_actions=300, body_limit=16 * 1024, request
                 if packed:
                     picks = {row["component"]: row["item_id"] for row in packed}
                     tally = tray_tally(connection, selected_school, current_date, target_date, groups)
-        return {"open_date": current_date, "target_date": target_date, "groups": groups, "picks": picks, "tally": tally, "simulated": True}
+            lunch = today_lunch(connection, selected_school, player_device, current_date)
+            free = free_items(connection, selected_school, current_date, include_component=True)
+        return {"open_date": current_date, "target_date": target_date, "groups": groups, "picks": picks, "tally": tally, "today_lunch": lunch, "free_today": free, "simulated": True}
 
     @application.post("/api/tray")
     def post_tray(request: Request, body: TrayBody):
@@ -466,6 +551,67 @@ def create_app(max_requests=3000, max_actions=300, body_limit=16 * 1024, request
         picked = sum(item_id is not None for item_id in body.picks.values())
         record(request, "tray", selected_school, player_device, f"A player packed a tray for {target_date}", {"picked": picked, "total": tally["total"]}, started)
         return {"ok": True, "target_date": target_date, "streak": streak, "xp": xp, "tally": tally, "simulated": True}
+
+    @application.post("/api/served")
+    def served(request: Request, body: ServedBody):
+        player_device = device(body.device)
+        selected_school = school_id(request, body.school)
+        if not isinstance(body.got, bool):
+            raise HTTPException(400, "got must be true or false")
+        settings, current_date = request_context(request, selected_school)
+        with closing(connect(settings["db"])) as connection:
+            if not connection.execute(
+                "SELECT 1 FROM trays WHERE school_id=? AND device=? AND target_date=?",
+                (selected_school, player_device, current_date),
+            ).fetchone():
+                raise HTTPException(404, "no tray for today")
+            previous = connection.execute(
+                "SELECT got FROM served WHERE school_id=? AND device=? AND date=?",
+                (selected_school, player_device, current_date),
+            ).fetchone()
+            connection.execute(
+                "INSERT INTO served(school_id,device,date,got) VALUES(?,?,?,?) ON CONFLICT(school_id,device,date) DO UPDATE SET got=excluded.got",
+                (selected_school, player_device, current_date, int(body.got)),
+            )
+            connection.commit()
+        if previous is None or bool(previous[0]) != body.got:
+            record(request, "served", selected_school, player_device, "A student checked in after lunch", {"got": body.got})
+        return {"ok": True, "date": current_date, "got": body.got, "simulated": True}
+
+    @application.get("/api/free")
+    def get_free(request: Request, school: str | None = None):
+        selected_school = school_id(request, school)
+        settings, current_date = request_context(request, selected_school)
+        with closing(connect(settings["db"])) as connection:
+            free = free_items(connection, selected_school, current_date, include_component=True)
+        return {"date": current_date, "free": free, "simulated": True}
+
+    @application.post("/api/admin/free")
+    def admin_free(request: Request, body: FreeBody):
+        selected_school = admin_school(request)
+        if not isinstance(body.item_id, str):
+            raise HTTPException(400, "that food is not on today's menu")
+        if not isinstance(body.free, bool):
+            raise HTTPException(400, "free must be true or false")
+        settings, current_date = request_context(request, selected_school)
+        with closing(connect(settings["db"])) as connection:
+            item = connection.execute(
+                "SELECT items.item_id, items.name FROM menu JOIN items ON items.item_id=menu.item_id WHERE menu.date=? AND items.item_id=?",
+                (current_date, body.item_id),
+            ).fetchone()
+            if item is None:
+                raise HTTPException(400, "that food is not on today's menu")
+            if body.free:
+                created_at = datetime.now(timezone.utc).isoformat(timespec="milliseconds").replace("+00:00", "Z")
+                connection.execute("INSERT OR IGNORE INTO freebies(school_id,date,item_id,created_at) VALUES(?,?,?,?)", (selected_school, current_date, body.item_id, created_at))
+                summary = f"Staff made {item['name'].lower()} leftovers free"
+            else:
+                connection.execute("DELETE FROM freebies WHERE school_id=? AND date=? AND item_id=?", (selected_school, current_date, body.item_id))
+                summary = f"Staff ended free {item['name'].lower()}"
+            connection.commit()
+            free = free_items(connection, selected_school, current_date)
+        record(request, "free", selected_school, summary=summary, detail={"item_id": body.item_id, "free": body.free})
+        return {"ok": True, "date": current_date, "free": free, "simulated": True}
 
     @application.get("/api/events")
     def events(request: Request, after: str = "0", limit: str = "50"):
@@ -517,24 +663,40 @@ def create_app(max_requests=3000, max_actions=300, body_limit=16 * 1024, request
                 weights.append(popularity if popularity else 0.2)
             groups = tray_groups(connection, target[0])
             meat = [row["item_id"] for row in connection.execute("SELECT item_id FROM menu WHERE date=? AND item_id IN (SELECT item_id FROM items WHERE component='meat_alternate')", (target[0],))]
+
+            def random_picks(menu_groups):
+                picks = {}
+                for group in menu_groups:
+                    items = group["items"]
+                    picks[group["component"]] = items[rng.randrange(len(items))]["item_id"] if items and rng.random() > 0.2 else None
+                if menu_groups and not any(value is not None for value in picks.values()):
+                    picks[menu_groups[0]["component"]] = menu_groups[0]["items"][0]["item_id"]
+                return picks
+
+            def taken(fake, day):
+                return any(
+                    connection.execute(query, (selected, fake, day)).fetchone()
+                    for query in (
+                        "SELECT 1 FROM votes WHERE school_id=? AND device=? AND date=?",
+                        "SELECT 1 FROM trays WHERE school_id=? AND device=? AND date=?",
+                        "SELECT 1 FROM guesses WHERE school_id=? AND device=? AND date=?",
+                    )
+                )
+
+            # Today's students: vote, pack tomorrow's tray, and sometimes guess.
             added = 0
             index = existing
             while added < body.count:
                 fake = f"sim-{selected}-{current_date}-{index:03d}"
                 index += 1
                 # A real device may already use this id; skip it rather than fail.
-                if any(connection.execute(f"SELECT 1 FROM {table} WHERE school_id=? AND device=? AND date=?", (selected, fake, current_date)).fetchone() for table in ("votes", "trays", "guesses")):
+                if taken(fake, current_date):
                     continue
                 choice = rng.choices(option_ids, weights)[0]
                 connection.execute("INSERT INTO votes(school_id,device,date,item_id) VALUES(?,?,?,?)", (selected, fake, current_date, choice))
                 record(request, "spin", selected, fake, "A simulated player opened today's vote", {"date": current_date})
                 record(request, "vote", selected, fake, "A simulated player voted", {"item_id": choice})
-                picks = {}
-                for group in groups:
-                    items = group["items"]
-                    picks[group["component"]] = items[rng.randrange(len(items))]["item_id"] if items and rng.random() > 0.2 else None
-                if not any(value is not None for value in picks.values()) and groups:
-                    picks[groups[0]["component"]] = groups[0]["items"][0]["item_id"]
+                picks = random_picks(groups)
                 for group in groups:
                     connection.execute("INSERT INTO trays(school_id,device,date,target_date,component,item_id) VALUES(?,?,?,?,?,?)", (selected, fake, current_date, target[0], group["component"], picks[group["component"]]))
                 record(request, "tray", selected, fake, f"A simulated player packed a tray for {target[0]}", {"picked": sum(value is not None for value in picks.values())})
@@ -543,10 +705,46 @@ def create_app(max_requests=3000, max_actions=300, body_limit=16 * 1024, request
                     connection.execute("INSERT INTO guesses(school_id,device,date,target_date,item_id) VALUES(?,?,?,?,?)", (selected, fake, current_date, target[0], guess_item))
                     record(request, "guess", selected, fake, "A simulated player made a guess", {"item_id": guess_item})
                 added += 1
+
+            # Today's lunch: students who packed yesterday check in after eating. If no simulated
+            # student packed a tray for today yet, make one batch from the previous school day first.
+            lunch_groups = tray_groups(connection, current_date)
+            previous = connection.execute("SELECT date FROM menu WHERE date < ? ORDER BY date DESC LIMIT 1", (current_date,)).fetchone()
+            if lunch_groups and previous:
+                eaters = connection.execute(
+                    "SELECT COUNT(DISTINCT device) FROM trays WHERE school_id=? AND target_date=? AND device LIKE 'sim-%'",
+                    (selected, current_date),
+                ).fetchone()[0]
+                if eaters == 0:
+                    made = 0
+                    slot = 0
+                    while made < body.count:
+                        fake = f"sim-{selected}-{previous[0]}-{slot:03d}"
+                        slot += 1
+                        if taken(fake, previous[0]):
+                            continue
+                        picks = random_picks(lunch_groups)
+                        for group in lunch_groups:
+                            connection.execute("INSERT INTO trays(school_id,device,date,target_date,component,item_id) VALUES(?,?,?,?,?,?)", (selected, fake, previous[0], current_date, group["component"], picks[group["component"]]))
+                        made += 1
+                waiting = [
+                    row[0]
+                    for row in connection.execute(
+                        "SELECT DISTINCT device FROM trays WHERE school_id=? AND target_date=? AND device LIKE 'sim-%' "
+                        "AND device NOT IN (SELECT device FROM served WHERE school_id=? AND date=?) ORDER BY device",
+                        (selected, current_date, selected, current_date),
+                    )
+                ]
+                for fake in waiting[: body.count]:
+                    if rng.random() < 0.85:
+                        got = rng.random() < 0.90
+                        connection.execute("INSERT OR REPLACE INTO served(school_id,device,date,got) VALUES(?,?,?,?)", (selected, fake, current_date, int(got)))
+                        record(request, "served", selected, fake, "A student checked in after lunch", {"got": got})
             connection.commit()
             votes = connection.execute("SELECT COUNT(*) FROM votes WHERE school_id=? AND date=?", (selected, current_date)).fetchone()[0]
             trays = connection.execute("SELECT COUNT(DISTINCT device) FROM trays WHERE school_id=? AND date=?", (selected, current_date)).fetchone()[0]
-        return {"ok": True, "added": added, "date": current_date, "totals": {"votes": votes, "trays": trays}, "simulated": True}
+            checked_in = connection.execute("SELECT COUNT(*) FROM served WHERE school_id=? AND date=?", (selected, current_date)).fetchone()[0]
+        return {"ok": True, "added": added, "date": current_date, "totals": {"votes": votes, "trays": trays, "checked_in": checked_in}, "simulated": True}
 
     @application.get("/api/trace/forecast")
     def trace(request: Request, item_id: str, date_value: str | None = Query(None, alias="date"), ratio: float = 3.0):
@@ -645,6 +843,8 @@ def create_app(max_requests=3000, max_actions=300, body_limit=16 * 1024, request
             voted_today = bool(connection.execute("SELECT 1 FROM votes WHERE school_id=? AND device=? AND date=?", (selected_school, player_device, current_date)).fetchone())
             packed_today = bool(connection.execute("SELECT 1 FROM trays WHERE school_id=? AND device=? AND date=?", (selected_school, player_device, current_date)).fetchone())
             correct_calls = correct_guess_count(connection, player_device, current_date, request.app.state.taken, selected_school)
+            lunch = today_lunch(connection, selected_school, player_device, current_date)
+            free = free_items(connection, selected_school, current_date, include_component=True)
         response = {
             "device": player_device,
             "streak": streak,
@@ -654,6 +854,8 @@ def create_app(max_requests=3000, max_actions=300, body_limit=16 * 1024, request
             "voted_today": voted_today,
             "packed_today": packed_today,
             "correct_calls": correct_calls,
+            "today_lunch": lunch,
+            "free_today": free,
             "simulated": True,
         }
         return response
