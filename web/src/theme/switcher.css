@@ -10,10 +10,17 @@
   color: var(--ink, #3a1626);
 }
 
+/* The label sits on its own paper chip, so it reads over any world's backdrop (noren hems,
+   friezes, star tiles). */
 .ll-switcher__heading {
-  padding-inline: 8px;
-  font-size: 14px;
-  font-weight: 600;
+  margin-left: 14px;
+  padding: 3px 12px 4px;
+  border: 1.5px solid var(--pink-3, #ffb3c6);
+  border-radius: 999px;
+  background: var(--surface, #fff4f7);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.2;
   color: var(--ink-soft, #6e3a50);
 }
 
@@ -204,4 +211,13 @@
   .ll-switcher__track[data-nudge='on']::after {
     animation: none;
   }
+}
+
+/* World switch (switch.ts). The pink ground sits under both snapshots, so nothing white can
+   show through, and the new world waits as a dot at the tap point until the wipe takes over. */
+html.theme-vt::view-transition {
+  background: var(--pink-1, #ffe5ec);
+}
+html.theme-vt:not(.theme-vt--fade)::view-transition-new(root) {
+  clip-path: circle(0px at var(--vt-x, 50%) var(--vt-y, 50%));
 }

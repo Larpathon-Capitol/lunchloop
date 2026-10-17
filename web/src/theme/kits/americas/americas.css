@@ -135,13 +135,39 @@
   background: radial-gradient(circle at 50% 0, var(--amx-pink4) 0 8px, transparent 8.5px) 0 0 / 22px 12px repeat-x;
 }
 
+/* The sarape stripe painted along the wall, between cobalt pinstripes, so the wall above the
+   tablecloth reads as a sign painter's band instead of an empty strip. */
+.amx-wall-sign {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 40px;
+  height: 48px;
+  padding-block: 4px;
+  border-block: 2px solid var(--amx-cobalt);
+}
+.amx-wall-sign::before,
+.amx-wall-sign::after {
+  /* inner pinstripes */
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 1.5px;
+  background: var(--amx-ink);
+  opacity: 0.35;
+}
+.amx-wall-sign::before { top: 3px; }
+.amx-wall-sign::after { bottom: 3px; }
+.amx-sarape { display: block; width: 100%; height: 36px; margin-top: 2px; }
+
 /* Checker tablecloth: a tabletop in perspective with a straight front hem. */
 .amx-table {
   position: absolute;
   left: -12%;
   right: -12%;
   bottom: 0;
-  height: 17%;
+  height: 20%;
   min-height: 92px;
   perspective: 520px;
   perspective-origin: 50% -40%;

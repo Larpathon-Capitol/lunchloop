@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { createPortal } from 'react-dom'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { motion, useMotionValue, useSpring, type MotionValue } from 'framer-motion'
 import { Ume, type UmeMood } from './mascot'
+import { FEET, rigBus, type MascotHandle } from './mascot/rig/bus'
 import { api } from './shared/api'
 import { deviceId } from './shared/device'
 import { Tray as TrayIcon } from './shared/icons'
@@ -118,37 +119,55 @@ function Backdrop({ px, py, reduce, leaving }: { px: MotionValue<number>; py: Mo
   )
 }
 
-/** Mascot size on the rim, from the tray's width on screen. */
-const rimSize = (trayWidth: number) => Math.round(Math.min(128, Math.max(64, trayWidth * 0.17)))
+/** Mascot size on the rim, from the tray's width on screen: a real character, not a charm. */
+const rimSize = (trayWidth: number, wide: boolean) =>
+  Math.round(wide ? Math.min(180, Math.max(150, trayWidth * 0.27)) : Math.min(110, Math.max(96, trayWidth * 0.3)))
+
+/** Where on the rim the mascot stands: left of center on the front edge (see stageBus.rimPoint). */
+const RIM_U = -0.62
+const RIM_V = -1
 
 /**
- * The mascot sitting on the front rim of the tray, riding along as it bobs and tilts. It is
+ * The mascot standing on the front rim of the tray, riding along as it bobs and tilts. It is
  * mounted from the first frame with a size guessed from the slot and fades with the tray itself,
- * so it is on the rim the moment the tray appears. It hops when the tray is hovered and waves
- * hello on load.
+ * so it is on the rim the moment the tray appears. It waves hello on load, hops when the tray is
+ * hovered and follows the pointer with its eyes (the rig's default).
  */
-function MascotOnTray({ show, reduce }: { show: boolean; reduce: boolean }) {
+function MascotOnTray({ show, reduce, wide }: { show: boolean; reduce: boolean; wide: boolean }) {
   const ref = useRef<HTMLDivElement>(null)
+  const rig = useRef<MascotHandle | null>(null)
   const [size, setSize] = useState(() => {
     const slot = trayStore.get().slot
-    return rimSize(slot ? slot.width * 0.8 : window.innerWidth * (window.innerWidth >= 900 ? 0.4 : 0.8))
+    return rimSize(slot ? slot.width * 0.8 : window.innerWidth * (wide ? 0.4 : 0.8), wide)
   })
   const sizeRef = useRef(size)
+  const wideRef = useRef(wide)
+  useEffect(() => {
+    wideRef.current = wide
+  }, [wide])
   const hovered = useTrayHovered()
   const [hop, setHop] = useState(0)
   const [mood, setMood] = useState<UmeMood>('idle')
 
-  // Hello: a happy hop shortly after the tray lands on load.
+  // Hello: once the tray has landed, a happy hop and a wave (the wing or arm flaps on landing).
   useEffect(() => {
     if (reduce) return
     const a = window.setTimeout(() => {
       setMood('happy')
       setHop((h) => h + 1)
     }, 900)
-    const b = window.setTimeout(() => setMood('idle'), 3200)
+    const b = window.setTimeout(() => {
+      const h = rig.current
+      if (h) {
+        rigBus.send(h, { type: 'wiggle' })
+        rigBus.send(h, { type: 'hop', height: 0.12 })
+      }
+    }, 1700)
+    const c = window.setTimeout(() => setMood('idle'), 3200)
     return () => {
       window.clearTimeout(a)
       window.clearTimeout(b)
+      window.clearTimeout(c)
     }
   }, [reduce])
 
@@ -166,20 +185,21 @@ function MascotOnTray({ show, reduce }: { show: boolean; reduce: boolean }) {
       raf = requestAnimationFrame(tick)
       const el = ref.current
       if (!el) return
-      const p = stageBus.rimPoint(-0.7, -1)
+      const p = stageBus.rimPoint(RIM_U, RIM_V)
       const rect = trayProjector.tray()
       if (!p || !rect) {
         el.style.opacity = '0'
         return
       }
-      const want = rimSize(rect.width)
+      const want = rimSize(rect.width, wideRef.current)
       if (Math.abs(want - sizeRef.current) > 4) {
         sizeRef.current = want
         setSize(want)
       }
       const s = sizeRef.current
       el.style.opacity = String(Math.min(1, stageBus.presence()))
-      el.style.transform = `translate3d(${p.x - s / 2}px, ${p.y - s * 0.88}px, 0)`
+      // Feet right on the rim line, so it stands on the steel.
+      el.style.transform = `translate3d(${p.x - s / 2}px, ${p.y - s * FEET}px, 0)`
     }
     raf = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(raf)
@@ -187,7 +207,7 @@ function MascotOnTray({ show, reduce }: { show: boolean; reduce: boolean }) {
 
   return (
     <div ref={ref} className={show ? 'home__mascot' : 'home__mascot is-gone'} style={{ width: size, opacity: 0 }}>
-      <Ume mood={mood} size={size} hopKey={hop} bubbleAlign="start" />
+      <Ume mood={mood} size={size} hopKey={hop} bubbleAlign="start" rigRef={rig} />
     </div>
   )
 }
@@ -223,6 +243,19 @@ function useHeroData(search: string) {
 
 const WIDE_QUERY = '(min-width: 900px)'
 
+/** True on wide screens; follows resizes and rotation. */
+function useWide() {
+  return useSyncExternalStore(
+    (onChange) => {
+      const mq = window.matchMedia(WIDE_QUERY)
+      mq.addEventListener('change', onChange)
+      return () => mq.removeEventListener('change', onChange)
+    },
+    () => window.matchMedia(WIDE_QUERY).matches,
+    () => false,
+  )
+}
+
 export function Home() {
   const reduce = !!useReducedMotion()
   const navigate = useNavigate()
@@ -234,7 +267,7 @@ export function Home() {
   const handoff = useRef<{ timer: number; frame: number }>({ timer: 0, frame: 0 })
   const { px, py } = useHeroPointer(reduce)
   const { items, streak } = useHeroData(search)
-  const wide = useMemo(() => window.matchMedia(WIDE_QUERY).matches, [])
+  const wide = useWide()
   const [paused, setPaused] = useState(false)
 
   useEffect(() => {
@@ -291,7 +324,7 @@ export function Home() {
       <Backdrop px={px} py={py} reduce={reduce} leaving={leaving} />
       <TraySlot className="home__slot" />
       <StickerField px={px} py={py} reduce={reduce} leaving={leaving} layer="near" />
-      <MascotOnTray show={!leaving} reduce={reduce} />
+      <MascotOnTray show={!leaving} reduce={reduce} wide={wide} />
 
       <motion.div
         className="home__switch"

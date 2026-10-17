@@ -6,6 +6,7 @@ import { sound } from '../shared/sound'
 import { KITS } from './registry'
 import { themeStore } from './store'
 import type { ThemeId } from './types'
+import './switcher.css'
 
 const WIPE_MS = 700
 const WIPE_EASE = 'cubic-bezier(0.65, 0, 0.35, 1)'
@@ -76,6 +77,12 @@ export function switchTheme(id: ThemeId, origin?: { x: number; y: number }): Pro
   }
 
   const calm = reducedMotion()
+  const x = origin?.x ?? window.innerWidth / 2
+  const y = origin?.y ?? window.innerHeight / 2
+  // The new world starts clipped to a dot in CSS too (switcher.css), so it never shows whole
+  // before the wipe animation below is attached.
+  html.style.setProperty('--vt-x', `${x}px`)
+  html.style.setProperty('--vt-y', `${y}px`)
   html.classList.add('theme-vt')
   if (calm) html.classList.add('theme-vt--fade')
 
@@ -94,14 +101,17 @@ export function switchTheme(id: ThemeId, origin?: { x: number; y: number }): Pro
   // These reject when a transition is skipped; that only means no animation.
   vt.ready.catch(() => {})
   if (!calm) {
-    const x = origin?.x ?? window.innerWidth / 2
-    const y = origin?.y ?? window.innerHeight / 2
     vt.ready
       .then(() => {
-        html.animate(
-          { clipPath: [`circle(0px at ${x}px ${y}px)`, `circle(150vmax at ${x}px ${y}px)`] },
-          { duration: WIPE_MS, easing: WIPE_EASE, pseudoElement: '::view-transition-new(root)', fill: 'both' },
-        )
+        try {
+          html.animate(
+            { clipPath: [`circle(0px at ${x}px ${y}px)`, `circle(150vmax at ${x}px ${y}px)`] },
+            { duration: WIPE_MS, easing: WIPE_EASE, pseudoElement: '::view-transition-new(root)', fill: 'both' },
+          )
+        } catch {
+          // No pseudo-element animations here: fall back to the cross-fade.
+          html.classList.add('theme-vt--fade')
+        }
       })
       .catch(() => {})
   }

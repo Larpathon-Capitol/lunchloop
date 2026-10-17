@@ -580,8 +580,14 @@
     padding: 0 var(--s10);
     font-size: 20px;
   }
+  /* The quiet links get a calm ground of page pink, so they read over busy tiles too. */
   .home__quiet {
+    width: fit-content;
     margin-top: var(--s4);
+    margin-left: calc(-1 * var(--s4));
+    padding: 0 var(--s4);
+    border-radius: var(--radius-pill);
+    background: var(--pink-1);
   }
   /* A soft pool of page pink behind the words, so they stay readable over any world's
      backdrop while its decoration still shows at the edges. */

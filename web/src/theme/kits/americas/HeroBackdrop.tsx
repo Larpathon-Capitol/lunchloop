@@ -1,8 +1,8 @@
-// Block party at dusk: a slow sunburst sign, a painted wall, two papel picado strings
-// crossing overhead, loteria cards and a checker tablecloth up front. Each layer follows
+// Block party at dusk: a slow sunburst sign, a painted wall with a sarape stripe, two papel
+// picado strings crossing overhead, loteria cards and a checker tablecloth up front. Each layer follows
 // the pointer at its own depth; the sunburst moves the other way.
 import { motion, useReducedMotion, useTransform, type MotionValue } from 'framer-motion'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import type { HeroBackdropProps } from '../../types'
 import { LoteriaCard } from './Loteria'
 import { Banner } from './shapes'
@@ -11,6 +11,26 @@ import './americas.css'
 
 function useDepth(v: MotionValue<number>, depth: number, reduce: boolean | null) {
   return useTransform(v, (n) => (reduce ? 0 : n * depth))
+}
+
+/** A painted sarape stripe along the wall: pink, sun and leaf bands with zigzag seams. */
+function SarapeStripe() {
+  const id = `amx-sarape-${useId().replace(/[^a-zA-Z0-9]/g, '')}`
+  return (
+    <svg className="amx-sarape" aria-hidden="true" focusable="false">
+      <defs>
+        <pattern id={id} width="24" height="36" patternUnits="userSpaceOnUse">
+          <rect width="24" height="36" className="amx-f-leaf" />
+          <path d="M0 0H24V22L18 28L12 22L6 28L0 22Z" className="amx-f-yellow" />
+          <path d="M0 0H24V9L18 15L12 9L6 15L0 9Z" className="amx-f-pink4" />
+          <circle cx="12" cy="4.5" r="1.6" className="amx-f-pink1" />
+          <circle cx="6" cy="31" r="1.4" className="amx-f-pink1" />
+          <circle cx="18" cy="31" r="1.4" className="amx-f-pink1" />
+        </pattern>
+      </defs>
+      <rect width="100%" height="100%" fill={`url(#${id})`} />
+    </svg>
+  )
 }
 
 function useBox() {
@@ -76,7 +96,11 @@ export function HeroBackdrop({ px, py, className }: HeroBackdropProps) {
       </motion.div>
 
       <motion.div className="amx-layer" style={{ x: wallX }}>
-        <div className="amx-wall" />
+        <div className="amx-wall">
+          <div className="amx-wall-sign">
+            <SarapeStripe />
+          </div>
+        </div>
       </motion.div>
 
       <motion.div className="amx-layer" style={{ x: sparkX }}>
