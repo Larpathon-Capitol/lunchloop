@@ -64,7 +64,7 @@ for i in plan["items"]:
 t = plan["totals"]
 print(f"\nTotals (estimates): preparation cost, all items ${t['estimated_preparation_cost_all_items']:.2f}")
 print(f"Compared with baseline (items with history only, total cost incl. shortages): "
-      f"TrayTrack ${t['estimated_total_cost_compared_items']:.2f} "
+      f"LunchLoop ${t['estimated_total_cost_compared_items']:.2f} "
       f"vs baseline ${t['baseline_total_cost']:.2f} -> estimated savings ${t['estimated_savings_vs_baseline']:.2f} "
       f"({t['estimated_savings_pct_vs_baseline']}%)")
 assert round(t["baseline_total_cost"] - t["estimated_total_cost_compared_items"], 2) == t["estimated_savings_vs_baseline"]
@@ -113,8 +113,8 @@ weekday_hist["quantity_leftover"] = 0
 weekday_hist.loc[weekday_hist["quantity_served"] == weekday_hist["quantity_prepared"].max(), "quantity_prepared"] += 1
 weekday_hist["quantity_leftover"] = weekday_hist["quantity_prepared"] - weekday_hist["quantity_served"]
 friday_pred = predict_demand(weekday_hist, "Pizza", "main", 400, target_date="2026-10-16",
-                             weekday_shrink=True)  # a Friday; the (not shipped) weekday candidate
-assert friday_pred["method"] == "weekday_shrunk"
+                             weekday_shrink=True)  # a Friday
+assert friday_pred["method"].endswith("_weekday")
 assert friday_pred["predicted_demand"] > 250, "should pick up the Friday-specific spike"
 
 # Accuracy backtest: sanity-check both methods compute, not that "new" beats "old" --

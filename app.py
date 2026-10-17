@@ -1,4 +1,4 @@
-"""TrayTrack API: thin FastAPI wrapper around prediction.py for the React dashboard.
+"""LunchLoop API: thin FastAPI wrapper around prediction.py for the React dashboard.
 
 Run with:  uvicorn app:app --reload
 Then open http://127.0.0.1:8000/docs for interactive testing.
@@ -24,7 +24,7 @@ async def lifespan(_app):
     yield
 
 
-app = FastAPI(title="TrayTrack API", lifespan=lifespan)
+app = FastAPI(title="LunchLoop API", lifespan=lifespan)
 
 # Dev-friendly default: allow the React dev server to call this without extra config.
 app.add_middleware(
@@ -156,7 +156,7 @@ def plan_sensitivity(expected_attendance: int):
 @app.get("/evaluate")
 def evaluate(shortage_penalty_multiplier: float = Query(SHORTAGE_PENALTY_MULTIPLIER, gt=0, le=100),
              buffer_rule: BufferRule = DEFAULT_BUFFER_RULE):
-    """Leak-free walk-forward evaluation of baseline vs. TrayTrack, on the same held-out
+    """Leak-free walk-forward evaluation of baseline vs. LunchLoop, on the same held-out
     school days (see evaluate_methods() in prediction.py for the full methodology)."""
     key = (shortage_penalty_multiplier, buffer_rule)
     if key not in _eval_cache:
@@ -182,7 +182,7 @@ DASHBOARD_HTML = """
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>TrayTrack dashboard</title>
+<title>LunchLoop dashboard</title>
 <style>
   :root {
     color-scheme: light;
@@ -250,7 +250,7 @@ DASHBOARD_HTML = """
 </head>
 <body>
 <div class="wrap">
-  <h1>TrayTrack dashboard</h1>
+  <h1>LunchLoop dashboard</h1>
   <p class="sub"><b>Simulated school (synthetic data).</b> Every number below is computed live
   from the CSV by the API; none are typed in.</p>
 
@@ -279,16 +279,16 @@ DASHBOARD_HTML = """
   </section>
 
   <section class="card">
-    <h2>Held-out test: TrayTrack vs. cooking the usual amount</h2>
+    <h2>Held-out test: LunchLoop vs. cooking the usual amount</h2>
     <p class="sub" id="eval-sub" style="margin-bottom:14px">Loading&hellip;</p>
     <table id="eval-table" style="display:none">
-      <thead><tr><th>Measured against actual servings</th><th>Usual amount</th><th>TrayTrack</th><th>Difference</th></tr></thead>
+      <thead><tr><th>Measured against actual servings</th><th>Usual amount</th><th>LunchLoop</th><th>Difference</th></tr></thead>
       <tbody id="eval-rows"></tbody>
     </table>
     <div class="totals-line" id="eval-totals"></div>
     <table id="eval-food" style="margin-top:20px; display:none">
-      <thead><tr><th>Food</th><th>Usual total $</th><th>TrayTrack total $</th><th>Savings</th>
-        <th>Surplus (usual / TT)</th><th>Shortage (usual / TT)</th></tr></thead>
+      <thead><tr><th>Food</th><th>Usual total $</th><th>LunchLoop total $</th><th>Savings</th>
+        <th>Surplus (usual / LL)</th><th>Shortage (usual / LL)</th></tr></thead>
       <tbody id="eval-food-rows"></tbody>
     </table>
     <p class="note" id="eval-note"></p>
@@ -298,8 +298,8 @@ DASHBOARD_HTML = """
     <h2>How bad is running out? 1x, 3x and 5x shortage cost</h2>
     <p class="sub" id="pen-sub" style="margin-bottom:14px">Loading&hellip;</p>
     <table id="pen-table" style="display:none">
-      <thead><tr><th>Shortage cost</th><th>Buffer target</th><th>Usual total $</th><th>TrayTrack total $</th>
-        <th>Savings (test)</th><th>Savings (validation)</th><th>Surplus (usual / TT)</th><th>Shortage (usual / TT)</th></tr></thead>
+      <thead><tr><th>Shortage cost</th><th>Buffer target</th><th>Usual total $</th><th>LunchLoop total $</th>
+        <th>Savings (test)</th><th>Savings (validation)</th><th>Surplus (usual / LL)</th><th>Shortage (usual / LL)</th></tr></thead>
       <tbody id="pen-rows"></tbody>
     </table>
     <table id="rules-table" style="margin-top:20px; display:none">
@@ -327,7 +327,7 @@ DASHBOARD_HTML = """
     <h2 style="margin-top:24px">When demand assumptions change</h2>
     <table id="sim-family" style="margin-top:10px; display:none">
       <thead><tr><th>Scenario (test schools)</th><th>Forecast MAE</th><th>Leftovers</th><th>Shortages vs. usual</th>
-        <th>Demand met (usual / TT)</th><th>Savings</th><th>Cost-optimal alternative</th></tr></thead>
+        <th>Demand met (usual / LL)</th><th>Savings</th><th>Cost-optimal alternative</th></tr></thead>
       <tbody id="sim-family-rows"></tbody>
     </table>
     <p class="note" id="sim-note"></p>
@@ -356,7 +356,7 @@ DASHBOARD_HTML = """
           <th>Food</th><th>Predicted servings</th><th>Recommended prep</th>
           <th>Expected surplus (servings)</th><th>Expected shortage (servings)</th>
           <th>Est. plate waste (servings)</th>
-          <th>TrayTrack total $</th><th>Usual-amount total $</th><th>Savings</th>
+          <th>LunchLoop total $</th><th>Usual-amount total $</th><th>Savings</th>
         </tr>
       </thead>
       <tbody id="month-rows"></tbody>
@@ -442,23 +442,23 @@ async function loadAccuracy() {
       `that day; no setting was tuned on these days.`;
     document.getElementById('accuracy-totals').innerHTML = `
       <div><b>${oldMae.toFixed(1)}</b>all-time average (baseline): MAE, servings/day</div>
-      <div><b>${newMae.toFixed(1)}</b>weekday candidate: MAE, servings/day</div>
-      <div><b style="color:${change >= 0 ? 'var(--good)' : '#d03b3b'}">${Math.abs(change)}%</b>candidate ${changeLabel}</div>
-      <div><b>${a.shipped_mae_servings_per_day.toFixed(1)}</b>shipped forecast (${a.shipped_method.replace(/_/g, ' ')}): MAE</div>`;
+      <div><b>${a.previous_shipped.test_mae.toFixed(1)}</b>previous forecast (${a.previous_shipped.method.replace(/_/g, ' ')}): MAE</div>
+      <div><b>${newMae.toFixed(1)}</b>LunchLoop forecast (${a.shipped_method.replace(/_/g, ' ')}): MAE</div>
+      <div><b style="color:${change >= 0 ? 'var(--good)' : '#d03b3b'}">${Math.abs(change)}%</b>LunchLoop forecast ${changeLabel}</div>`;
     const ci = a.new_minus_old_mae_95ci;
     const v = a.validation;
     document.getElementById('accuracy-note').innerHTML =
-      'Baseline = all-time average share of attending students. Candidate = that share nudged ' +
-      'toward the same weekday share by n/(n+4). Ship rule: the candidate is used only if it ' +
-      'beats the baseline on the held-out test window. ' +
-      `Candidate minus baseline MAE: <b>${a.new_minus_old_mae}</b> servings/day ` +
+      'Baseline = all-time average share of attending students. LunchLoop forecast = the share over ' +
+      'the most recent school days, scaled by a shrunk weekday factor. Ship rule: a forecast is ' +
+      'used only if it beats the baseline on the held-out test window. ' +
+      `LunchLoop minus baseline MAE: <b>${a.new_minus_old_mae}</b> servings/day ` +
       `(95% bootstrap interval ${ci[0]} to ${ci[1]}; an interval that includes 0 means no ` +
       'clear difference). ' +
-      (a.new_beats_old_on_test ? 'The candidate beats the baseline on held-out data.'
-        : '<b>The candidate does NOT beat the baseline on held-out data, so it is not shipped.</b>') +
-      ` Shipped: ${a.candidate_adopted ? 'weekday candidate' : 'all-time average'}.` +
-      (v ? ` On the earlier validation window (${v.start} to ${v.end}), used to choose the ` +
-        `candidate setting, MAE was baseline ${v.old_mae} vs. candidate ${v.new_mae}.` : '') +
+      (a.new_beats_old_on_test ? 'The LunchLoop forecast beats the baseline on held-out data'
+        : '<b>The LunchLoop forecast does NOT beat the baseline on held-out data</b>') +
+      (a.new_beats_previous_on_test ? ' and the previous forecast.' : ' but not the previous forecast.') +
+      (v ? ` On the earlier validation window (${v.start} to ${v.end}), MAE was baseline ` +
+        `${v.old_mae} vs. LunchLoop ${v.new_mae}.` : '') +
       '<br><br><b style="color:#d03b3b">Caveat:</b> ' + a.circularity_caveat;
   } catch (e) {
     document.getElementById('accuracy-sub').innerHTML =
@@ -604,7 +604,7 @@ async function loadMonthPlan() {
     const savingsPctTxt = savingsPct === null ? 'n/a' : savingsPct + '%';
     document.getElementById('month-totals').innerHTML = `
       <div><b>${fmtMoney(prepCost)}</b>est. preparation cost, whole month, all items</div>
-      <div><b>${fmtMoney(lunchloopTotal)}</b>TrayTrack expected total cost (items with a baseline)</div>
+      <div><b>${fmtMoney(lunchloopTotal)}</b>LunchLoop expected total cost (items with a baseline)</div>
       <div><b>${fmtMoney(baselineTotal)}</b>usual-amount expected total cost (same items)</div>
       <div><b style="color:${savings >= 0 ? 'var(--good)' : '#d03b3b'}">${fmtMoney(savings)}</b>` +
         `estimated savings vs. baseline (${savingsPctTxt})</div>`;
@@ -666,7 +666,7 @@ async function loadEvaluation() {
       `<b>Simulated school.</b> ${o.evaluated_days} held-out school days (${o.window_start} to ` +
       `${o.window_end}), ${o.n} day-food rows. Both plans use only data from before each day and ` +
       `are scored against what was actually served. A missing serving costs ` +
-      `${o.shortage_penalty_multiplier}x its unit cost; TrayTrack's ${o.buffer_rule.replace('_', '-')} buffer targets enough food ` +
+      `${o.shortage_penalty_multiplier}x its unit cost; LunchLoop's ${o.buffer_rule.replace('_', '-')} buffer targets enough food ` +
       `on ${Math.round(o.service_level_target * 100)}% of days.`;
     const rows = [
       ['Food prepared ($, includes surplus)', o.baseline_food_cost, o.lunchloop_food_cost, true],
@@ -691,8 +691,8 @@ async function loadEvaluation() {
     const pct = o.estimated_savings_pct_vs_baseline === null ? 'n/a' : o.estimated_savings_pct_vs_baseline + '%';
     document.getElementById('eval-totals').innerHTML =
       `<div><b style="color:${s >= 0 ? 'var(--good)' : '#d03b3b'}">${fmtMoney(Math.abs(s))}</b>` +
-      `${s >= 0 ? 'lower' : 'HIGHER'} total cost with TrayTrack (${pct})</div>` +
-      `<div><b>${o.mae_servings_per_day}</b>TrayTrack forecast MAE (servings/day)</div>`;
+      `${s >= 0 ? 'lower' : 'HIGHER'} total cost with LunchLoop (${pct})</div>` +
+      `<div><b>${o.mae_servings_per_day}</b>LunchLoop forecast MAE (servings/day)</div>`;
     const fb = document.getElementById('eval-food-rows');
     for (const [food, f] of Object.entries(e.per_food)) {
       const tr = document.createElement('tr');
@@ -704,7 +704,7 @@ async function loadEvaluation() {
     }
     document.getElementById('eval-food').style.display = '';
     document.getElementById('eval-note').innerHTML =
-      'TrayTrack trades fewer leftovers for more shortages; the shortage multiplier decides ' +
+      'LunchLoop trades fewer leftovers for more shortages; the shortage multiplier decides ' +
       'whether that is worth it (try <code>/evaluate?shortage_penalty_multiplier=5</code>). ' +
       `${o.sold_out_rows} of these rows sold out, where true demand is unknown and treated as ` +
       'equal to what was served, which hides likely shortages for both plans. ' +
@@ -817,7 +817,7 @@ function renderSimulation(sim, m) {
   const over = [];
   for (const [fam, t] of Object.entries(res.test_by_family)) {
     const x = t[SHIPPED_STRATEGY], u = t.usual, c = t.recent_cost_optimal;
-    const mae = sim.forecast_mae.test_by_family[fam].recent_20_days.vs_true_demand;
+    const mae = sim.forecast_mae.test_by_family[fam].lunchloop_forecast.vs_true_demand;
     if (x.shortage_vs_usual_ratio !== null && x.shortage_vs_usual_ratio > sim.config.shortage_limit) {
       over.push(`${FAMILY_LABELS[fam]} (${ratio(x.shortage_vs_usual_ratio)}, ${x.shortage_servings} vs. ${u.shortage_servings} servings)`);
     }

@@ -48,33 +48,37 @@ def test_forecast_scales_with_attendance():
     assert predict_demand(hist, "X", "main", 200, target_date="2026-10-05")["predicted_demand"] == 50
 
 
-def test_weekday_candidate_hand_calc():
-    # The (not shipped) weekday candidate. 10 weekdays: Fridays (2) serve 200, others 100.
+def test_weekday_factor_hand_calc():
+    # 10 weekdays (2 Fridays serve 200, the rest 100), attendance 400, so every window sees
+    # all 10 days: base 0.3. Friday ratio 0.5/0.3 = 1.667, weight 2/(2+4) = 1/3,
+    # factor = 1/3 x 1.667 + 2/3 = 1.222 -> 0.3 x 1.222 x 400 = 146.67 -> 147.
     served = [200 if d.weekday() == 4 else 100 for d in pd.bdate_range("2026-09-07", periods=10)]
     hist = make_history(served)
-    overall = sum(served) / (400 * 10)          # 0.3
-    weight = 2 / (2 + 4)                        # 2 past Fridays, k = 4
-    expected = round((weight * 0.5 + (1 - weight) * overall) * 400)  # 133
+    p = predict_demand(hist, "X", "main", 400, target_date="2026-09-25")   # a Friday
+    assert p["predicted_demand"] == 147 and p["method"].endswith("_weekday")
+    # Monday: 2 past Mondays at 100 -> share 0.25, ratio 0.25/0.3 = 0.833, weight 1/3,
+    # factor = 1/3 x 0.833 + 2/3 = 0.944 -> 0.3 x 0.944 x 400 = 113.3 -> 113.
+    assert predict_demand(hist, "X", "main", 400, target_date="2026-09-28")["predicted_demand"] == 113
+    # Without the weekday factor it is the plain share: 0.3 x 400 = 120.
     assert predict_demand(hist, "X", "main", 400, target_date="2026-09-25",
-                          weekday_shrink=True)["predicted_demand"] == expected
-    # Shipped forecast is the all-time average: 0.3 x 400 = 120, whatever the weekday.
-    assert predict_demand(hist, "X", "main", 400, target_date="2026-09-25")["predicted_demand"] == 120
+                          weekday_shrink=False)["predicted_demand"] == 120
 
 
 def test_forecast_ship_gate(df):
     # Only a forecast change that beats the all-time average on held-out test data may ship.
+    # The shipped forecast must beat BOTH the all-time average and the previous forecast.
     r = mae_report(df)
-    if r["shipped_method"] != "all_time_average":
-        assert r["new_beats_old_on_test"]
-    assert USE_WEEKDAY_SHRINK == r["rejected_candidates"]["weekday_shrunk"]["beats_old_on_test"]
+    assert r["new_beats_old_on_test"] and r["new_beats_previous_on_test"]
+    assert r["shipped_mae_servings_per_day"] < r["previous_shipped"]["test_mae"]
 
 
 def test_recent_window_hand_calc():
-    # 5 old days at 200 served, then 20 recent days at 100 (attendance 400): the shipped
-    # forecast uses only the last 20 days -> 100, the all-time average would say 120.
+    # 5 old days at 200 served, then RECENT_WINDOW_DAYS at 100 (attendance 400): without the
+    # weekday factor the shipped window sees only the recent days -> 100.
     hist = make_history([200] * 5 + [100] * RECENT_WINDOW_DAYS)
-    p = predict_demand(hist, "X", "main", 400, target_date="2026-10-15")
+    p = predict_demand(hist, "X", "main", 400, target_date="2026-10-15", weekday_shrink=False)
     assert p["predicted_demand"] == 100 and p["method"] == "recent_window"
+    assert predict_demand(hist, "X", "main", 400, weekday_shrink=False, window=0)["predicted_demand"] > 100
 
 
 # ---- buffers -------------------------------------------------------------------
@@ -113,7 +117,7 @@ def test_shortage_first_buffer_hand_calc():
 # ---- cost accounting ------------------------------------------------------------
 
 def test_costs_hand_calc_both_sides_same_demand():
-    # demand 100, TrayTrack prep 95, usual 120, $1/serving, shortage = 3x.
+    # demand 100, LunchLoop prep 95, usual 120, $1/serving, shortage = 3x.
     c = calculate_costs(100, 95, 1.0, baseline_prep=120, shortage_penalty_multiplier=3.0)
     assert (c["estimated_surplus"], c["estimated_shortage"]) == (0, 5)
     assert c["estimated_total_cost"] == 95 + 15

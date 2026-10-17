@@ -1,4 +1,4 @@
-"""SYNTHETIC multi-scenario simulation study for TrayTrack prep strategies.
+"""SYNTHETIC multi-scenario simulation study for LunchLoop prep strategies.
 
 Everything here is made up on purpose: no real cafeteria records exist for this project.
 The point is to see how prep strategies behave across many plausible schools, not to
@@ -24,7 +24,8 @@ import pandas as pd
 
 from prediction import (safety_buffer, target_service_level, school_days, _pick_errors,
                         PROTECTED_CATEGORIES, PROTECTED_MIN_BUFFER, SAFETY_BUFFER,
-                        PROTECTED_BUFFER, BUFFER_RULES)
+                        PROTECTED_BUFFER, BUFFER_RULES, RECENT_WINDOW_DAYS,
+                        PREVIOUS_WINDOW_DAYS, WEEKDAY_SHRINK_K)
 
 # name, category, base share of attending students, unit cost. Shares and costs match the
 # synthetic CSV (data/cafeteria_history_synthetic.csv) so both datasets describe the same
@@ -55,7 +56,8 @@ SCENARIOS = {
 
 KITCHEN_MARGIN = 0.20   # simulated kitchen cooks its running average + 20%: ~10% sell-outs, ~17% leftovers (see README)
 WARMUP_DAYS = 10        # days of history before any strategy is scored
-RECENT_WINDOW = 20      # the "recent" forecast uses the last 20 school days
+# "recent" = the shipped forecast (last RECENT_WINDOW_DAYS days x shrunk weekday factor);
+# "prev" = the previous shipped forecast (last PREVIOUS_WINDOW_DAYS days), kept for comparison.
 BUFFER_GRID = np.round(np.arange(0.0, 0.5001, 0.025), 3)
 SHORTAGE_LIMIT = 1.10   # "close to the baseline" = at most 110% of the usual amount's shortages
 
@@ -128,13 +130,30 @@ def _school_rows(df, multipliers):
     cum_srv = np.concatenate([np.zeros((len(foods), 1)), np.cumsum(srv, axis=1)], axis=1)
     cum_prep = np.concatenate([np.zeros((len(foods), 1)), np.cumsum(prep_hist, axis=1)], axis=1)
 
-    def recent_rate(i):
-        lo = max(0, i - RECENT_WINDOW)
+    wd = np.array([d.weekday() for d in by_food[foods[0]]["date"]])
+
+    def window_rate(i, window):
+        lo = max(0, i - window)
         return (cum_srv[:, i] - cum_srv[:, lo]) / (cum_att[i] - cum_att[lo])
+
+    def weekday_factor(i):
+        # Mirrors prediction._estimate_serve_rate(): that weekday's ratio to the all-days
+        # rate, shrunk toward 1 by n / (n + WEEKDAY_SHRINK_K).
+        same = wd[:i] == wd[i]
+        n_same = int(same.sum())
+        if n_same == 0:
+            return np.ones(len(foods))
+        all_rate = cum_srv[:, i] / cum_att[i]
+        ratio = np.divide(srv[:, :i][:, same].sum(axis=1) / att[:i][same].sum(), all_rate,
+                          out=np.ones(len(foods)), where=all_rate > 0)
+        w = n_same / (n_same + WEEKDAY_SHRINK_K)
+        return w * ratio + (1 - w)
 
     days = range(WARMUP_DAYS, n)
     f_all = {i: np.maximum(0, np.round(cum_srv[:, i] / cum_att[i] * att[i])) for i in days}
-    f_rec = {i: np.maximum(0, np.round(recent_rate(i) * att[i])) for i in days}
+    f_prev = {i: np.maximum(0, np.round(window_rate(i, PREVIOUS_WINDOW_DAYS) * att[i])) for i in days}
+    f_rec = {i: np.maximum(0, np.round(window_rate(i, RECENT_WINDOW_DAYS) * weekday_factor(i) * att[i]))
+             for i in days}
     # Observable errors (served / forecast - 1), exactly what the live system can measure.
     err_all = np.full((len(foods), n), np.nan)
     err_rec = np.full((len(foods), n), np.nan)
@@ -151,7 +170,7 @@ def _school_rows(df, multipliers):
             cat = g["food_category"]
             row = {"food_item": food, "food_category": cat, "day": i, "attendance": int(att[i]),
                    "served": int(srv[k, i]), "true_demand": int(g["true_demand"]),
-                   "unit_cost": float(g["unit_cost"]), "f_all": f_all[i][k], "f_recent": f_rec[i][k],
+                   "unit_cost": float(g["unit_cost"]), "f_all": f_all[i][k], "f_prev": f_prev[i][k], "f_recent": f_rec[i][k],
                    "prep_usual": math.ceil(cum_prep[k, i] / cum_att[i] * att[i]),
                    "prep_fixed": math.ceil(f_all[i][k] * (1 + _fixed_buffer(cat)))}
             for tag, fc, err in (("all", f_all[i][k], err_all), ("recent", f_rec[i][k], err_rec)):
@@ -204,10 +223,10 @@ def _tune_per_food(train, multipliers, forecast_col):
 STRATEGY_LABELS = {
     "usual": "Cooking the usual amount (baseline)",
     "fixed": "All-time average + fixed 10% / 15%",
-    "all_cost_optimal": "All-time average + cost-optimal buffer (previous TrayTrack)",
+    "all_cost_optimal": "All-time average + cost-optimal buffer (previous LunchLoop)",
     "all_shortage_first": "All-time average + shortage-first buffer",
-    "recent_cost_optimal": "Last-20-days forecast + cost-optimal buffer",
-    "recent_shortage_first": "Last-20-days forecast + shortage-first buffer",
+    "recent_cost_optimal": "LunchLoop forecast + cost-optimal buffer",
+    "recent_shortage_first": "LunchLoop forecast + shortage-first buffer",
     "per_food_cost_tuned": "Chosen forecast + per-food buffer tuned for cost",
     "per_food_shortage_capped": "Chosen forecast + per-food buffer capped at baseline shortages",
 }
@@ -228,7 +247,7 @@ def run_simulation_study(n_train=6, n_val=6, n_test=12, n_days=80, multipliers=(
 
     # Step 1: pick the forecast on VALIDATION schools (MAE vs true demand).
     val_rows = rows[rows["split"] == "validation"]
-    forecast_col = min(("f_all", "f_recent"),
+    forecast_col = min(("f_all", "f_prev", "f_recent"),
                        key=lambda c: (val_rows[c] - val_rows["true_demand"]).abs().mean())
     # Step 2: tune per-food buffers on TRAIN schools with that forecast.
     cost_optimal, capped, capped_ok = _tune_per_food(rows[rows["split"] == "train"], multipliers, forecast_col)
@@ -273,11 +292,10 @@ def run_simulation_study(n_train=6, n_val=6, n_test=12, n_days=80, multipliers=(
     def mae(sub, fc):
         return {"vs_true_demand": round(float((sub[fc] - sub["true_demand"]).abs().mean()), 2),
                 "vs_served": round(float((sub[fc] - sub["served"]).abs().mean()), 2)}
-    forecast_mae = {sp: {"all_time_average": mae(rows[rows["split"] == sp], "f_all"),
-                         "recent_20_days": mae(rows[rows["split"] == sp], "f_recent")} for sp in splits}
+    names = {"all_time_average": "f_all", "previous_last_20_days": "f_prev", "lunchloop_forecast": "f_recent"}
+    forecast_mae = {sp: {k: mae(rows[rows["split"] == sp], c) for k, c in names.items()} for sp in splits}
     test = rows[rows["split"] == "test"]
-    forecast_mae["test_by_family"] = {fam: {"all_time_average": mae(test[test["family"] == fam], "f_all"),
-                                            "recent_20_days": mae(test[test["family"] == fam], "f_recent")}
+    forecast_mae["test_by_family"] = {fam: {k: mae(test[test["family"] == fam], c) for k, c in names.items()}
                                       for fam in SCENARIOS}
     return {
         "synthetic_data": True,
@@ -286,7 +304,8 @@ def run_simulation_study(n_train=6, n_val=6, n_test=12, n_days=80, multipliers=(
                    "foods": [f[0] for f in FOODS], "shortage_limit": SHORTAGE_LIMIT,
                    "kitchen_margin": KITCHEN_MARGIN},
         "strategy_labels": STRATEGY_LABELS,
-        "chosen_forecast_on_validation": "recent_20_days" if forecast_col == "f_recent" else "all_time_average",
+        "chosen_forecast_on_validation": {"f_all": "all_time_average", "f_prev": "previous_last_20_days",
+                                          "f_recent": "lunchloop_forecast"}[forecast_col],
         "tuned_buffers": {"per_food_cost_tuned": {f"{m:g}x": cost_optimal[m] for m in multipliers},
                           "per_food_shortage_capped": capped,
                           "shortage_cap_reachable_on_train": capped_ok},

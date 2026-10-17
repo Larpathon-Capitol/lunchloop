@@ -1,4 +1,4 @@
-# TrayTrack (prototype)
+# LunchLoop (prototype)
 
 Predicts how many servings of each cafeteria food students will take, recommends how much
 to prepare with a cost-based safety buffer, and compares the cost of that plan with
@@ -50,7 +50,7 @@ forecast.
 - `GET /accuracy`: the forecast ship gate. Error on the held-out test window, all-time
   average (baseline) vs. weekday candidate, plus the validation window, a 95% bootstrap
   interval for the difference, and which method shipped.
-- `GET /evaluate`: held-out cost comparison, TrayTrack vs. the usual amount, scored against
+- `GET /evaluate`: held-out cost comparison, LunchLoop vs. the usual amount, scored against
   actual servings, plus `buffer_rules` (every prep rule on the same forecast and days).
   Optional `?shortage_penalty_multiplier=` and `?buffer_rule=shortage_first|cost_optimal`.
 - `GET /simulation`: the synthetic multi-scenario strategy study (computed once, about 30 s,
@@ -72,7 +72,7 @@ forecast.
 - `prediction.py`: forecast, buffers, cost model, backtests. Documented inline.
 - `simulation.py`: synthetic school generator and the strategy study.
 - `app.py`: FastAPI wrapper and the dashboard.
-- `tests/test_traytrack.py`, `tests/test_simulation.py`: pytest suite (about 90 s; one test
+- `tests/test_lunchloop.py`, `tests/test_simulation.py`: pytest suite (about 90 s; one test
   reruns the full simulation study). `test_prototype.py`, `test_api.py`: older script checks.
 
 ## The dataset
@@ -105,23 +105,40 @@ Labor Day). It is **synthetic**:
 
 ## How the forecast works
 
-`predict_demand()` (shipped): the food's share of attending students over the **last 20
-school days** (all history while there are fewer), times expected attendance.
+`predict_demand()` (shipped) has two parts:
 
-**Ship rule: a forecast change is kept only if it beats the all-time average on held-out
-data.** Three changes have been tried:
+1. **Base share**: the food's served / attendance over the **last 10 school days** (all
+   history while there are fewer).
+2. **Weekday factor**: that weekday's share relative to the all-days share, shrunk toward 1
+   by `w = n / (n + 4)` (`n` = past days on that weekday). With 2 past Fridays the Friday
+   pattern gets 33% weight, with 12 it gets 75%.
 
-| Candidate | How it was chosen | CSV test MAE (baseline 7.26) | Ships? |
-|---|---|---|---|
-| hard cascade (last 8 same weekdays, else last 25 days, else all) | earlier version | 8.00 | no |
-| weekday shrinkage, `w = n / (n + 4)` | `4` picked on CSV validation | 7.53 | no |
-| last 20 school days | picked on validation schools in the simulation | **7.17** | **yes** |
+`forecast = base share x weekday factor x expected attendance`.
 
-The 20-day window passes, but only just: its 95% bootstrap interval on the CSV is -0.22 to
-+0.07 servings/day, which includes 0. In the simulation it also wins on unseen test schools
-(14.98 vs. 15.52 MAE against true demand), mostly in the "trending" scenario where
-popularity drifts. The weekday candidate is still in the code behind
-`USE_WEEKDAY_SHRINK = False` so `/accuracy` can keep scoring it.
+**Ship rule: a forecast is used only if it beats the all-time average on held-out data.**
+
+| Forecast | How it was chosen | CSV validation MAE | CSV test MAE | Simulation test MAE (vs. true demand) | Ships? |
+|---|---|---|---|---|---|
+| all-time average (baseline) | n/a | 6.02 | 7.26 | 15.52 | baseline |
+| hard cascade (earlier version) | earlier | n/a | 8.00 | n/a | no |
+| weekday factor on the all-time share | `4` picked on CSV validation | 5.69 | 7.53 | n/a | no |
+| last 20 days (previous) | validation schools | 6.02 | 7.17 | 14.98 | replaced |
+| **last 10 days x weekday factor** | **training schools, 72 variants** | **5.65** | **6.86** | **12.93** | **yes** |
+
+How the new one was found: 72 variants (window of 10 / 15 / 20 / 30 days or all history,
+or exponential smoothing; weekday factor off or with strength 4 / 8 / 16; and a sold-out
+correction that raises a sold-out day's demand to at least its own forecast) were scored
+against **true demand on training schools only**. The best was a 10-day window with
+strength 4, and validation schools agreed (13.01 vs. 14.91 for the previous forecast). The
+sold-out correction made no difference (13.037 vs. 13.038), and smoothing did not beat a
+plain window, so neither was kept. Then it had to pass the CSV gate.
+
+Caveats: on the CSV's 15 test days the gain over the baseline is not clear-cut (-0.40
+servings/day, 95% bootstrap interval -0.97 to +0.19, which includes 0), and the same days
+showed that a 10-day window **without** the weekday factor would have scored 6.66, a bit
+better than the chosen 6.86. I kept the training-school choice instead of picking on those
+test days. The weekday part helps most in the simulation's weekday-heavy schools, where the
+weekday effects were built in on purpose (see the circularity caveat below).
 
 Sold-out days are **kept**. Served on a sold-out day is capped, so it understates demand,
 but those are the high-demand days: dropping them biased the estimate even lower. Foods
@@ -158,11 +175,11 @@ Four quantities, kept separate everywhere:
 ```
 served        = min(prepared, demand)
 total_cost    = prepared x unit_cost + shortage x unit_cost x m
-savings       = baseline total_cost - TrayTrack total_cost
+savings       = baseline total_cost - LunchLoop total_cost
 savings %     = savings / baseline total_cost   (null when the baseline costs 0)
 ```
 
-TrayTrack and the baseline are always measured against the **same demand**:
+LunchLoop and the baseline are always measured against the **same demand**:
 
 - In the held-out evaluation, that is the actual served count for the day.
 - In forward planning (`/plan`, `/plan/month`), the true demand is unknown, so both plans
@@ -170,10 +187,10 @@ TrayTrack and the baseline are always measured against the **same demand**:
   backtest error)` for that food, the same errors the buffer was sized on
   (`cost_basis: "expected_over_N_backtest_errors"`). A food without backtest history falls
   back to treating the forecast as exact (`cost_basis: "point_forecast"`), which can never
-  show a TrayTrack shortage, so its savings are less trustworthy.
+  show a LunchLoop shortage, so its savings are less trustworthy.
 
-The previous version measured both plans against TrayTrack's **own forecast**. That made
-TrayTrack's shortage zero by construction and counted its whole buffer as waste, so neither
+The previous version measured both plans against LunchLoop's **own forecast**. That made
+LunchLoop's shortage zero by construction and counted its whole buffer as waste, so neither
 the shortage cost nor the savings meant anything.
 
 **Baseline ("cooking the usual amount")**: each food's historical prepared-per-attending-
@@ -197,28 +214,30 @@ actual count for every method (it assumes a morning head count before cooking).
 
 ## Results on the CSV (synthetic, regenerate with `GET /accuracy` and `GET /evaluate`)
 
-**Forecast**: see the table above. Shipped: last 20 school days, test MAE 7.17 vs. 7.26 for
-the all-time average (not a clear difference).
+**Forecast**: see the table above. Shipped: last 10 days x weekday factor, test MAE 6.86 vs.
+7.26 for the all-time average and 7.17 for the previous forecast.
 
-**Cost, held-out test window, TrayTrack vs. usual amount** (total = food + shortage cost):
+**Cost, held-out test window, LunchLoop vs. usual amount** (total = food + shortage cost):
 
-| Shortage cost | Buffer rule | Usual total | TrayTrack total | Savings | Leftovers (usual / TT) | Shortage servings (usual / TT) |
-|---|---|---|---|---|---|---|
-| 1x | shortage_first (default) | $6,142.39 | $6,081.54 | 1.0% | 1501 / 1320 | 26 / 29 |
-| 3x | shortage_first (default) | $6,178.49 | $6,120.94 | 0.9% | 1501 / 1320 | 26 / 29 |
-| 5x | shortage_first (default) | $6,214.59 | $6,160.34 | 0.9% | 1501 / 1320 | 26 / 29 |
-| 1x | cost_optimal | $6,142.39 | $5,807.09 | 5.5% | 1501 / 950 | 26 / 125 |
-| 3x | cost_optimal | $6,178.49 | $6,014.67 | 2.7% | 1501 / 1065 | 26 / 84 |
-| 5x | cost_optimal | $6,214.59 | $6,103.08 | 1.8% | 1501 / 1175 | 26 / 46 |
+| Shortage cost | Buffer rule | Usual total | LunchLoop total | Savings (test) | Savings (validation) | Leftovers (usual / LL) | Shortage servings (usual / LL) |
+|---|---|---|---|---|---|---|---|
+| 1x | shortage_first (default) | $6,142.39 | $6,029.50 | 1.8% | 0.9% | 1501 / 1243 | 26 / 28 |
+| 3x | shortage_first (default) | $6,178.49 | $6,057.24 | 2.0% | 0.5% | 1501 / 1243 | 26 / 28 |
+| 5x | shortage_first (default) | $6,214.59 | $6,084.98 | 2.1% | 0.1% | 1501 / 1243 | 26 / 28 |
+| 1x | cost_optimal | $6,142.39 | $5,791.12 | 5.7% | 2.6% | 1501 / 913 | 26 / 129 |
+| 3x | cost_optimal | $6,178.49 | $5,951.31 | 3.7% | 0.6% | 1501 / 1005 | 26 / 72 |
+| 5x | cost_optimal | $6,214.59 | $6,046.92 | 2.7% | -0.2% | 1501 / 1115 | 26 / 46 |
 
-On these 15 test days the default cuts leftovers by 12% with 3 more short servings than the
-usual amount (29 vs. 26, 1.12x, just over the 110% target). The cost-optimal rule saves more
-but runs short 2 to 5 times as much. `/evaluate` also lists every buffer rule side by side.
+On these 15 test days the default cuts leftovers by 17% with 2 more short servings than the
+usual amount (28 vs. 26; 6 short rows vs. 5). The cost-optimal rule saves more but runs
+short 2 to 5 times as much, and on the validation days its savings are near zero or
+negative. The savings here are small and shrink on validation: read them as "about 0 to 2%",
+not as a result. `/evaluate` also lists every buffer rule side by side.
 
 ## Simulation study (synthetic schools, `GET /simulation`, `simulation.py`)
 
 The CSV has one school and 15 test days, and on sold-out days nobody knows true demand. So
-TrayTrack is also tested on many **synthetic** schools where the simulator knows true demand
+LunchLoop is also tested on many **synthetic** schools where the simulator knows true demand
 every day. The strategies only see what a real kitchen sees: that morning's attendance and
 past prepared / served counts.
 
@@ -238,59 +257,65 @@ past prepared / served counts.
 
 **How overfitting is prevented:** each scenario type gets 6 training, 6 validation and 12
 test schools (120 in all; 70 scored days x 6 foods each). Training schools tune the per-food
-buffers. Validation schools pick the forecast and the "best" strategy. Test schools are only
-reported. A test fails if the shipped settings ever differ from the validation choice.
+buffers and found the forecast. Validation schools confirm the forecast and pick the "best"
+strategy. Test schools are only reported. A test fails if the shipped settings differ from
+the validation choice.
 
 **Strategies** (all walk-forward, each using only earlier days): the usual amount; all-time
-average + fixed 10%/15%; each forecast (all-time average, last 20 days) with each buffer
-rule; per-food static buffers tuned for cost on training schools; and per-food static
+average + fixed 10%/15%; each forecast (all-time average, LunchLoop forecast) with each
+buffer rule; per-food static buffers tuned for cost on training schools; and per-food static
 buffers capped so training shortages stay within 110% of the usual amount.
 
-**Picked on validation:** forecast = last 20 days at every multiplier. Best within the
-shortage limit = last 20 days + shortage-first at 1x, 3x and 5x. Cheapest ignoring
-shortages = per-food cost-tuned (1x) or last 20 days + cost-optimal (3x, 5x).
+**Picked on validation:** forecast = LunchLoop forecast. Best within the shortage limit =
+LunchLoop forecast + shortage-first at 3x and 5x. At 1x a per-food capped buffer edges it
+on validation (5.49% vs. 5.41% savings) while running short *more* (0.94x vs. 0.85x of the
+usual shortages); that difference is tiny, so shortage-first stays the single default.
+Cheapest ignoring shortages = per-food cost-tuned (1x) or LunchLoop forecast + cost-optimal
+(3x, 5x).
 
-**Unseen test schools, 3x** (1x and 5x are on the dashboard; leftovers and shortages
-don't depend on the multiplier for the shortage-first and usual strategies):
+**Unseen test schools, 3x** (1x and 5x are on the dashboard):
 
 | Strategy | Savings | Leftovers | Shortage servings vs. usual | Rows short | Demand met |
 |---|---|---|---|---|---|
 | cooking the usual amount | 0% | 0% | 1.00x | 3198 | 97.93% |
 | all-time + fixed 10%/15% | 3.83% | -31.6% | 1.51x | 5164 | 96.88% |
-| all-time + cost-optimal (previous TrayTrack) | 5.08% | -43.9% | 1.73x | 6622 | 96.43% |
+| all-time + cost-optimal (earlier LunchLoop) | 5.08% | -43.9% | 1.73x | 6622 | 96.43% |
 | all-time + shortage-first | 3.22% | -20.0% | 1.04x | 3870 | 97.85% |
-| last 20 days + cost-optimal | 5.26% | -45.3% | 1.74x | 6787 | 96.41% |
-| **last 20 days + shortage-first (shipped)** | **3.48%** | **-20.7%** | **0.99x** | **3815** | **97.95%** |
-| per-food buffer tuned for cost | 5.16% | -50.4% | 2.00x | 7267 | 95.86% |
-| per-food buffer capped at usual shortages | 2.22% | -13.9% | 1.02x | 3526 | 97.89% |
+| LunchLoop forecast + cost-optimal | 7.09% | -52.2% | 1.52x | 6618 | 96.86% |
+| **LunchLoop forecast + shortage-first (shipped)** | **5.61%** | **-31.7%** | **0.90x** | **3823** | **98.15%** |
+| per-food buffer tuned for cost | 7.04% | -54.2% | 1.62x | 6692 | 96.65% |
+| per-food buffer capped at usual shortages | 5.38% | -32.9% | 1.01x | 3962 | 97.91% |
 
-Savings of the shipped strategy at 1x / 3x / 5x: 3.52% / 3.48% / 3.44%.
+Savings of the shipped strategy at 1x / 3x / 5x: 5.39% / 5.61% / 5.81%. The previous
+shipped version (last 20 days + shortage-first) saved 3.5% with 20.7% fewer leftovers.
 
-**Can TrayTrack cut leftovers and keep shortages near the usual amount?** Overall, yes in
-this simulation: about 21% fewer leftovers with the same number of short servings. But:
+**Can LunchLoop cut leftovers and keep shortages near the usual amount?** Overall, yes in
+this simulation: about 32% fewer leftovers with 10% fewer short servings. But:
 
-- **Shortages are smaller but more frequent**: 3815 short rows vs. 3198 (+19%).
+- **Shortages are smaller but more frequent**: 3823 short rows vs. 3198 (+20%).
 - **It depends on the scenario** (test schools):
 
-| Scenario | Leftovers | Shortages vs. usual | Demand met (usual / TT) | Savings at 3x |
-|---|---|---|---|---|
-| steady | -47.6% | 12.06x (1941 vs. 161 servings) | 99.97% / 99.68% | 7.77% |
-| typical | -22.0% | 1.22x | 98.98% / 98.75% | 3.44% |
-| volatile | -7.1% | 0.94x | 95.88% / 96.12% | 1.60% |
-| trending | -20.7% | 0.73x | 98.09% / 98.61% | 3.93% |
-| weekday-heavy | -6.7% | 1.05x | 96.70% / 96.55% | 0.97% |
+| Scenario | Forecast MAE (all-time -> LunchLoop) | Leftovers | Shortages vs. usual | Demand met (usual / LL) | Savings at 3x |
+|---|---|---|---|---|---|
+| steady | 6.86 -> 6.34 | -50.0% | 9.84x (1584 vs. 161 servings) | 99.97% / 99.74% | 8.31% |
+| typical | 13.69 -> 11.75 | -32.0% | 1.13x | 98.98% / 98.85% | 5.36% |
+| volatile | 21.23 -> 20.22 | -7.6% | 0.90x | 95.88% / 96.27% | 1.88% |
+| trending | 14.77 -> 11.67 | -29.4% | 0.67x | 98.09% / 98.72% | 5.66% |
+| weekday-heavy | 21.06 -> 14.68 | -39.0% | 0.87x | 96.70% / 97.15% | 6.93% |
 
-In steady and typical schools the shipped strategy runs short more than the 110% limit. The
-usual amount barely runs short there because its 20% margin is generous for calm demand.
-The overall total stays within the limit only because volatile schools dominate the
-shortage counts. In volatile and weekday-heavy schools the leftover cut is small (about
-7%). Per-food static buffers did not beat the adaptive rules: the cost-tuned ones have about
-twice the usual shortage servings at 3x, and the shortage-capped ones cut fewer leftovers than shortage-first.
+In steady schools (and, narrowly, typical ones) the shipped strategy breaks the 110%
+shortage limit. The usual amount barely runs short there because its 20% margin is generous
+for calm demand. The overall total stays within the limit because volatile schools dominate
+the shortage counts. In volatile schools the leftover cut is small (about 8%). Per-food
+static buffers did not beat the adaptive rules: the cost-tuned ones have about 1.6 times the
+usual shortage servings at 3x, and the shortage-capped ones cut about the same leftovers as
+shortage-first but run short slightly more.
 
-**What stays uncertain:** every number above comes from scenarios we designed. A real
-school's noise, trends and surprises could look different, and the ranking of strategies
-could change. The kitchen policy that generated the history also shapes what every strategy
-learns from. None of this is evidence of real-world savings.
+**What stays uncertain:** every number above comes from scenarios we designed. The
+weekday-heavy gain is partly by construction, since weekday effects were put into those
+schools on purpose. A real school's noise, trends and surprises could look different, and
+the ranking of strategies could change. The kitchen policy that generated the history also
+shapes what every strategy learns from. None of this is evidence of real-world savings.
 
 ## Input validation
 
@@ -306,7 +331,7 @@ learns from. None of this is evidence of real-world savings.
   (see the bootstrap interval in `/accuracy`).
 - On sold-out days true demand is unknown and treated as equal to served. That hides
   shortages that likely happened on those days, for both plans; it tends to flatter
-  whichever plan prepares less (usually TrayTrack). 3 of the 90 test rows sold out.
+  whichever plan prepares less (usually LunchLoop). 3 of the 90 test rows sold out.
 - The shortage multiplier is an assumption. Goodwill, nutrition and staff time aren't
   priced. Look at the whole sensitivity table, not one row.
 - Plate waste is an external USDA category rate applied to our servings, not a local
@@ -314,14 +339,15 @@ learns from. None of this is evidence of real-world savings.
 - The baseline is a ratio proxy, not a recorded "usual" decision.
 - The backtest short-day rate in `/buffers` is in-sample; the out-of-sample rate is in
   `/evaluate` (`lunchloop_days_short`).
-- The CSV test window is the forecast ship gate and has now been used to check three
-  candidates, so its numbers are no longer a clean, untouched estimate. With only 15 test
-  days, rerun everything on new days before trusting any ranking.
+- The CSV test window is the forecast ship gate and has now been used to check five
+  candidates (cascade, weekday shrinkage, last 20 days, last 10 days with and without the
+  weekday factor), so its numbers are no longer a clean, untouched estimate. With only 15
+  test days, rerun everything on new days before trusting any ranking.
 - The simulation's scenarios, the kitchen's 20% margin and the 110% shortage limit are
   choices we made. Different choices could change which strategy wins.
-- In the simulation the shipped strategy breaks the shortage limit in steady and typical
-  schools (see the scenario table), and it makes shortages more frequent even where total
-  short servings stay level.
+- In the simulation the shipped strategy breaks the shortage limit in steady schools (9.84x)
+  and, narrowly, typical ones (1.13x), and it makes shortages more frequent (+20% short
+  rows) even though total short servings fall overall.
 - Attendance is treated as known before cooking in the evaluation.
 
 ## Changes in this version
@@ -354,9 +380,15 @@ learns from. None of this is evidence of real-world savings.
 11. **Dashboard, second pass**: shows the ship gate result, a 1x/3x/5x table and every
     buffer rule side by side; the "cheapest rule" sentence is computed, not typed.
 12. **Simulation study** (`simulation.py`, `/simulation`, dashboard section): 120 synthetic
-    schools in 5 scenario types with train / validation / test splits. It picked the last-20-
-    days forecast (which then passed the CSV gate) and the new `shortage_first` buffer rule,
-    now the default. The cost-optimal newsvendor rule stays available as `buffer_rule`.
+    schools in 5 scenario types with train / validation / test splits. It picked the new
+    `shortage_first` buffer rule, now the default. The cost-optimal newsvendor rule stays
+    available as `buffer_rule`.
+13. **Tighter forecast**: last 10 days x a shrunk weekday factor replaces the last-20-days
+    forecast. Error against true demand on unseen simulated schools fell from 14.98 to 12.93
+    servings, and on the CSV's held-out days from 7.17 to 6.86 (baseline 7.26). Leftovers
+    fell 32% (was 21%) with fewer short servings, and savings rose to about 5.6% (was 3.5%)
+    in the simulation.
+14. **Renamed** the app from TrayTrack to LunchLoop (code, dashboard, README, tests).
 
 ## Sources
 
