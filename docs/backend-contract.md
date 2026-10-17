@@ -112,6 +112,7 @@ Errors are `{"error": "<plain message>"}` with status 400 (bad input), 404 (unkn
 | POST /api/vote | `{"device", "item_id"}` | `{"ok": true, "streak", "xp", "tally": {item_id: count}, "simulated": true}` |
 | POST /api/guess | `{"device", "item_id"}` (most popular item next school day) | `{"ok": true, "target_date", "simulated": true}` |
 | GET /api/me?device= | | `{"device", "streak", "xp", "badges": [str], "last_guess": {"target_date", "item_id", "correct": bool or null} or null, "simulated": true}` |
+| GET /api/votes | | `{"date", "target_date", "target_slot", "total": int, "options": [{"item_id", "name", "votes": int, "share": float}], "days": [{"date", "votes": int}], "simulated": true}` (today's live tally; `days` is up to the last 7 days with votes, oldest first; 404 when no voting today) |
 | GET /api/meter | | engine `meter()` |
 
 - `device` is a random ID the browser makes (8 to 64 letters, digits or dashes). No names or emails. The first call with a new device creates its player row.

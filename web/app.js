@@ -120,13 +120,18 @@ async function voteView() {
       });
       sub.textContent = `Your vote is in, ${mine}.`;
     };
-    if (spin.already_voted && cache) show(cache.item, cache.tally);
-    else if (spin.already_voted) { sub.textContent = `${mine} already voted today.`; dishes.forEach((el) => el.classList.add("locked")); }
+    if (spin.already_voted) {
+      try {
+        const v = await api("/votes");
+        if (mine === person) show(cache ? cache.item : null, Object.fromEntries(v.options.map((o) => [o.item_id, o.votes])));
+      } catch { sub.textContent = `${mine} already voted today.`; dishes.forEach((el) => el.classList.add("locked")); }
+      if (!cache && mine === person) sub.textContent = `${mine} already voted today.`;
+    }
     else dishes.forEach((el) => (el.onclick = async () => {
       dishes.forEach((x) => (x.onclick = null));
       try {
         const r = await api("/vote", { device, item_id: el._o.item_id });
-        store.set(key, { item: el._o.item_id, tally: r.tally });
+        store.set(key, { item: el._o.item_id });
         if (mine === person) { show(el._o.item_id, r.tally); setChip(await api(`/me?device=${device}`)); }
       } catch { if (mine === person) sub.textContent = "That didn't go through. Try again."; }
     }));
@@ -161,12 +166,13 @@ async function guess(box, me, today, device, mine) {
 const ORDER = ["meat_alternate", "grain", "vegetable", "fruit", "milk"];
 const LABEL = { meat_alternate: "Entrees", grain: "Grains", vegetable: "Vegetables", fruit: "Fruit", milk: "Milk" };
 let adminTab = "dash", poll = null;
+const liveVotes = () => api("/votes").catch((e) => (e.status === 404 ? null : Promise.reject(e)));
 const stopPoll = () => { clearInterval(poll); poll = null; };
 
 async function adminView() {
   stopPoll(); loading();
-  let prep, savings, meter;
-  try { [prep, savings, meter] = await Promise.all([api("/prep"), api("/savings"), api("/meter")]); }
+  let prep, savings, meter, votes;
+  try { [prep, savings, meter, votes] = await Promise.all([api("/prep"), api("/savings"), api("/meter"), liveVotes()]); }
   catch { return message("Can't reach LunchLoop."); }
 
   const root = mount($(`<section>
@@ -182,12 +188,12 @@ async function adminView() {
     root.querySelector(".sub").innerHTML = titles[k][1] ? esc(titles[k][1]) : `${esc(longDate(prep.date))} <span class="live" id="live"><i></i><span>Live</span></span>`;
     seg(tabs, [{ k: "dash", label: "Dashboard" }, { k: "prep", label: "Prep" }, { k: "savings", label: "Savings" }], k, show);
     if (k === "dash") {
-      const pane = dashPane(); body.replaceChildren(pane.el); pane.update({ prep, savings, meter });
+      const pane = dashPane(); body.replaceChildren(pane.el); pane.update({ prep, savings, meter, votes });
       poll = setInterval(async () => {
         if (!document.body.contains(pane.el)) return stopPoll();
-        try { const [p, sv, m] = await Promise.all([api("/prep"), api("/savings"), api("/meter")]); pane.update({ prep: p, savings: sv, meter: m }); }
+        try { const [p, sv, m, v] = await Promise.all([api("/prep"), api("/savings"), api("/meter"), liveVotes()]); pane.update({ prep: p, savings: sv, meter: m, votes: v }); }
         catch { pane.offline(); }
-      }, 10000);
+      }, 5000);
     } else body.replaceChildren(k === "prep" ? prepPane(prep) : savingsPane(savings));
   };
   show(adminTab);
@@ -286,10 +292,15 @@ const donutShell = () => `<div class="donut"><div class="ring2"><svg viewBox="0 
 function dashPane() {
   const el = $(`<div class="stack">
     <div class="kpis">
-      <div class="card kpi"><div class="kl">Servings to cook today</div><div class="kv" data-k="servings">0</div><div class="ks">across all items</div></div>
-      <div class="card kpi"><div class="kl">Students expected</div><div class="kv" data-k="students">0</div><div class="ks">based on recent Mondays</div></div>
+      <div class="card kpi"><div class="kl">Votes today</div><div class="kv" data-k="votes">0</div><div class="ks" data-k="votesSub"></div></div>
+      <div class="card kpi"><div class="kl">Servings to cook today</div><div class="kv" data-k="servings">0</div><div class="ks" data-k="servSub"></div></div>
       <div class="card kpi"><div class="kl">Saved this week</div><div class="kv" data-k="saved">$0</div><div class="ks" data-k="savedSub"></div></div>
       <div class="card kpi"><div class="kl">Fewer leftovers</div><div class="kv" data-k="cut">0%</div><div class="ks">compared with the usual amount</div></div>
+    </div>
+    <div class="card"><div class="ct" data-k="vtitle">Live vote</div><p class="cs" data-k="vsub"></p><div class="rows" data-k="vbars"></div></div>
+    <div class="grid2">
+      <div class="card"><div class="ct">Vote share</div><p class="cs">How the votes are split right now.</p><div data-k="vshare">${donutShell()}</div></div>
+      <div class="card"><div class="ct">Votes per day</div><p class="cs">Students who voted on each recent day.</p><div class="cols" data-k="vdays"></div></div>
     </div>
     <div class="card"><div class="ct">What to cook today</div><p class="cs">Servings to prepare for each item.</p><div class="rows" data-k="bars"></div></div>
     <div class="grid2">
@@ -301,13 +312,39 @@ function dashPane() {
     </div>
   </div>`);
   const q = (k) => el.querySelector(`[data-k="${k}"]`);
-  let built = "";
+  let built = "", vbuilt = "";
+  const VC = ["#0071e3", "#5e5ce6", "#ff9f0a"];
+  function voteBlock(v) {
+    const total = v ? v.total : 0;
+    countTo(q("votes"), total, { dur: 700 });
+    q("votesSub").textContent = !v ? "No voting today" : total ? `across ${v.options.length} choices` : "No votes yet";
+    q("vtitle").textContent = v ? `Live vote: ${dayName(v.target_date)}'s ${v.target_slot}` : "Live vote";
+    q("vsub").textContent = !v ? "There is no vote open today." : total ? `${plural(total, "vote")} so far. This updates as students vote.` : "No votes yet. Results appear here as students vote.";
+    const opts = v ? [...v.options].sort((a, b) => b.votes - a.votes || a.name.localeCompare(b.name)) : [];
+    const key = opts.map((o) => o.item_id).join();
+    if (key !== vbuilt) {
+      vbuilt = key;
+      q("vbars").innerHTML = opts.map((o) => `<div class="row"><div class="l"><span>${esc(o.name)}</span><span><span class="num">0</span><small class="pc">0%</small></span></div><div class="track"><i></i></div></div>`).join("");
+    }
+    q("vbars").querySelectorAll(".row").forEach((r, n) => {
+      const o = opts[n], ci = v.options.findIndex((x) => x.item_id === o.item_id);
+      countTo(r.querySelector(".num"), o.votes, { dur: 700, fmt: (x) => plural(Math.round(x), "vote") });
+      r.querySelector(".pc").textContent = Math.round(o.share * 100) + "%";
+      const i = r.querySelector(".track i"); i.style.background = VC[ci % 3]; nextFrame(() => (i.style.width = o.share * 100 + "%"));
+    });
+    donut(q("vshare"), opts.map((o) => ({ l: o.name, c: VC[v.options.findIndex((x) => x.item_id === o.item_id) % 3], v: o.votes })), `<b>${total.toLocaleString()}</b><span>${total === 1 ? "vote" : "votes"}</span>`);
+    const days = v ? v.days : [], top = Math.max(1, ...days.map((d) => d.votes));
+    q("vdays").innerHTML = days.length ? days.map((d) => `<div class="cg"><div class="pair"><div class="bar b" style="height:0" data-h="${(d.votes / top) * 100}"><em>${d.votes.toLocaleString()}</em></div></div><span>${esc(fmtDate(d.date, { month: "short", day: "numeric" }))}</span></div>`).join("") : `<p class="cs" style="margin:auto">No votes recorded yet.</p>`;
+    nextFrame(() => q("vdays").querySelectorAll(".bar").forEach((b) => (b.style.height = b.dataset.h + "%")));
+  }
   const live = () => document.getElementById("live");
 
-  function update({ prep, savings, meter }) {
+  function update({ prep, savings, meter, votes }) {
     const items = [...prep.items].sort((a, b) => b.prep - a.prep), max = items[0] ? items[0].prep : 1;
     const sum = items.reduce((a, i) => a + i.prep, 0);
-    countTo(q("servings"), sum, { dur: 900 }); countTo(q("students"), prep.attendance, { dur: 900 });
+    countTo(q("servings"), sum, { dur: 900 });
+    q("servSub").textContent = `for ${prep.attendance.toLocaleString()} expected students`;
+    voteBlock(votes);
     countTo(q("saved"), meter.dollars_saved, { dur: 1000, fmt: money });
     q("savedSub").textContent = `${Math.round(meter.servings_saved).toLocaleString()} fewer servings wasted`;
     countTo(q("cut"), savings.leftover_cut_pct, { dur: 1000, fmt: (n) => n.toFixed(1) + "%" });

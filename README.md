@@ -98,7 +98,7 @@ The full list of routes and response shapes is in the [API reference](docs/backe
 - A meal check that flags a missing food group.
 - A backtest that scores the forecast on the last 4 weeks of history.
 - A what-if simulator for attendance and price changes.
-- An API (FastAPI and SQLite) with routes under `/api`: health, prep, savings, simulate, spin, vote, guess, me, meter.
+- An API (FastAPI and SQLite) with routes under `/api`: health, prep, savings, simulate, spin, vote, votes, guess, me, meter.
 - Streaks, XP and badges for students, in the API.
 - Students are identified only by a device ID, not a name or email.
 

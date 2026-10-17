@@ -342,6 +342,53 @@ def create_app():
             ratio=valid_num(body.ratio, 3.0, 0, MAX_RATIO),
         )
 
+    @application.get("/api/votes")
+    def votes(request: Request):
+        request_settings, current_date = request_context(request)
+        with closing(connect(request_settings["db"])) as connection:
+            option_row = connection.execute(
+                "SELECT * FROM vote_options WHERE open_date=?", (current_date,)
+            ).fetchone()
+            if option_row is None:
+                raise HTTPException(404, "no voting today")
+            counts = {
+                row["item_id"]: row["votes"]
+                for row in connection.execute(
+                    "SELECT item_id, COUNT(*) AS votes FROM votes WHERE date=? GROUP BY item_id",
+                    (current_date,),
+                )
+            }
+            options = []
+            for option_number in (1, 2, 3):
+                item = connection.execute(
+                    "SELECT item_id, name FROM items WHERE item_id=?",
+                    (option_row[f"option_{option_number}"],),
+                ).fetchone()
+                options.append(
+                    {
+                        "item_id": item["item_id"],
+                        "name": item["name"],
+                        "votes": counts.get(item["item_id"], 0),
+                    }
+                )
+            total = sum(option["votes"] for option in options)
+            for option in options:
+                option["share"] = round(option["votes"] / total, 4) if total else 0.0
+            recent = connection.execute(
+                """SELECT date, COUNT(*) AS votes FROM votes WHERE date<=?
+                GROUP BY date ORDER BY date DESC LIMIT 7""",
+                (current_date,),
+            ).fetchall()
+        return {
+            "date": current_date,
+            "target_date": option_row["target_date"],
+            "target_slot": option_row["target_slot"],
+            "total": total,
+            "options": options,
+            "days": [{"date": row["date"], "votes": row["votes"]} for row in reversed(recent)],
+            "simulated": True,
+        }
+
     @application.get("/api/meter")
     def meter(request: Request):
         _, current_date = request_context(request)
