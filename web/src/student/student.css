@@ -1,0 +1,680 @@
+/* Student view. Phone first; on wide screens it stays a single calm column.
+   Every selector is scoped under .student-view so nothing leaks into other views. */
+
+.student-view .student {
+  max-width: calc(var(--max-width) / 2);
+  margin: 0 auto;
+  padding-bottom: calc(var(--touch) + var(--s12));
+}
+
+.student-view .student__screen {
+  display: grid;
+  gap: var(--s5);
+}
+
+.student-view .screen {
+  display: grid;
+  gap: var(--s5);
+}
+
+.student-view .screen__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--s3);
+  flex-wrap: wrap;
+}
+
+.student-view .screen__title {
+  font-size: var(--text-xl);
+}
+
+.student-view .section-title {
+  font-size: var(--text-lg);
+  text-wrap: balance;
+}
+
+/* Streak and XP */
+.student-view .stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  border-top: var(--hairline);
+  border-bottom: var(--hairline);
+  min-height: var(--s16);
+}
+.student-view .stats--empty {
+  min-height: var(--s16);
+}
+.student-view .stats__item {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  padding: var(--s3) 0;
+}
+.student-view .stats__item + .stats__item {
+  border-left: var(--hairline);
+  padding-left: var(--s4);
+}
+.student-view .stats__flame {
+  display: inline-flex;
+  transform-origin: 50% 90%;
+}
+.student-view .stats__value {
+  font-family: var(--font-display);
+  font-size: var(--text-2xl);
+  font-weight: 700;
+  line-height: 1;
+}
+.student-view .stats__label {
+  color: var(--slate);
+}
+
+.student-view .flame {
+  width: var(--s5);
+  height: var(--s6);
+  fill: var(--accent-mark);
+}
+.student-view .flame--off {
+  fill: none;
+  stroke: var(--line);
+  stroke-width: 1.6;
+}
+
+/* Panels: white surface on paper, no shadow */
+.student-view .panel {
+  background: var(--surface);
+  border-radius: var(--radius);
+  padding: var(--s5);
+  display: grid;
+  gap: var(--s4);
+}
+.student-view .panel--quiet {
+  background: transparent;
+  padding: 0 0 var(--s5);
+  border-bottom: var(--hairline);
+  border-radius: 0;
+}
+.student-view .panel__lead {
+  color: var(--slate);
+  margin-top: calc(var(--s2) * -1);
+}
+.student-view .panel__note {
+  color: var(--slate);
+}
+.student-view .panel__error {
+  color: var(--bad);
+  font-weight: 500;
+}
+.student-view .panel__cta {
+  width: 100%;
+}
+.student-view .panel__action {
+  display: grid;
+}
+/* Headings that take focus after a vote or guess, so the result is read out. */
+.student-view .section-title[tabindex='-1']:focus-visible {
+  box-shadow: none;
+}
+.student-view .voted__mark {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+}
+.student-view .voted__xp {
+  font-family: var(--font-display);
+  font-size: var(--text-md);
+  font-weight: 700;
+  color: var(--ok);
+}
+
+.student-view .btn--big:disabled {
+  opacity: 1;
+  background: var(--paper);
+  color: var(--slate);
+}
+.student-view .btn--big[data-busy] {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+.student-view .btn--big {
+  width: 100%;
+  min-height: calc(var(--touch) + var(--s3));
+  font-family: var(--font-display);
+  font-size: var(--text-md);
+}
+
+.student-view .done-mark {
+  width: var(--s10);
+  height: var(--s10);
+  fill: none;
+  stroke: var(--ok);
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* The reel and the choice rows */
+.student-view .reel {
+  position: relative;
+  background: var(--paper);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.student-view .reel:not(.reel--list) {
+  height: calc(var(--s16) * 3 - 1px);
+}
+.student-view .reel__strip {
+  will-change: transform;
+}
+.student-view .reel__row {
+  display: flex;
+  align-items: stretch;
+  height: var(--s16);
+  border-bottom: var(--hairline);
+}
+.student-view .reel__choices .reel__row:last-child,
+.student-view .reel--list .reel__row:last-child {
+  border-bottom: 0;
+}
+.student-view .reel__row--on {
+  background: var(--surface);
+  border-radius: var(--radius);
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+.student-view .reel__pick {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  padding: 0 var(--s3);
+  background: none;
+  border: 0;
+  border-radius: var(--radius);
+  text-align: left;
+  color: var(--ink);
+  -webkit-tap-highlight-color: transparent;
+}
+.student-view button.reel__pick {
+  cursor: pointer;
+}
+/* Inset rings: the reel clips anything drawn outside its rows. */
+.student-view .reel__pick:focus-visible,
+.student-view .reel__info:focus-visible {
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
+.student-view button.reel__pick:disabled {
+  cursor: default;
+}
+/* Before the first spin: a calm, empty reel window, clearly waiting. */
+.student-view .reel--idle {
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: var(--s2);
+  padding: var(--s4);
+  text-align: center;
+}
+.student-view .reel__idle-mark {
+  width: var(--s10);
+  height: var(--s10);
+  fill: none;
+  stroke: var(--slate);
+  stroke-width: 1.6;
+  stroke-linejoin: round;
+}
+.student-view .reel__idle-text {
+  color: var(--slate);
+}
+.student-view .reel__name {
+  font-family: var(--font-display);
+  font-size: var(--text-md);
+  font-weight: 600;
+  line-height: var(--leading-tight);
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+.student-view .reel__radio {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: var(--s5);
+  height: var(--s5);
+  border: 1.5px solid var(--slate);
+  border-radius: 50%;
+}
+.student-view .reel__radio--ghost {
+  visibility: hidden;
+}
+.student-view .reel__row--on .reel__radio {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.student-view .reel__radio svg {
+  width: var(--s4);
+  height: var(--s4);
+  fill: none;
+  stroke: var(--accent-ink);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.student-view .reel__info {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: var(--touch);
+  align-self: center;
+  height: var(--touch);
+  margin-right: var(--s1);
+  border: 0;
+  border-radius: var(--radius);
+  background: none;
+  color: var(--slate);
+  cursor: pointer;
+}
+.student-view .reel__info:hover {
+  color: var(--ink);
+}
+.student-view .reel__info svg {
+  width: var(--s5);
+  height: var(--s5);
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+}
+
+.student-view .food-glyph {
+  flex: none;
+  width: var(--s8);
+  height: var(--s8);
+  color: var(--ink);
+}
+.student-view .food-glyph--lg {
+  width: var(--s12);
+  height: var(--s12);
+}
+
+/* Vote tally */
+.student-view .tally {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--s4);
+}
+.student-view .tally__top {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  margin-bottom: var(--s2);
+}
+.student-view .tally__name {
+  font-family: var(--font-display);
+  font-weight: 600;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.student-view .tally__mine {
+  flex: none;
+  color: var(--accent);
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+.student-view .tally__count {
+  flex: none;
+  margin-left: auto;
+  color: var(--slate);
+}
+.student-view .tally__track {
+  height: var(--s2);
+  background: var(--paper);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.student-view .tally__bar {
+  display: block;
+  height: 100%;
+  background: var(--slate);
+  border-radius: var(--radius);
+  transform-origin: left center;
+}
+.student-view .tally__bar--mine {
+  background: var(--accent);
+}
+
+/* Waste meter */
+.student-view .meter {
+  display: grid;
+  gap: var(--s4);
+  padding-top: var(--s2);
+}
+.student-view .meter__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--s3);
+  flex-wrap: wrap;
+}
+.student-view .meter__week {
+  color: var(--slate);
+}
+.student-view .meter__figures {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--s4);
+}
+.student-view .meter__figure {
+  display: grid;
+  gap: var(--s1);
+  align-content: start;
+}
+.student-view .meter__big {
+  font-family: var(--font-display);
+  font-size: var(--text-2xl);
+  font-weight: 700;
+  line-height: 1;
+}
+.student-view .meter__label {
+  color: var(--slate);
+  line-height: var(--leading-tight);
+}
+.student-view .meter__trays {
+  display: grid;
+  gap: var(--s1);
+  max-width: calc(var(--s10) * 12);
+}
+.student-view .meter__tray {
+  position: relative;
+  aspect-ratio: 22 / 14;
+}
+.student-view .meter__tray svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.student-view .meter__tray-empty rect {
+  fill: none;
+  stroke: var(--line);
+  stroke-width: 1.5;
+}
+.student-view .meter__tray-empty path {
+  fill: none;
+  stroke: var(--line);
+}
+.student-view .meter__tray-full {
+  position: absolute;
+  inset: 0;
+}
+.student-view .meter__tray-full rect {
+  fill: var(--slate);
+  stroke: var(--slate);
+  stroke-width: 1.5;
+}
+.student-view .meter__tray-full path {
+  fill: none;
+  stroke: var(--paper);
+  stroke-width: 1.2;
+}
+.student-view .meter__unit {
+  color: var(--slate);
+}
+
+/* Called it */
+.student-view .result {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+}
+.student-view .result__text,
+.student-view .result__body {
+  flex: 1;
+}
+.student-view .result__body {
+  display: grid;
+  gap: var(--s2);
+}
+.student-view .result__body .panel__lead {
+  margin-top: 0;
+}
+.student-view .result__xp {
+  flex: none;
+  font-weight: 600;
+  color: var(--ok);
+}
+
+/* Badges */
+.student-view .badges {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  background: var(--surface);
+  border-radius: var(--radius);
+}
+.student-view .badge {
+  display: grid;
+  justify-items: center;
+  align-content: start;
+  text-align: center;
+  gap: var(--s2);
+  padding: var(--s5) var(--s2);
+}
+.student-view .badge + .badge {
+  border-left: var(--hairline);
+}
+.student-view .badge__mark {
+  position: relative;
+  width: var(--s12);
+  height: var(--s12);
+  display: grid;
+  place-items: center;
+}
+.student-view .badge__ring {
+  fill: none;
+  stroke: var(--ink);
+  stroke-width: 2;
+}
+.student-view .badge__dot {
+  fill: var(--accent-mark);
+}
+.student-view .badge__mark--off .badge__ring {
+  stroke: var(--line);
+}
+.student-view .badge__mark--off .badge__dot {
+  fill: var(--line);
+}
+.student-view .badge__mark--flame .flame {
+  width: var(--s10);
+  height: var(--s12);
+}
+.student-view .badge__digit {
+  position: absolute;
+  bottom: var(--s2);
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: var(--text-md);
+  color: var(--accent-ink);
+}
+.student-view .badge__mark--off .badge__digit {
+  color: var(--slate);
+}
+.student-view .badge__name {
+  font-family: var(--font-display);
+  font-weight: 600;
+  line-height: var(--leading-tight);
+  text-wrap: balance;
+}
+.student-view .badge__state {
+  color: var(--slate);
+}
+.student-view .badge--earned .badge__state {
+  color: var(--ok);
+  font-weight: 600;
+}
+.student-view .badges__note {
+  color: var(--slate);
+}
+.student-view .badge__how {
+  color: var(--slate);
+  font-size: var(--text-sm);
+  line-height: var(--leading-tight);
+  text-wrap: balance;
+}
+
+/* Bottom tab bar, sized for a thumb */
+.student-view .tabbar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 40;
+  background: var(--paper);
+  border-top: var(--hairline);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.student-view .tabbar__list {
+  list-style: none;
+  margin: 0 auto;
+  padding: 0 var(--s2);
+  max-width: calc(var(--max-width) / 2);
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+}
+.student-view .tabbar__link {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s1);
+  min-height: calc(var(--touch) + var(--s3));
+  color: var(--ink);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.student-view .tabbar__link:focus-visible {
+  /* Inset, so the ring isn't cut off by the screen edge. */
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
+.student-view .tabbar__link[aria-current='page'] {
+  font-weight: 600;
+}
+.student-view .tabbar__icon {
+  width: var(--s6);
+  height: var(--s6);
+  fill: none;
+  stroke: var(--slate);
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.student-view .tabbar__link[aria-current='page'] .tabbar__icon {
+  stroke: var(--ink);
+}
+.student-view .tabbar__mark {
+  position: absolute;
+  top: -1px;
+  left: 30%;
+  right: 30%;
+  border-top: 2px solid var(--accent-mark);
+}
+
+/* Food info sheet */
+.student-view .sheet {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+.student-view .sheet__scrim {
+  position: absolute;
+  inset: 0;
+  background: var(--ink);
+}
+.student-view .sheet__panel {
+  position: relative;
+  width: 100%;
+  max-width: calc(var(--max-width) / 2);
+  background: var(--surface);
+  border-radius: var(--radius) var(--radius) 0 0;
+  padding: var(--s3) var(--s5) calc(var(--s6) + env(safe-area-inset-bottom));
+  display: grid;
+  gap: var(--s4);
+  touch-action: none;
+}
+.student-view .sheet__grip {
+  justify-self: center;
+  width: var(--s10);
+  height: var(--s1);
+  border-radius: var(--radius);
+  background: var(--line);
+}
+.student-view .sheet__head {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+}
+.student-view .sheet__title {
+  font-size: var(--text-lg);
+}
+.student-view .sheet__facts {
+  margin: 0;
+  border-top: var(--hairline);
+}
+.student-view .sheet__fact {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--s4);
+  padding: var(--s3) 0;
+  border-bottom: var(--hairline);
+}
+.student-view .sheet__fact dt {
+  color: var(--slate);
+}
+.student-view .sheet__fact dd {
+  margin: 0;
+  font-weight: 600;
+  text-align: right;
+}
+.student-view .sheet__note {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--s2);
+}
+.student-view .sheet__note svg {
+  flex: none;
+  width: var(--s5);
+  height: var(--s5);
+  margin-top: var(--s1);
+  fill: none;
+  stroke: var(--warn);
+  stroke-width: 1.6;
+  stroke-linecap: round;
+}
+.student-view .sheet__close {
+  width: 100%;
+}
+
+@media (min-width: 720px) {
+  .student-view .screen__title {
+    font-size: var(--text-2xl);
+  }
+}
+
+.student-view .meter__tray-empty,
+.student-view .meter__tray-full {
+  display: block;
+  height: 100%;
+}
