@@ -106,7 +106,7 @@ def test_buffers_grow_with_shortage_penalty(df):
 
 def test_shortage_first_buffer_hand_calc():
     errors = [i / 100 for i in range(-10, 31)]          # -10% .. +30%
-    assert safety_buffer(errors, "main", 3.0, "shortage_first") == pytest.approx(0.26)   # 90th pct
+    assert safety_buffer(errors, "main", 3.0, "shortage_first") == pytest.approx(0.276)   # 94th pct: -0.10 + 0.01 x (0.94 x 40)
     assert safety_buffer([-0.2] * 20, "main", 3.0, "shortage_first") == pytest.approx(0.05)  # floor
     assert safety_buffer([-0.2] * 20, "fruit", 3.0, "shortage_first") == pytest.approx(0.10)
     assert safety_buffer(errors, "main", 3.0, "cost_optimal") == newsvendor_buffer(errors, "main", 3.0)
@@ -236,7 +236,7 @@ def test_api_labels_synthetic(client):
     assert client.post("/plan", json={"expected_attendance": 400}).json()["synthetic_data"] is True
     assert client.get("/evaluate").json()["synthetic_data"] is True
     html = client.get("/").text
-    assert "Simulated school" in html and "Held-out test" in html
+    assert "Simulated data" in html and "do not" in html and "real-world performance" in html
 
 
 @pytest.mark.parametrize("bad", [0, -1])
@@ -251,3 +251,74 @@ def test_api_buffers_follow_multiplier(client):
     for a, b in zip(lo["items"], hi["items"]):
         assert b["buffer_used"] >= a["buffer_used"]
         assert a["cost_basis"].startswith("expected_over_")
+
+
+# ---- MVP workflow: forecast -> preparation -> impact -------------------------------------
+
+def test_plan_turns_forecast_into_prep_with_buffers(client):
+    plan = client.post("/plan", json={"target_date": "2026-10-19"}).json()
+    assert plan["expected_attendance"] > 0 and len(plan["items"]) == 6
+    protected = {"vegetable", "fruit", "dairy"}
+    for i in plan["items"]:
+        assert i["recommended_prep"] == math.ceil(i["predicted_demand"] * (1 + i["buffer_used"]))
+        assert i["recommended_prep"] >= i["predicted_demand"]
+        floor = 0.10 if i["food_category"] in protected else 0.05
+        assert i["buffer_used"] >= floor - 1e-9, i["food_item"]
+
+
+def test_plan_impact_numbers_are_consistent(client):
+    plan = client.post("/plan", json={"target_date": "2026-10-19"}).json()
+    t, items = plan["totals"], plan["items"]
+    # total = food cooked + shortage, for both sides; surplus is never added on top.
+    assert t["estimated_total_cost_compared_items"] == pytest.approx(
+        t["estimated_preparation_cost_compared_items"] + t["estimated_shortage_cost_compared_items"], abs=0.005)
+    assert t["baseline_total_cost"] == pytest.approx(t["baseline_preparation_cost"] + t["baseline_shortage_cost"], abs=0.005)
+    assert t["estimated_savings_vs_baseline"] == pytest.approx(
+        t["baseline_total_cost"] - t["estimated_total_cost_compared_items"], abs=0.005)
+    for i in items:
+        assert i["estimated_total_cost"] == pytest.approx(i["estimated_preparation_cost"] + i["estimated_shortage_cost"], abs=0.005)
+        assert i["estimated_surplus"] >= 0 and i["estimated_shortage"] >= 0
+    assert t["estimated_surplus_servings"] == pytest.approx(sum(i["estimated_surplus"] for i in items), abs=0.01)
+    assert t["estimated_shortage_servings"] == pytest.approx(sum(i["estimated_shortage"] for i in items), abs=0.01)
+    assert plan["synthetic_data"] is True
+
+
+def test_expected_costs_total_is_exactly_the_sum_of_parts():
+    for prep in (95, 100, 107):
+        c = expected_costs(100, prep, 0.37, baseline_prep=120, shortage_penalty_multiplier=3.0,
+                           rel_errors=[-0.13, -0.02, 0.04, 0.11, 0.29])
+        assert c["estimated_total_cost"] == round(c["estimated_preparation_cost"] + c["estimated_shortage_cost"], 2)
+        assert c["baseline_total_cost"] == round(c["baseline_preparation_cost"] + c["baseline_shortage_cost"], 2)
+
+
+def test_next_school_day_is_a_real_school_day(client):
+    from datetime import date
+    d = client.get("/next-school-day").json()["date"]
+    ts = pd.Timestamp(d)
+    assert ts.weekday() < 5 and ts.date() >= date.today()
+    assert d not in prediction_holidays()
+
+
+def prediction_holidays():
+    from prediction import SCHOOL_HOLIDAYS
+    return SCHOOL_HOLIDAYS
+
+
+def test_summary_has_averages_and_date_range(client):
+    s = client.get("/summary").json()
+    assert s["synthetic_data"] is True and s["first_date"] < s["last_date"] and s["days_in_history"] == 34
+    for f in s["per_food"]:
+        assert f["avg_served"] > 0 and 0 <= f["avg_leftover"] < f["avg_prepared"]
+
+
+def test_dashboard_is_three_sections_labeled_synthetic_and_not_hardcoded(client):
+    import re
+    html = client.get("/").text
+    assert re.findall(r"<h2[^>]*>(.*?)</h2>", html) == ["1. What the history shows", "2. The plan", "3. Expected impact"]
+    assert "Simulated data" in html and "real-world performance" in html
+    assert not re.search(r"\$\d", html), "a hardcoded dollar amount is in the page"
+    # every endpoint the page calls exists
+    paths = set(re.findall(r"getJSON\('(/[a-z-]+)'", html))
+    routes = {r.path for r in client.app.routes}
+    assert {"/summary", "/next-school-day", "/plan", "/evaluate"} <= paths <= routes
+    assert all(client.get(p).status_code == 200 for p in paths - {"/plan"})

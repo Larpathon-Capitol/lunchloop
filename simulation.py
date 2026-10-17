@@ -25,7 +25,7 @@ import pandas as pd
 from prediction import (safety_buffer, target_service_level, school_days, _pick_errors,
                         PROTECTED_CATEGORIES, PROTECTED_MIN_BUFFER, SAFETY_BUFFER,
                         PROTECTED_BUFFER, BUFFER_RULES, RECENT_WINDOW_DAYS,
-                        PREVIOUS_WINDOW_DAYS, WEEKDAY_SHRINK_K)
+                        PREVIOUS_WINDOW_DAYS, WEEKDAY_SHRINK_K, SHORTAGE_FIRST_LEVEL, DEFAULT_BUFFER_RULE)
 
 # name, category, base share of attending students, unit cost. Shares and costs match the
 # synthetic CSV (data/cafeteria_history_synthetic.csv) so both datasets describe the same
@@ -59,7 +59,8 @@ WARMUP_DAYS = 10        # days of history before any strategy is scored
 # "recent" = the shipped forecast (last RECENT_WINDOW_DAYS days x shrunk weekday factor);
 # "prev" = the previous shipped forecast (last PREVIOUS_WINDOW_DAYS days), kept for comparison.
 BUFFER_GRID = np.round(np.arange(0.0, 0.5001, 0.025), 3)
-SHORTAGE_LIMIT = 1.10   # "close to the baseline" = at most 110% of the usual amount's shortages
+SHORTAGE_LIMIT = 1.00   # the goal: no more short servings than the usual amount (and no more short rows)
+TRADEOFF_LEVELS = (0.80, 0.90, 0.94, 0.97, 0.99)   # coverage levels drawn on the trade-off curve
 
 
 def simulate_school(family="typical", seed=0, n_days=80):
@@ -180,6 +181,11 @@ def _school_rows(df, multipliers):
                     for m in multipliers:
                         buf = _fixed_buffer(cat) if errors is None else safety_buffer(errors, cat, m, rule)
                         row[f"prep_{tag}_{rule}_{m:g}x"] = math.ceil(fc * (1 + buf))
+                if tag == "recent":
+                    for lv in TRADEOFF_LEVELS:
+                        buf = (_fixed_buffer(cat) if errors is None
+                               else safety_buffer(errors, cat, 3.0, "shortage_first", level=lv))
+                        row[f"prep_level_{lv:g}"] = math.ceil(fc * (1 + buf))
             out.append(row)
     return out
 
@@ -269,7 +275,30 @@ def run_simulation_study(n_train=6, n_val=6, n_test=12, n_days=80, multipliers=(
             r["leftover_change_pct"] = round((r["leftover_servings"] / usual["leftover_servings"] - 1) * 100, 1)
             r["shortage_vs_usual_ratio"] = (round(r["shortage_servings"] / usual["shortage_servings"], 2)
                                             if usual["shortage_servings"] else None)
+            r["short_rows_vs_usual_ratio"] = (round(r["days_short"] / usual["days_short"], 2)
+                                              if usual["days_short"] else None)
+            # The goal: fewer leftovers AND no more short servings AND no more short rows.
+            r["beats_usual_on_all_three"] = bool(
+                s != "usual" and r["leftover_servings"] < usual["leftover_servings"]
+                and r["shortage_servings"] <= SHORTAGE_LIMIT * usual["shortage_servings"]
+                and r["days_short"] <= SHORTAGE_LIMIT * usual["days_short"])
             out[s] = r
+        return out
+
+    def tradeoff(sub):
+        usual = _metrics(sub, "prep_usual", 3.0)
+        out = {}
+        for lv in TRADEOFF_LEVELS:
+            r = {"fill_rate_pct": None, "savings_pct_vs_usual": {}}
+            for m in multipliers:
+                x, u = _metrics(sub, f"prep_level_{lv:g}", m), _metrics(sub, "prep_usual", m)
+                r["savings_pct_vs_usual"][f"{m:g}x"] = round((u["total_cost"] - x["total_cost"]) / u["total_cost"] * 100, 2)
+            x = _metrics(sub, f"prep_level_{lv:g}", 3.0)
+            r.update({"fill_rate_pct": x["fill_rate_pct"],
+                      "leftover_change_pct": round((x["leftover_servings"] / usual["leftover_servings"] - 1) * 100, 1),
+                      "shortage_vs_usual_ratio": round(x["shortage_servings"] / usual["shortage_servings"], 2),
+                      "short_rows_vs_usual_ratio": round(x["days_short"] / usual["days_short"], 2)})
+            out[f"{lv:g}"] = r
         return out
 
     results = {}
@@ -277,16 +306,16 @@ def run_simulation_study(n_train=6, n_val=6, n_test=12, n_days=80, multipliers=(
         by_split = {sp: table(rows[rows["split"] == sp], m) for sp in splits}
         val = by_split["validation"]
         best_cost = min(val, key=lambda s: val[s]["total_cost"])
-        within = [s for s in val if s != "usual"
-                  and val[s]["shortage_servings"] <= SHORTAGE_LIMIT * val["usual"]["shortage_servings"]]
-        best_within = min(within, key=lambda s: val[s]["total_cost"]) if within else None
+        dominating = [s for s in val if val[s]["beats_usual_on_all_three"]]
+        best_dominating = min(dominating, key=lambda s: val[s]["total_cost"]) if dominating else None
         test = rows[rows["split"] == "test"]
         results[f"{m:g}x"] = {
             "shortage_penalty_multiplier": m,
             "service_level_target": {r: round(target_service_level(m, r), 3) for r in BUFFER_RULES},
             "by_split": by_split,
             "test_by_family": {fam: table(test[test["family"] == fam], m) for fam in SCENARIOS},
-            "chosen_on_validation": {"best_by_cost": best_cost, "best_within_shortage_limit": best_within},
+            "chosen_on_validation": {"best_by_cost": best_cost, "best_dominating": best_dominating,
+                                     "dominating_strategies": dominating},
         }
 
     def mae(sub, fc):
@@ -302,6 +331,8 @@ def run_simulation_study(n_train=6, n_val=6, n_test=12, n_days=80, multipliers=(
         "config": {"schools_per_family": {k: len(v) for k, v in splits.items()}, "families": SCENARIOS,
                    "days_per_school": n_days, "scored_days_per_school": n_days - WARMUP_DAYS,
                    "foods": [f[0] for f in FOODS], "shortage_limit": SHORTAGE_LIMIT,
+                   "shipped_strategy": f"recent_{DEFAULT_BUFFER_RULE}",
+                   "shipped_coverage_level": SHORTAGE_FIRST_LEVEL,
                    "kitchen_margin": KITCHEN_MARGIN},
         "strategy_labels": STRATEGY_LABELS,
         "chosen_forecast_on_validation": {"f_all": "all_time_average", "f_prev": "previous_last_20_days",
@@ -310,6 +341,7 @@ def run_simulation_study(n_train=6, n_val=6, n_test=12, n_days=80, multipliers=(
                           "per_food_shortage_capped": capped,
                           "shortage_cap_reachable_on_train": capped_ok},
         "forecast_mae": forecast_mae,
+        "coverage_tradeoff": {sp: tradeoff(rows[rows["split"] == sp]) for sp in ("validation", "test")},
         "results": results,
         "assumptions": [
             "All schools are SYNTHETIC. Demand shares and unit costs match the synthetic CSV; "

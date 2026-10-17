@@ -86,18 +86,17 @@ def test_study_metrics_are_consistent(small_study):
 
 def test_shipped_settings_match_full_study_validation_choice():
     # Production settings must be what the FULL study picks on validation schools: the
-    # forecast window, and the cheapest strategy within the shortage limit at 1x, 3x and 5x.
+    # forecast, and the cheapest strategy that has fewer leftovers AND no more short
+    # servings AND no more short rows than the usual amount, at 1x, 3x and 5x.
     study = run_simulation_study()
     assert study["chosen_forecast_on_validation"] == "lunchloop_forecast"
     shipped = "recent_" + prediction.DEFAULT_BUFFER_RULE
-    # At 3x (the default) and 5x, validation picks the shipped strategy. At 1x a per-food
-    # capped buffer edges it by a hair (documented in the README), so only require the
-    # shipped one to be within 0.5 points of savings of that winner.
-    for key in ("3x", "5x"):
-        assert study["results"][key]["chosen_on_validation"]["best_within_shortage_limit"] == shipped
-    val = study["results"]["1x"]["by_split"]["validation"]
-    best = study["results"]["1x"]["chosen_on_validation"]["best_within_shortage_limit"]
-    assert val[best]["savings_pct_vs_usual"] - val[shipped]["savings_pct_vs_usual"] < 0.5
+    assert study["config"]["shipped_strategy"] == shipped
+    assert study["config"]["shipped_coverage_level"] == prediction.SHORTAGE_FIRST_LEVEL
+    for key in ("1x", "3x", "5x"):
+        assert study["results"][key]["chosen_on_validation"]["best_dominating"] == shipped
+    # The goal check itself is reported, not assumed: it is True on validation schools.
+    assert study["results"]["3x"]["by_split"]["validation"][shipped]["beats_usual_on_all_three"] is True
 
 
 def test_dashboard_has_simulation_section():
@@ -107,4 +106,4 @@ def test_dashboard_has_simulation_section():
     client = TestClient(app.app)
     body = client.get("/simulation").json()
     assert body["synthetic_data"] is True and set(body["results"]) == {"1x", "3x", "5x"}
-    assert "Simulation study" in client.get("/").text
+    assert "Simulation study" not in client.get("/").text   # kept in the API, off the MVP dashboard

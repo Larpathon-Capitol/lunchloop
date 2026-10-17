@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LunchLoop</title>
+<style>
+  :root {
+    color-scheme: light;
+    --surface: #ffffff; --page: #f2f4f3; --line: #d5dbd8;
+    --ink: #15181a; --slate: #55606a;
+    --accent: #c2410c; --ok: #1f7a4d; --warn: #9a5b00; --bad: #b42318;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --surface: #1a1c1b; --page: #0f1110; --line: #2f3533;
+      --ink: #eef0ef; --slate: #aab3ae;
+      --accent: #f08a5d; --ok: #4cc38a; --warn: #e0a23b; --bad: #f2877c;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--page); color: var(--ink);
+         font: 16px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif; padding: 24px 16px 56px; }
+  .wrap { max-width: 860px; margin: 0 auto; }
+  h1 { font-size: 26px; margin: 0 0 4px; }
+  h2 { font-size: 19px; margin: 0 0 4px; }
+  p { margin: 6px 0; }
+  .lead { color: var(--slate); margin: 0 0 14px; }
+  .banner { border: 1px solid var(--warn); border-radius: 8px; padding: 10px 14px; margin: 0 0 8px; font-size: 15px; }
+  section { background: var(--surface); border: 1px solid var(--line); border-radius: 8px;
+            padding: 20px; margin-top: 20px; }
+  .note { color: var(--slate); font-size: 15px; }
+  table { width: 100%; border-collapse: collapse; margin-top: 10px; font-variant-numeric: tabular-nums; }
+  th, td { padding: 9px 8px; text-align: right; border-bottom: 1px solid var(--line); }
+  th:first-child, td:first-child { text-align: left; }
+  th { font-weight: 600; font-size: 15px; color: var(--slate); }
+  .cook { font-size: 20px; font-weight: 700; color: var(--accent); }
+  th.cook-h { color: var(--accent); }
+  .scroll { overflow-x: auto; }
+  .picker { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; margin: 10px 0 2px; }
+  input[type="date"] { font: inherit; min-height: 44px; padding: 0 10px; border-radius: 8px;
+                       border: 1px solid var(--line); background: var(--surface); color: var(--ink); }
+  input:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+  .headline { font-size: 22px; font-weight: 700; margin: 12px 0 2px; }
+  .good { color: var(--ok); } .bad { color: var(--bad); } .same { color: var(--warn); }
+  .explain { margin-top: 12px; }
+  .err { color: var(--bad); }
+  .low { color: var(--warn); font-size: 14px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>LunchLoop</h1>
+  <p class="lead">How many servings of each food should the cafeteria cook, so less food is left over and
+    fewer students find the line empty?</p>
+  <p class="banner"><b>Simulated data.</b> The history below is a made-up example, and every dollar figure is an
+    estimate. Nothing here shows what LunchLoop would do at a real school.</p>
+
+  <section id="history">
+    <h2>1. What the history shows</h2>
+    <p class="note" id="history-text">Loading&hellip;</p>
+    <div class="scroll"><table id="history-table" hidden><thead><tr>
+      <th>Food</th><th>Average servings per day</th><th>Average leftovers per day</th>
+    </tr></thead><tbody id="history-rows"></tbody></table></div>
+    <p class="note">Leftovers are servings cooked but not served.</p>
+  </section>
+
+  <section id="plan">
+    <h2>2. The plan</h2>
+    <div class="picker">
+      <label for="day">School day:</label>
+      <input type="date" id="day">
+      <span class="note" id="attendance"></span>
+    </div>
+    <p class="note" id="plan-status">Loading&hellip;</p>
+    <div class="scroll"><table id="plan-table" hidden><thead><tr>
+      <th>Food</th><th>Predicted demand</th><th>Safety buffer</th><th class="cook-h">Cook</th>
+    </tr></thead><tbody id="plan-rows"></tbody></table></div>
+    <p class="note">Predicted demand is how many servings students are expected to take, based on the share of
+      students who took each food over the last 10 school days, adjusted for the day of the week. The safety buffer
+      adds extra so the food rarely runs out (at least 10% for fruit, vegetables and milk). Cook = predicted demand
+      plus the buffer, rounded up. A food with under 3 days of history gets a rough guess from similar foods and is
+      marked.</p>
+  </section>
+
+  <section id="impact">
+    <h2>3. Expected impact</h2>
+    <p class="note" id="impact-status">Loading&hellip;</p>
+    <p class="headline" id="impact-headline"></p>
+    <div class="scroll"><table id="impact-table" hidden><thead><tr>
+      <th>Estimated, for the day above</th><th>Usual amount</th><th>LunchLoop</th>
+    </tr></thead><tbody id="impact-rows"></tbody></table></div>
+    <p class="explain" id="impact-text"></p>
+    <p class="note" id="check-text"></p>
+    <p class="note">These are estimates from simulated data. A missing serving is counted as costing
+      <span id="mult">3</span> times that food's own cost, which is an assumption. Results from simulated data do not
+      establish real-world performance.</p>
+  </section>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const money = v => (v < 0 ? '-$' : '$') + Math.abs(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const n1 = v => v.toLocaleString('en-US', { maximumFractionDigits: 1 });
+
+async function getJSON(url, opts) {
+  const r = await fetch(url, opts);
+  if (!r.ok) throw new Error(url + ' returned HTTP ' + r.status);
+  return r.json();
+}
+
+async function loadHistory() {
+  try {
+    const s = await getJSON('/summary');
+    $('history-text').innerHTML = `${s.days_in_history} school days of simulated records
+      (${s.first_date} to ${s.last_date}), for ${s.per_food.length} foods.`;
+    $('history-rows').innerHTML = s.per_food.map(f =>
+      `<tr><td>${f.food_item}</td><td>${n1(f.avg_served)}</td><td>${n1(f.avg_leftover)}</td></tr>`).join('');
+    $('history-table').hidden = false;
+  } catch (e) { $('history-text').innerHTML = '<span class="err">' + e.message + '</span>'; }
+}
+
+async function loadPlan() {
+  const day = $('day').value;
+  if (!day) return;
+  try {
+    const p = await getJSON('/plan', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ target_date: day }) });
+    const weekday = new Date(day + 'T12:00:00').toLocaleString('en-US', { weekday: 'long' });
+    $('plan-status').textContent = `Plan for ${weekday} ${day}.`;
+    $('attendance').textContent = `Expected attendance: ${p.expected_attendance}`;
+    $('plan-rows').innerHTML = p.items.map(i =>
+      `<tr><td>${i.food_item}${i.confidence === 'low' ? ' <span class="low">(rough guess)</span>' : ''}</td>
+       <td>${i.predicted_demand}</td><td>+${Math.round(i.buffer_used * 100)}%</td>
+       <td class="cook">${i.recommended_prep}</td></tr>`).join('');
+    $('plan-table').hidden = false;
+    renderImpact(p);
+  } catch (e) {
+    $('plan-status').innerHTML = '<span class="err">Could not load the plan: ' + e.message + '</span>';
+  }
+}
+
+function renderImpact(p) {
+  const t = p.totals;
+  if (t.foods_without_baseline.length) {
+    $('impact-status').textContent = 'Foods without enough history have no usual-amount comparison: ' +
+      t.foods_without_baseline.join(', ') + '. They are left out below.';
+  } else { $('impact-status').textContent = 'Expected values for the day planned above, for every food in the plan.'; }
+  $('mult').textContent = t.shortage_penalty_multiplier;
+  const rows = [
+    ['Food cost (what is cooked)', money(t.baseline_preparation_cost), money(t.estimated_preparation_cost_compared_items)],
+    ['Shortage cost (missing servings)', money(t.baseline_shortage_cost), money(t.estimated_shortage_cost_compared_items)],
+    ['Total cost', money(t.baseline_total_cost), money(t.estimated_total_cost_compared_items)],
+    ['Leftover servings', n1(t.baseline_surplus_servings), n1(t.estimated_surplus_servings)],
+    ['Short servings', n1(t.baseline_shortage_servings), n1(t.estimated_shortage_servings)],
+  ];
+  $('impact-rows').innerHTML = rows.map(r => `<tr><td>${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td></tr>`).join('');
+  $('impact-table').hidden = false;
+
+  const s = t.estimated_savings_vs_baseline, pct = t.estimated_savings_pct_vs_baseline;
+  const cls = s > 0.005 ? 'good' : s < -0.005 ? 'bad' : 'same';
+  $('impact-headline').className = 'headline ' + cls;
+  $('impact-headline').textContent = (s >= 0 ? 'Estimated savings: ' : 'Estimated extra cost: ') + money(Math.abs(s)) +
+    (pct === null ? '' : ` (${Math.abs(pct)}%)`);
+  const dLeft = t.estimated_surplus_servings - t.baseline_surplus_servings;
+  const dShort = t.estimated_shortage_servings - t.baseline_shortage_servings;
+  const left = Math.abs(dLeft) < 0.5 ? 'about the same leftovers'
+    : `${n1(Math.abs(dLeft))} ${dLeft < 0 ? 'fewer' : 'more'} leftover servings`;
+  const short = Math.abs(dShort) < 0.05 ? 'about the same shortages'
+    : `${n1(Math.abs(dShort))} ${dShort < 0 ? 'fewer' : 'more'} short servings`;
+  $('impact-text').innerHTML = `<b>In plain English:</b> compared with cooking the usual amount, LunchLoop is
+    expected to cost ${money(Math.abs(s))} ${s >= 0 ? 'less' : 'more'}, with ${left} and ${short}.` +
+    (dShort > 0.05 ? ' Cooking less means a slightly higher chance of running out, and that is included in the cost above.' : '');
+}
+
+async function loadCheck() {
+  try {
+    const e = await getJSON('/evaluate');
+    const o = e.overall;
+    if (!o || !o.n) return;
+    $('check-text').innerHTML = `<b>Backtest:</b> on the example dataset's last ${o.evaluated_days} school days
+      (${o.window_start} to ${o.window_end}), which were never used to set anything, LunchLoop's plans cost
+      ${money(o.lunchloop_total_cost)} vs. ${money(o.baseline_total_cost)} for the usual amount, with
+      ${o.estimated_surplus_servings} vs. ${o.baseline_surplus_servings} leftover servings and
+      ${o.estimated_shortage_servings} vs. ${o.baseline_shortage_servings} short servings, measured against what was
+      actually served. That is a small sample.`;
+  } catch (err) { /* the backtest line is optional */ }
+}
+
+async function init() {
+  loadHistory();
+  loadCheck();
+  try {
+    const d = await getJSON('/next-school-day');
+    $('day').value = d.date;
+  } catch (e) { $('plan-status').innerHTML = '<span class="err">' + e.message + '</span>'; return; }
+  $('day').addEventListener('change', loadPlan);
+  loadPlan();
+}
+init();
+</script>
+</body>
+</html>

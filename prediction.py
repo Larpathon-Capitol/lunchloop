@@ -423,10 +423,13 @@ def newsvendor_buffer(rel_errors, food_category=None,
     return float(np.clip(buf, floor, MAX_BUFFER))
 
 
-SHORTAGE_FIRST_LEVEL = 0.90
-# Default buffer rule. "shortage_first" was the cheapest strategy that kept shortages within
-# 110% of the usual amount on VALIDATION schools in the simulation study, at 1x, 3x and 5x.
-# "cost_optimal" (the plain newsvendor rule) cuts more leftovers but runs short far more.
+SHORTAGE_FIRST_LEVEL = 0.94
+# Default buffer rule: cook enough for 94% of days. Chosen with level_search.py on TRAINING
+# schools as the highest level (fewest leftovers) at which the shipped strategy, overall,
+# has no more short servings AND no more short rows than the usual amount, then confirmed on
+# VALIDATION schools (93% passed training but not validation, so 94% is the lowest safe
+# level). "cost_optimal" (the plain newsvendor rule) cuts more leftovers but runs short far
+# more, so it fails the goal of reducing leftovers AND shortages together.
 DEFAULT_BUFFER_RULE = "shortage_first"
 BUFFER_RULES = ("shortage_first", "cost_optimal")
 
@@ -434,23 +437,26 @@ BUFFER_RULES = ("shortage_first", "cost_optimal")
 def target_service_level(shortage_penalty_multiplier=SHORTAGE_PENALTY_MULTIPLIER,
                          buffer_rule=DEFAULT_BUFFER_RULE):
     """Share of days the buffer aims to cover. cost_optimal: 1 - 1/m (newsvendor).
-    shortage_first: at least 90%, higher only if 1 - 1/m is higher (m above 10)."""
+    shortage_first: at least SHORTAGE_FIRST_LEVEL (94%), higher only if 1 - 1/m is higher
+    (m above 16.7)."""
     m_level = service_level(shortage_penalty_multiplier)
     return m_level if buffer_rule == "cost_optimal" else max(SHORTAGE_FIRST_LEVEL, m_level)
 
 
 def safety_buffer(rel_errors, food_category=None,
                   shortage_penalty_multiplier=SHORTAGE_PENALTY_MULTIPLIER,
-                  buffer_rule=DEFAULT_BUFFER_RULE):
+                  buffer_rule=DEFAULT_BUFFER_RULE, level=None):
     """The buffer for one food under either rule. cost_optimal = newsvendor_buffer().
     shortage_first = the target_service_level() quantile of past errors, never below +5%
-    (+10% for fruit/vegetable/milk), never above MAX_BUFFER."""
+    (+10% for fruit/vegetable/milk), never above MAX_BUFFER. `level` overrides the coverage
+    level (shortage_first only), used to draw the leftovers-vs-shortages trade-off curve."""
     if buffer_rule not in BUFFER_RULES:
         raise ValueError(f"buffer_rule must be one of {BUFFER_RULES}")
     if buffer_rule == "cost_optimal":
         return newsvendor_buffer(rel_errors, food_category, shortage_penalty_multiplier)
     floor = max(0.05, PROTECTED_MIN_BUFFER if food_category in PROTECTED_CATEGORIES else 0.0)
-    level = target_service_level(shortage_penalty_multiplier, buffer_rule)
+    if level is None:
+        level = target_service_level(shortage_penalty_multiplier, buffer_rule)
     return float(np.clip(np.quantile(rel_errors, level), floor, MAX_BUFFER))
 
 
@@ -596,7 +602,11 @@ def expected_costs(predicted_demand, recommended_prep, unit_cost, baseline_prep=
     for key in _AVERAGED_COST_KEYS:
         if out[key] is not None:
             out[key] = round(float(np.mean([s[key] for s in scenarios])), 2)
+    # Averaging rounds each figure on its own; re-derive totals from the rounded parts so
+    # food cost + shortage cost == total cost exactly, for LunchLoop and the baseline.
+    out["estimated_total_cost"] = round(out["estimated_preparation_cost"] + out["estimated_shortage_cost"], 2)
     if out["baseline_total_cost"] is not None:
+        out["baseline_total_cost"] = round(out["baseline_preparation_cost"] + out["baseline_shortage_cost"], 2)
         savings = round(out["baseline_total_cost"] - out["estimated_total_cost"], 2)
         out["estimated_savings_vs_baseline"] = savings
         out["estimated_savings_pct_vs_baseline"] = (
@@ -976,6 +986,12 @@ def plan_day(df, expected_attendance=None, target_date=None, menu=None, buffers_
                    "estimated_preparation_cost_all_items": total("estimated_preparation_cost"),
                    "estimated_total_cost_all_items": total("estimated_total_cost"),
                    "estimated_total_cost_compared_items": total_cost_compared,
+                   # Cost parts for the same foods as the comparison above (those with a baseline),
+                   # so total = food prepared + shortage cost holds on both sides, surplus never added.
+                   "estimated_preparation_cost_compared_items": round(sum(i["estimated_preparation_cost"] for i in compared), 2),
+                   "estimated_shortage_cost_compared_items": round(sum(i["estimated_shortage_cost"] for i in compared), 2),
+                   "baseline_preparation_cost": total("baseline_preparation_cost"),
+                   "baseline_shortage_cost": total("baseline_shortage_cost"),
                    "baseline_surplus_cost": total("baseline_surplus_cost"),
                    "baseline_total_cost": baseline_total_cost,
                    "estimated_savings_vs_baseline": savings,
