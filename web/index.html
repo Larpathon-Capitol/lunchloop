@@ -4,20 +4,19 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="color-scheme" content="light dark">
-<meta name="theme-color" content="#f5f5f7" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
 <title>LunchLoop</title>
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-<div class="aura" aria-hidden="true"><i></i><i></i><i></i></div>
-<header class="bar">
-  <span class="mark">LunchLoop</span>
-  <nav class="seg" role="tablist">
-    <a href="#/" data-tab="student" role="tab">Student</a>
-    <a href="#/kitchen" data-tab="kitchen" role="tab">Kitchen</a>
-    <i class="thumb"></i>
-  </nav>
+<header class="top">
+  <div class="wrap">
+    <span class="mark">Lunchloop</span>
+    <nav class="seg people" id="people" aria-label="Student"></nav>
+    <nav class="seg modes" id="modes">
+      <a href="#/" data-tab="vote">Vote</a>
+      <a href="#/admin" data-tab="admin">Admin</a>
+    </nav>
+  </div>
 </header>
 <main id="view" aria-live="polite"></main>
 <script src="app.js"></script>
