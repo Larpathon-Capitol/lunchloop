@@ -5,6 +5,10 @@
 > held-out evaluation and simulation study, and the endpoints that expose them (`/accuracy`, `/evaluate`,
 > `/simulation`, `/plan/month`, `/plan/sensitivity`). Those endpoints and their tests are kept but are no longer
 > shown on the dashboard. Sentences below about what "the dashboard shows" refer to the earlier, longer version.
+>
+> **Coverage level:** the figures below that mention 90% or 94% coverage describe earlier defaults. The app now
+> defaults to **97%** coverage (a deliberate choice for fewer shortages; `level_search.py` alone would pick 94%).
+> The leftovers-vs-shortages trade-off at every level is in `coverage_tradeoff` from `GET /simulation`.
 
 Predicts how many servings of each cafeteria food students will take, recommends how much
 to prepare with a cost-based safety buffer, and compares the cost of that plan with

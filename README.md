@@ -26,8 +26,8 @@ Three sections, all computed live from the CSV through the API (nothing is typed
 2. **The plan**: for the next school day (or any day you pick), each food's predicted demand, safety buffer and the
    amount to cook. Cook is the prominent column.
 3. **Expected impact**: LunchLoop vs. the usual amount for that day: food cost, shortage cost, total cost, leftover
-   servings, short servings, and the estimated savings (or extra cost). If LunchLoop saves money but runs short a bit
-   more, both are shown. A one-line backtest on the dataset's last 15 school days is added as a reality check.
+   servings, short servings, and the estimated savings (or extra cost). If the plan saves money but runs short a bit
+   more, or costs a bit more but runs short less, both facts are shown. A one-line backtest on the dataset's last 15 school days is added as a reality check.
 
 ## How it works
 
@@ -37,7 +37,7 @@ Three sections, all computed live from the CSV through the API (nothing is typed
   and is marked "rough guess". It is compared with a plain all-time-average baseline when accuracy is evaluated
   (`GET /accuracy`).
 - **Safety buffer** (`safety_buffer`): sized from how wrong the forecast was for that food on earlier days, so the
-  amount cooked would have covered 94% of them. Never below +5%, and never below +10% for fruit, vegetables and milk.
+  amount cooked would have covered 97% of them. Never below +5%, and never below +10% for fruit, vegetables and milk.
 - **Cost** (`calculate_costs`): `total = food cooked x unit cost + shortage x unit cost x 3`. Leftover (surplus) food is
   already inside the food cost and is never added again. The 3x for a missing serving is an assumption, not a measured
   cost. LunchLoop and the usual amount are always compared against the same demand.
@@ -74,7 +74,7 @@ python test_api.py
 - `app.py`: FastAPI app and the dashboard route. `dashboard.html`: the page.
 - `prediction.py`: forecast, buffer, cost model, evaluation. `simulation.py`: synthetic multi-school study (backend only).
 - `data/cafeteria_history_synthetic.csv`: the synthetic history.
-- `tests/`, `test_prototype.py`, `test_api.py`: automated checks. `forecast_search.py`, `level_search.py`: how the forecast and the 94% coverage were chosen.
+- `tests/`, `test_prototype.py`, `test_api.py`: automated checks. `forecast_search.py`, `level_search.py`: how the forecast was chosen and how the coverage level trades leftovers against shortages (97% is a deliberate choice for fewer shortages; the search rule alone would pick 94%).
 - `docs/EVALUATION.md`: the full evaluation write-up.
 
 ## License

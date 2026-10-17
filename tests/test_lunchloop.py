@@ -106,7 +106,7 @@ def test_buffers_grow_with_shortage_penalty(df):
 
 def test_shortage_first_buffer_hand_calc():
     errors = [i / 100 for i in range(-10, 31)]          # -10% .. +30%
-    assert safety_buffer(errors, "main", 3.0, "shortage_first") == pytest.approx(0.276)   # 94th pct: -0.10 + 0.01 x (0.94 x 40)
+    assert safety_buffer(errors, "main", 3.0, "shortage_first") == pytest.approx(0.288)   # 97th pct: -0.10 + 0.01 x (0.97 x 40)
     assert safety_buffer([-0.2] * 20, "main", 3.0, "shortage_first") == pytest.approx(0.05)  # floor
     assert safety_buffer([-0.2] * 20, "fruit", 3.0, "shortage_first") == pytest.approx(0.10)
     assert safety_buffer(errors, "main", 3.0, "cost_optimal") == newsvendor_buffer(errors, "main", 3.0)

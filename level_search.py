@@ -3,7 +3,7 @@
 For each coverage level it prints, on SYNTHETIC TRAIN and VALIDATION schools only (never test), how the shipped
 strategy compares with the usual amount: leftovers, short servings and short rows, overall and per kind of school.
 Selection rule: the lowest level (most leftover savings) at which, overall on TRAIN, short servings AND short rows
-are no higher than the usual amount, and VALIDATION agrees. 93% passed train but not validation, so 94% is used."""
+are no higher than the usual amount, and VALIDATION agrees. 93% passed train but not validation, so the rule picks 94%. The app uses 97% instead, a deliberate choice for fewer shortages (SHORTAGE_FIRST_LEVEL in prediction.py)."""
 import numpy as np
 import pandas as pd
 import prediction

@@ -102,7 +102,7 @@
 <script>
 const $ = id => document.getElementById(id);
 const money = v => (v < 0 ? '-$' : '$') + Math.abs(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-const n1 = v => v.toLocaleString('en-US', { maximumFractionDigits: 1 });
+const n1 = v => v.toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 
 async function getJSON(url, opts) {
   const r = await fetch(url, opts);
@@ -171,7 +171,9 @@ function renderImpact(p) {
     : `${n1(Math.abs(dShort))} ${dShort < 0 ? 'fewer' : 'more'} short servings`;
   $('impact-text').innerHTML = `<b>In plain English:</b> compared with cooking the usual amount, LunchLoop is
     expected to cost ${money(Math.abs(s))} ${s >= 0 ? 'less' : 'more'}, with ${left} and ${short}.` +
-    (dShort > 0.05 ? ' Cooking less means a slightly higher chance of running out, and that is included in the cost above.' : '');
+    (dShort > 0.05 ? ' Cooking less means a slightly higher chance of running out, and that is included in the cost above.'
+      : s < 0 ? ' The extra cost is the price of fewer shortages: LunchLoop cooks a bit more so each food is less likely to run out.'
+      : '');
 }
 
 async function loadCheck() {

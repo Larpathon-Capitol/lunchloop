@@ -423,13 +423,15 @@ def newsvendor_buffer(rel_errors, food_category=None,
     return float(np.clip(buf, floor, MAX_BUFFER))
 
 
-SHORTAGE_FIRST_LEVEL = 0.94
-# Default buffer rule: cook enough for 94% of days. Chosen with level_search.py on TRAINING
-# schools as the highest level (fewest leftovers) at which the shipped strategy, overall,
-# has no more short servings AND no more short rows than the usual amount, then confirmed on
-# VALIDATION schools (93% passed training but not validation, so 94% is the lowest safe
-# level). "cost_optimal" (the plain newsvendor rule) cuts more leftovers but runs short far
-# more, so it fails the goal of reducing leftovers AND shortages together.
+SHORTAGE_FIRST_LEVEL = 0.97
+# Default buffer rule: cook enough for 97% of days. This is a PROJECT-OWNER CHOICE for fewer
+# shortages, not the output of the search rule. level_search.py's rule (the lowest level at
+# which, overall on TRAINING schools, the shipped strategy has no more short servings AND no
+# more short rows than the usual amount, confirmed on VALIDATION schools) picks 94%: 93%
+# passed training but not validation. 97% is a safer margin above that line: it trades some
+# of 94%'s leftover savings for clearly fewer short servings and short rows (see
+# coverage_tradeoff in /simulation). "cost_optimal" (the plain newsvendor rule) cuts more
+# leftovers but runs short far more, so it fails the goal of reducing leftovers AND shortages.
 DEFAULT_BUFFER_RULE = "shortage_first"
 BUFFER_RULES = ("shortage_first", "cost_optimal")
 
@@ -437,8 +439,8 @@ BUFFER_RULES = ("shortage_first", "cost_optimal")
 def target_service_level(shortage_penalty_multiplier=SHORTAGE_PENALTY_MULTIPLIER,
                          buffer_rule=DEFAULT_BUFFER_RULE):
     """Share of days the buffer aims to cover. cost_optimal: 1 - 1/m (newsvendor).
-    shortage_first: at least SHORTAGE_FIRST_LEVEL (94%), higher only if 1 - 1/m is higher
-    (m above 16.7)."""
+    shortage_first: at least SHORTAGE_FIRST_LEVEL (97%), higher only if 1 - 1/m is higher
+    (m above 33.3)."""
     m_level = service_level(shortage_penalty_multiplier)
     return m_level if buffer_rule == "cost_optimal" else max(SHORTAGE_FIRST_LEVEL, m_level)
 
