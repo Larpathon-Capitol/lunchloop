@@ -1,0 +1,15 @@
+item_id,name,component,cost_per_serving,allergens,prep_floor
+cheese_pizza,Cheese pizza,meat_alternate,0.85,milk;wheat,0
+beef_nachos,Beef nachos,meat_alternate,0.90,milk;wheat,0
+chicken_nuggets,Chicken nuggets,meat_alternate,0.70,wheat,0
+cheeseburger,Cheeseburger,meat_alternate,1.05,milk;soybeans;wheat,0
+popcorn_chicken,Popcorn chicken,meat_alternate,0.58,wheat;soybeans,0
+spicy_chicken_sandwich,Spicy chicken sandwich,meat_alternate,0.95,soybeans;wheat,0
+dinner_roll,Dinner roll,grain,0.18,wheat,0
+brown_rice,Brown rice,grain,0.15,,0
+steamed_carrots,Steamed carrots,vegetable,0.25,,120
+broccoli,Broccoli,vegetable,0.28,,80
+fruit_cup,Fruit cup,fruit,0.40,,150
+mandarin_oranges,Mandarin oranges,fruit,0.35,,70
+chocolate_milk,Chocolate milk,milk,0.40,milk,0
+milk_1pct,1% milk,milk,0.30,milk,0
