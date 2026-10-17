@@ -96,7 +96,7 @@ assert r3.json()["totals"]["shortage_penalty_multiplier"] == 3.0
 r = client.get("/plan/sensitivity", params={"expected_attendance": 410})
 body = r.json()
 assert r.status_code == 200 and len(body["results"]) == 5
-assert {res["shortage_penalty_multiplier"] for res in body["results"]} == {0.5, 1.0, 1.5, 2.0, 3.0}
+assert {res["shortage_penalty_multiplier"] for res in body["results"]} == {1.0, 1.5, 2.0, 3.0, 5.0}
 
 # Evaluation endpoint: leak-free walk-forward comparison, same days for both methods.
 r = client.get("/evaluate")

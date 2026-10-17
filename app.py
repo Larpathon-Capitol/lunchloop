@@ -5,14 +5,14 @@ Then open http://127.0.0.1:8000/docs for interactive testing.
 """
 from typing import List, Optional
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from prediction import (load_data, plan_day, plan_month, summarize_history, mae_report,
                          compute_data_driven_buffers, validate_history, evaluate_methods,
-                         SHORTAGE_PENALTY_MULTIPLIER)
+                         walk_forward_residuals, SHORTAGE_PENALTY_MULTIPLIER)
 
 app = FastAPI(title="TrayTrack API")
 
@@ -27,9 +27,24 @@ app.add_middleware(
 df = load_data()
 # Computed once at startup (each is a walk-forward backtest over the whole history):
 # BUFFERS feeds /plan and /plan/month; ACCURACY and DATA_QUALITY are their own endpoints.
-BUFFERS = compute_data_driven_buffers(df)
+RESIDUALS = walk_forward_residuals(df)
+BUFFERS = compute_data_driven_buffers(df, residuals=RESIDUALS)
 ACCURACY = mae_report(df)
 DATA_QUALITY_ISSUES = validate_history(df)
+_buffer_cache = {SHORTAGE_PENALTY_MULTIPLIER: BUFFERS}
+_eval_cache = {}
+
+
+def buffers_for(m):
+    """Buffers depend on the shortage multiplier (newsvendor service level = 1 - 1/m)."""
+    if m not in _buffer_cache:
+        if len(_buffer_cache) > 32:  # bounded: m is user input
+            _buffer_cache.clear()
+        _buffer_cache[m] = compute_data_driven_buffers(df, m, residuals=RESIDUALS)
+    return _buffer_cache[m]
+
+# A multiplier <= 0 would make shortages free or profitable; reject it at the boundary.
+Multiplier = Field(SHORTAGE_PENALTY_MULTIPLIER, gt=0, le=100)
 
 
 class MenuItem(BaseModel):
@@ -42,14 +57,14 @@ class PlanRequest(BaseModel):
     expected_attendance: Optional[int] = None
     target_date: Optional[str] = None  # "YYYY-MM-DD"; used to estimate attendance if expected_attendance is omitted
     menu: Optional[List[MenuItem]] = None
-    shortage_penalty_multiplier: float = SHORTAGE_PENALTY_MULTIPLIER
+    shortage_penalty_multiplier: float = Multiplier
 
 
 class MonthPlanRequest(BaseModel):
     year: int
     month: int  # 1-12
     menu: Optional[List[MenuItem]] = None
-    shortage_penalty_multiplier: float = SHORTAGE_PENALTY_MULTIPLIER
+    shortage_penalty_multiplier: float = Multiplier
 
 
 @app.get("/health")
@@ -89,7 +104,8 @@ def plan(request: PlanRequest):
                              detail="Provide expected_attendance or target_date (or both).")
     menu = [item.model_dump() for item in request.menu] if request.menu else None
     return plan_day(df, expected_attendance=request.expected_attendance,
-                     target_date=request.target_date, menu=menu, buffers_table=BUFFERS,
+                     target_date=request.target_date, menu=menu,
+                     buffers_table=buffers_for(request.shortage_penalty_multiplier),
                      shortage_penalty_multiplier=request.shortage_penalty_multiplier)
 
 
@@ -98,7 +114,8 @@ def plan_month_endpoint(request: MonthPlanRequest):
     if not 1 <= request.month <= 12:
         raise HTTPException(status_code=400, detail="month must be 1-12.")
     menu = [item.model_dump() for item in request.menu] if request.menu else None
-    return plan_month(df, request.year, request.month, menu=menu, buffers_table=BUFFERS,
+    return plan_month(df, request.year, request.month, menu=menu,
+                       buffers_table=buffers_for(request.shortage_penalty_multiplier),
                        shortage_penalty_multiplier=request.shortage_penalty_multiplier)
 
 
@@ -107,10 +124,11 @@ def plan_sensitivity(expected_attendance: int):
     """How sensitive the sample-day savings comparison is to the shortage penalty assumption
     (see calculate_costs() in prediction.py). Not a measured result -- shows the same day
     re-planned under several different, clearly-labeled assumptions side by side."""
-    multipliers = [0.5, 1.0, 1.5, 2.0, 3.0]
+    multipliers = [1.0, 1.5, 2.0, 3.0, 5.0]
     results = []
     for m in multipliers:
-        plan_result = plan_day(df, expected_attendance=expected_attendance, buffers_table=BUFFERS,
+        # Each multiplier gets its own buffers too: the cost-minimizing buffer depends on it.
+        plan_result = plan_day(df, expected_attendance=expected_attendance, buffers_table=buffers_for(m),
                                 shortage_penalty_multiplier=m)
         results.append({"shortage_penalty_multiplier": m, "totals": plan_result["totals"]})
     return {"expected_attendance": expected_attendance, "results": results,
@@ -119,10 +137,15 @@ def plan_sensitivity(expected_attendance: int):
 
 
 @app.get("/evaluate")
-def evaluate(shortage_penalty_multiplier: float = SHORTAGE_PENALTY_MULTIPLIER):
-    """Leak-free walk-forward evaluation of baseline vs. LunchLoop, on the same held-out
+def evaluate(shortage_penalty_multiplier: float = Query(SHORTAGE_PENALTY_MULTIPLIER, gt=0, le=100)):
+    """Leak-free walk-forward evaluation of baseline vs. TrayTrack, on the same held-out
     school days (see evaluate_methods() in prediction.py for the full methodology)."""
-    return evaluate_methods(df, shortage_penalty_multiplier=shortage_penalty_multiplier)
+    m = shortage_penalty_multiplier
+    if m not in _eval_cache:
+        if len(_eval_cache) > 32:  # bounded: m is user input
+            _eval_cache.clear()
+        _eval_cache[m] = evaluate_methods(df, shortage_penalty_multiplier=m)
+    return _eval_cache[m]
 
 
 DASHBOARD_HTML = """
@@ -200,7 +223,8 @@ DASHBOARD_HTML = """
 <body>
 <div class="wrap">
   <h1>TrayTrack dashboard</h1>
-  <p class="sub">Live from the (synthetic) CSV history &mdash; no static numbers below.</p>
+  <p class="sub"><b>Simulated school (synthetic data).</b> Every number below is computed live
+  from the CSV by the API; none are typed in.</p>
 
   <section class="card">
     <h2>History at a glance</h2>
@@ -211,7 +235,7 @@ DASHBOARD_HTML = """
           <th>Food</th><th>Category</th><th>Days recorded</th>
           <th>Avg attendance</th><th>Avg prepared</th><th>Avg served</th>
           <th>Avg leftover</th><th>Leftover rate</th>
-          <th>Safety buffer</th><th>Est. shortfall rate</th>
+          <th>Safety buffer</th><th>Backtest short-day rate</th>
         </tr>
       </thead>
       <tbody id="rows"></tbody>
@@ -224,6 +248,22 @@ DASHBOARD_HTML = """
     <p class="sub" id="accuracy-sub" style="margin-bottom:14px">Loading&hellip;</p>
     <div class="totals-line" id="accuracy-totals"></div>
     <p class="note" id="accuracy-note"></p>
+  </section>
+
+  <section class="card">
+    <h2>Held-out test: TrayTrack vs. cooking the usual amount</h2>
+    <p class="sub" id="eval-sub" style="margin-bottom:14px">Loading&hellip;</p>
+    <table id="eval-table" style="display:none">
+      <thead><tr><th>Measured against actual servings</th><th>Usual amount</th><th>TrayTrack</th><th>Difference</th></tr></thead>
+      <tbody id="eval-rows"></tbody>
+    </table>
+    <div class="totals-line" id="eval-totals"></div>
+    <table id="eval-food" style="margin-top:20px; display:none">
+      <thead><tr><th>Food</th><th>Usual total $</th><th>TrayTrack total $</th><th>Savings</th>
+        <th>Surplus (usual / TT)</th><th>Shortage (usual / TT)</th></tr></thead>
+      <tbody id="eval-food-rows"></tbody>
+    </table>
+    <p class="note" id="eval-note"></p>
   </section>
 
   <section class="card">
@@ -247,9 +287,9 @@ DASHBOARD_HTML = """
       <thead>
         <tr>
           <th>Food</th><th>Predicted servings</th><th>Recommended prep</th>
-          <th>Est. surplus (servings)</th><th>Est. shortage (servings)</th>
+          <th>Expected surplus (servings)</th><th>Expected shortage (servings)</th>
           <th>Est. plate waste (servings)</th>
-          <th>LunchLoop total $</th><th>Baseline total $</th><th>Savings</th>
+          <th>TrayTrack total $</th><th>Usual-amount total $</th><th>Savings</th>
         </tr>
       </thead>
       <tbody id="month-rows"></tbody>
@@ -300,15 +340,16 @@ async function loadHistory() {
           </div>
         </td>
         <td>${buf ? Math.round(buf.buffer * 100) + '%' : '&mdash;'}</td>
-        <td>${buf ? Math.round(buf.shortfall_rate_estimate * 100) + '%' : '&mdash;'}</td>`;
+        <td>${buf ? Math.round(buf.shortage_rate_estimate * 100) + '%' : '&mdash;'}</td>`;
       tbody.appendChild(tr);
     }
     document.getElementById('table').style.display = '';
     document.getElementById('buffer-note').textContent =
-      'Safety buffer and shortfall rate are backtested per food (walk-forward: each past day ' +
-      'predicted using only earlier days), replacing a fixed 10%/15% guess -- "prepare for the ' +
-      '90th percentile day" rather than a flat percentage. The shortfall rate is how often, in ' +
-      'that backtest, even the buffered amount would still have run short.';
+      'Safety buffers come from each food\\'s walk-forward forecast errors (each past day ' +
+      'predicted using only earlier days), using the newsvendor rule: prepare enough for ' +
+      '1 - 1/multiplier of days, never below the forecast, and never below +10% for ' +
+      'fruit, vegetables and milk. The short-day rate is how often, on those same past days, ' +
+      'the buffered amount would still have run short.';
   } catch (e) {
     document.getElementById('subtitle').innerHTML =
       '<span class="err">Could not load /summary or /buffers: ' + e.message + '</span>';
@@ -327,21 +368,29 @@ async function loadAccuracy() {
     const oldMae = a.old_method.overall_mae_servings_per_day;
     const newMae = a.new_method.overall_mae_servings_per_day;
     const change = Math.round((1 - newMae / oldMae) * 100);
-    const changeLabel = change >= 0 ? 'error reduction' : 'error INCREASE';
+    const changeLabel = change >= 0 ? 'error reduction vs. old' : 'error INCREASE vs. old';
+    const w = a.window;
     document.getElementById('accuracy-sub').textContent =
-      `Walk-forward backtest over ${a.n_predictions} (day, food) predictions -- each one made ` +
-      `using only data from before that day.`;
+      `Held-out test window ${w.test_start} to ${w.test_end} (${w.test_days} school days, ` +
+      `${a.n_predictions} day-food predictions). Each prediction uses only data from before ` +
+      `that day; no setting was tuned on these days.`;
     document.getElementById('accuracy-totals').innerHTML = `
       <div><b>${oldMae.toFixed(1)}</b>old method: MAE (servings/day)</div>
       <div><b>${newMae.toFixed(1)}</b>current method: MAE (servings/day)</div>
       <div><b style="color:${change >= 0 ? 'var(--good)' : '#d03b3b'}">${Math.abs(change)}%</b>${changeLabel}</div>
       <div><b>${a.new_method.overall_mape_pct}%</b>current method: mean % error</div>`;
+    const ci = a.new_minus_old_mae_95ci;
+    const v = a.validation;
     document.getElementById('accuracy-note').innerHTML =
-      '"old" = the original all-time-average method. "current" = same-weekday recent history ' +
-      'when there is enough of it, falling back to a recent window then the all-time average, ' +
-      'with sold-out days excluded from the rate estimate. See /accuracy for the per-food breakdown.' +
-      (change < 0 ? ' <b>With only ~34 days of real history, "current" does not yet beat "old" '
-        + '-- not enough data for the extra structure to pay off; that\\'s expected, not a bug.</b>' : '') +
+      '"old" = all-time average share of attending students. "current" = that share nudged ' +
+      'toward the same weekday\\'s share by n/(n+4). ' +
+      `Current minus old MAE on the test window: <b>${a.new_minus_old_mae}</b> servings/day ` +
+      `(95% bootstrap interval ${ci[0]} to ${ci[1]}; an interval that includes 0 means no ` +
+      'clear difference). ' +
+      (a.new_beats_old_on_test ? 'Current beats old on the held-out test window.'
+        : '<b>Current does NOT beat old on the held-out test window.</b>') +
+      (v ? ` On the earlier validation window (${v.start} to ${v.end}), used to choose the ` +
+        `setting, MAE was old ${v.old_mae} vs. current ${v.new_mae}.` : '') +
       '<br><br><b style="color:#d03b3b">Caveat:</b> ' + a.circularity_caveat;
   } catch (e) {
     document.getElementById('accuracy-sub').innerHTML =
@@ -439,7 +488,7 @@ function barChart(el, bars, { width = 860, height = 240, pad = { t: 16, r: 16, b
   el.querySelectorAll('.hit-bar').forEach(rect => {
     rect.addEventListener('mouseenter', () => {
       const b = bars[+rect.dataset.i];
-      tooltip.innerHTML = `<b>${b.label}</b><br>${fmtMoney(b.value)} estimated surplus cost`;
+      tooltip.innerHTML = `<b>${b.label}</b><br>${fmtMoney(b.value)} expected total cost (food + shortage)`;
       tooltip.style.opacity = 1;
       const r = el.getBoundingClientRect();
       tooltip.style.left = (rect.x.baseVal.value / width * r.width) + 'px';
@@ -473,7 +522,8 @@ async function loadMonthPlan() {
     document.getElementById('month-range').innerHTML =
       `<b>SYNTHETIC data.</b> Evaluation/forecast range: ${plan.daily_plans[0].date} to ` +
       `${plan.daily_plans[plan.daily_plans.length - 1].date}. shortage_penalty_multiplier = ` +
-      `${plan.totals.shortage_penalty_multiplier} (an assumption -- see /plan/sensitivity).`;
+      `${plan.totals.shortage_penalty_multiplier} (an assumption, see /plan/sensitivity); buffers ` +
+      `target enough food on ${Math.round(plan.totals.service_level_target * 100)}% of days.`;
 
     lineChart(document.getElementById('attendance-chart'),
       plan.daily_plans.map(d => ({ y: d.expected_attendance, label: d.date })), {});
@@ -486,8 +536,8 @@ async function loadMonthPlan() {
     const savingsPctTxt = savingsPct === null ? 'n/a' : savingsPct + '%';
     document.getElementById('month-totals').innerHTML = `
       <div><b>${fmtMoney(prepCost)}</b>est. preparation cost, whole month, all items</div>
-      <div><b>${fmtMoney(lunchloopTotal)}</b>LunchLoop total cost (items with a baseline)</div>
-      <div><b>${fmtMoney(baselineTotal)}</b>baseline total cost (same items)</div>
+      <div><b>${fmtMoney(lunchloopTotal)}</b>TrayTrack expected total cost (items with a baseline)</div>
+      <div><b>${fmtMoney(baselineTotal)}</b>usual-amount expected total cost (same items)</div>
       <div><b style="color:${savings >= 0 ? 'var(--good)' : '#d03b3b'}">${fmtMoney(savings)}</b>` +
         `estimated savings vs. baseline (${savingsPctTxt})</div>`;
 
@@ -516,24 +566,91 @@ async function loadMonthPlan() {
     }
     document.getElementById('month-table').style.display = '';
     document.getElementById('month-note').textContent =
-      'Each day in this month gets its own weekday-based attendance estimate; further-out days ' +
-      'in a school year carry the same confidence as nearer ones, since the model only looks at ' +
-      'day-of-week history, not day-to-day momentum. Surplus, shortage, and plate waste are ' +
-      'different quantities, shown separately -- plate waste uses an external USDA benchmark ' +
-      'rate, not a local measurement, and is never summed into the cost totals above it.';
+      'This is a forecast, not a result: surplus, shortage and savings are EXPECTED values, ' +
+      'averaged over demand scenarios built from each food\\'s past forecast errors. Further-out ' +
+      'days carry the same uncertainty as nearer ones, since the model only looks at day-of-week ' +
+      'history. Surplus (cooked, never served), shortage (wanted, not available) and plate ' +
+      'waste (served, not eaten) are different quantities, shown separately; plate waste uses an ' +
+      'external USDA benchmark rate, not a local measurement, and is never in any cost total.';
     document.getElementById('month-assumptions').innerHTML =
       '<b>Assumptions:</b> unit costs are mostly estimates (see /plan response for sourcing on ' +
-      'popcorn chicken); "baseline" is this food\\'s own historical prepared/attendance ratio, not ' +
-      'a separately measured real-world baseline; shortage cost values a missing serving at ' +
-      `${plan.totals.shortage_penalty_multiplier}x its own unit_cost, a configurable choice, not a measured stockout cost.`;
+      'popcorn chicken); "usual amount" is this food\\'s own historical prepared/attendance ratio, not ' +
+      'a separately measured real-world baseline; total cost = food prepared + shortage cost, where ' +
+      `a missing serving costs ${plan.totals.shortage_penalty_multiplier}x its own unit_cost (a ` +
+      'configurable choice, not a measured stockout cost). Surplus cost is part of food cost, never added twice.';
   } catch (e) {
     document.getElementById('month-sub').innerHTML =
       '<span class="err">Could not load /plan/month: ' + e.message + '</span>';
   }
 }
 
+async function loadEvaluation() {
+  try {
+    const res = await fetch('/evaluate');
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const e = await res.json();
+    const o = e.overall;
+    if (!o || !o.n) {
+      document.getElementById('eval-sub').textContent = 'Not enough history yet to run a held-out test.';
+      return;
+    }
+    document.getElementById('eval-sub').innerHTML =
+      `<b>Simulated school.</b> ${o.evaluated_days} held-out school days (${o.window_start} to ` +
+      `${o.window_end}), ${o.n} day-food rows. Both plans use only data from before each day and ` +
+      `are scored against what was actually served. A missing serving costs ` +
+      `${o.shortage_penalty_multiplier}x its unit cost, so TrayTrack's buffer targets enough food ` +
+      `on ${Math.round(o.service_level_target * 100)}% of days.`;
+    const rows = [
+      ['Food prepared ($, includes surplus)', o.baseline_food_cost, o.lunchloop_food_cost, true],
+      [`Shortage cost ($, ${o.shortage_penalty_multiplier}x unit cost)`, o.baseline_shortage_cost, o.lunchloop_shortage_cost, true],
+      ['Total cost ($)', o.baseline_total_cost, o.lunchloop_total_cost, true],
+      ['Unserved surplus (servings)', o.baseline_surplus_servings, o.estimated_surplus_servings, false],
+      ['Shortage (servings)', o.baseline_shortage_servings, o.estimated_shortage_servings, false],
+      ['Day-food rows that ran short', o.baseline_days_short, o.lunchloop_days_short, false],
+      ['Est. plate waste (servings, USDA rate, not in cost)', o.baseline_estimated_plate_waste_servings, o.estimated_plate_waste_servings, false],
+    ];
+    const fmt = (v, money) => money ? fmtMoney(v) : String(v);
+    const tbody = document.getElementById('eval-rows');
+    for (const [label, b, t, money] of rows) {
+      const d = t - b;
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${label}</td><td>${fmt(b, money)}</td><td>${fmt(t, money)}</td>` +
+        `<td>${d > 0 ? '+' : ''}${money ? fmtMoney(d) : d}</td>`;
+      tbody.appendChild(tr);
+    }
+    document.getElementById('eval-table').style.display = '';
+    const s = o.estimated_savings_vs_baseline;
+    const pct = o.estimated_savings_pct_vs_baseline === null ? 'n/a' : o.estimated_savings_pct_vs_baseline + '%';
+    document.getElementById('eval-totals').innerHTML =
+      `<div><b style="color:${s >= 0 ? 'var(--good)' : '#d03b3b'}">${fmtMoney(Math.abs(s))}</b>` +
+      `${s >= 0 ? 'lower' : 'HIGHER'} total cost with TrayTrack (${pct})</div>` +
+      `<div><b>${o.mae_servings_per_day}</b>TrayTrack forecast MAE (servings/day)</div>`;
+    const fb = document.getElementById('eval-food-rows');
+    for (const [food, f] of Object.entries(e.per_food)) {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${food}</td><td>${fmtMoney(f.baseline_total_cost)}</td>` +
+        `<td>${fmtMoney(f.lunchloop_total_cost)}</td><td>${fmtMoney(f.estimated_savings_vs_baseline)}</td>` +
+        `<td>${f.baseline_surplus_servings} / ${f.estimated_surplus_servings}</td>` +
+        `<td>${f.baseline_shortage_servings} / ${f.estimated_shortage_servings}</td>`;
+      fb.appendChild(tr);
+    }
+    document.getElementById('eval-food').style.display = '';
+    document.getElementById('eval-note').innerHTML =
+      'TrayTrack trades fewer leftovers for more shortages; the shortage multiplier decides ' +
+      'whether that is worth it (try <code>/evaluate?shortage_penalty_multiplier=5</code>). ' +
+      `${o.sold_out_rows} of these rows sold out, where true demand is unknown and treated as ` +
+      'equal to what was served, which hides likely shortages for both plans. ' +
+      '<b>This is a simulation on synthetic data, not a real-world savings claim.</b>';
+  } catch (err) {
+    document.getElementById('eval-sub').innerHTML =
+      '<span class="err">Could not load /evaluate: ' + err.message + '</span>';
+  }
+}
+
+
 loadHistory();
 loadAccuracy();
+loadEvaluation();
 loadMonthPlan();
 </script>
 </body>

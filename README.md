@@ -1,9 +1,11 @@
 # TrayTrack (prototype)
 
-Predicts how much of each cafeteria food to prepare, using each food's history of
-what share of attending students actually took it. Estimates the surplus and its
-cost compared with the kitchen's historical prep-per-student baseline, backtests
-its own accuracy, and can project a full month ahead.
+Predicts how many servings of each cafeteria food students will take, recommends how much
+to prepare with a cost-based safety buffer, and compares the cost of that plan with
+"cooking the usual amount" on held-out school days it never saw while being tuned.
+
+**All data here is synthetic (a simulated school).** Every accuracy and savings number below
+describes how the method behaves on that simulated data. None of it is a real-world claim.
 
 ## Setup
 
@@ -14,291 +16,263 @@ pip install -r requirements.txt
 ## Run the checks
 
 ```
-python test_prototype.py   # core prediction/backtest/validation logic, prints a sample-day plan
-python test_api.py         # FastAPI endpoints, via TestClient (no server needed)
+python -m pytest           # tests/ : forecast, buffers, cost accounting, held-out evaluation, API
+python test_prototype.py   # older script checks, prints a sample-day plan
+python test_api.py         # older script checks for every endpoint
 ```
 
-Both print `ALL CHECKS PASSED` / `ALL API CHECKS PASSED` on success.
+The two scripts print `ALL CHECKS PASSED` / `ALL API CHECKS PASSED` on success.
 
-## Run the API
+## Run the API and dashboard
 
 ```
 python -m uvicorn app:app --port 8000
 ```
 
-(`python -m uvicorn ...` rather than bare `uvicorn ...` avoids a "command not found"
-on setups where pip's script shim isn't on `PATH`.)
-
-Then open `http://127.0.0.1:8000/` for the dashboard, or `/docs` for interactive
-endpoint testing:
+Open `http://127.0.0.1:8000/` for the dashboard, or `/docs` to call endpoints directly:
 
 ```
 curl -X POST http://127.0.0.1:8000/plan -H "Content-Type: application/json" \
   -d "{\"expected_attendance\": 410}"
 ```
 
+The dashboard shows, all computed live from the CSV: history per food with its buffer,
+forecast accuracy on the held-out test window (old vs. current method, with an uncertainty
+interval), the held-out cost comparison against the usual amount (food cost, shortage cost,
+surplus, shortage and plate waste as separate rows), and next month's forecast.
+
 ### Endpoints
 
-- `GET /summary` — plain historical averages per food, straight from the CSV.
-- `GET /accuracy` — backtested MAE, old all-time method vs. the current method (pure
-  prediction accuracy; see "How accuracy is measured").
-- `GET /evaluate` — leak-free walk-forward evaluation of baseline vs. LunchLoop **costs**
-  on the same held-out days (see "Cost model" and "How the evaluation works"). Optional
-  `?shortage_penalty_multiplier=`.
-- `GET /plan/sensitivity?expected_attendance=410` — the same sample day re-planned under
-  5 different shortage-penalty assumptions (0.5×–3×), side by side.
-- `GET /buffers` — backtested, per-food safety buffers and their shortage-rate estimate.
-- `GET /data-quality` — results of `validate_history()` against the loaded CSV.
-- `POST /plan` — one day's plan. Takes `expected_attendance` (a number you already
-  know) or `target_date` (a `YYYY-MM-DD` string — attendance *and* demand are then
-  estimated from that weekday's recent history, e.g. "pizza Friday"). Optional `menu`
-  list overrides which foods are planned; optional `shortage_penalty_multiplier`
-  (default 1.0) — see "Cost model".
-- `POST /plan/month` — a whole calendar month (`year`, `month`), rolled up from one
-  `/plan`-equivalent call per school day. Same optional fields as `/plan`.
+- `GET /summary`: plain historical averages per food, straight from the CSV.
+- `GET /accuracy`: forecast error on the held-out test window, old method vs. current
+  method, plus the validation window and a 95% bootstrap interval for the difference.
+- `GET /evaluate`: held-out cost comparison, TrayTrack vs. the usual amount, scored against
+  actual servings. Optional `?shortage_penalty_multiplier=`.
+- `GET /plan/sensitivity?expected_attendance=410`: one day planned at 1x, 1.5x, 2x, 3x and
+  5x shortage cost. Each multiplier gets its own buffers.
+- `GET /buffers`: per-food newsvendor buffers, their target and backtest short-day rate,
+  and the backtest errors they were read from.
+- `GET /data-quality`: results of `validate_history()` on the loaded CSV.
+- `POST /plan`: one day's plan. Takes `expected_attendance` or `target_date`
+  (`YYYY-MM-DD`; attendance is then estimated from that weekday's history). Optional
+  `menu` and `shortage_penalty_multiplier` (default 3, must be > 0).
+- `POST /plan/month`: a calendar month (`year`, `month`), one daily plan per school day.
 
 ## Files
 
-- `data/cafeteria_history_synthetic.csv` — synthetic history (see below). `load_data()` expects it at this path.
-- `prediction.py` — all prediction/backtest/validation logic, documented inline.
-- `app.py` — FastAPI wrapper + dashboard, exposing the endpoints above.
-- `test_prototype.py`, `test_api.py` — runnable checks for the two layers above.
+- `data/cafeteria_history_synthetic.csv`: the synthetic history (see below).
+- `prediction.py`: forecast, buffers, cost model, backtests. Documented inline.
+- `app.py`: FastAPI wrapper and the dashboard.
+- `tests/test_traytrack.py`: pytest suite. `test_prototype.py`, `test_api.py`: older script checks.
 
 ## The dataset
 
-204 rows: 6 real school foods (cheese pizza, chicken nuggets, popcorn chicken,
-steamed carrots, fruit cup, chocolate milk) over 34 real school days (Aug 31 – Oct
-16, 2026, weekdays minus Labor Day). It is **synthetic**, but calibrated against
-real figures:
+204 rows: 6 school foods (cheese pizza, chicken nuggets, popcorn chicken, steamed carrots,
+fruit cup, chocolate milk) over 34 school days (Aug 31 to Oct 16, 2026, weekdays minus
+Labor Day). It is **synthetic**:
 
-- **The history stops the day before "today."** An earlier version of this dataset
-  ran through June 2027 — a full fabricated school year. That's wrong on its face:
-  a "history" file can't contain measured rows for days that haven't happened yet,
-  and having them silently made every backtest and every `/plan/month` call partly
-  circular (predicting "the future" from data that already encoded it). The 2026-27
-  school year's later months (Nov 2026 onward) are deliberately **not** in this file
-  — that's what `/plan/month` is *for*.
-- Attendance dips on Fridays, and grows slowly over the year (enrollment trend) —
-  consistent with typical school attendance patterns. (A winter flu-season dip is
-  coded in the generator for if/when the window is later extended into Dec–Feb, but
-  doesn't affect this 34-day window at all.)
-- Per-food demand share has its own weekday story (not just one global curve):
-  "pizza Friday" (+5 points on top of the base share), popcorn chicken trending
-  slightly more popular over time.
-- Leftovers average ~10–15% of what's prepared — **not** calibrated to any plate-waste
-  study (see "Issues found and fixed" below for why that was removed).
-- Popcorn chicken's unit cost (~$0.58) comes from a real district nutrition report;
-  other unit costs are assumptions.
-- ~6% of rows sell out (`quantity_leftover == 0`), more often for popcorn chicken and
-  Friday pizza, to exercise the sold-out handling described below.
+- Attendance dips on Fridays and grows slowly over the year.
+- Per-food demand share has its own weekday story ("pizza Friday" +5 points; popcorn
+  chicken slowly getting more popular).
+- Leftovers average about 10 to 15% of what's prepared. About 6% of rows sell out
+  (`quantity_leftover == 0`).
+- Popcorn chicken's unit cost (~$0.58) comes from a real district nutrition report; other
+  unit costs are assumptions.
+- **The recorded `quantity_prepared` was generated from that day's `quantity_served`**
+  (they correlate at about 0.92, while prepared vs. attendance is only about 0.35). So the
+  recorded prep "knew" each day's demand in advance, and it is **not** used as the baseline
+  in the cost comparison: comparing against a clairvoyant kitchen would be unfair in the
+  other direction. See "Baseline" below.
 
 ## What's measured vs. estimated
 
-- **Measured in a real cafeteria:** `attendance`, `quantity_prepared`,
+- **Measured** (in a real cafeteria; here simulated): `attendance`, `quantity_prepared`,
   `quantity_served`, `quantity_leftover`.
-- **`quantity_served`** is portions that left the serving line, not food eaten —
-  plate waste is not captured anywhere in this prototype's *own* data (see
-  `estimated_plate_waste_*` below for an external-benchmark estimate of it).
-- **Estimated/assumed:** `unit_cost`, predicted demand, surplus, shortage, all savings
-  figures, safety buffers, the shortage-rate estimate, estimated plate waste, and (when
-  derived from `target_date` rather than given directly) expected attendance.
+- `quantity_served` is portions that left the line, not food eaten. On sold-out days it is
+  only a lower bound on demand.
+- **Estimated or assumed:** `unit_cost`, forecasts, buffers, surplus, shortage, plate waste,
+  every savings figure, the shortage cost multiplier.
 
-## How prediction works
+## How the forecast works
 
-1. `predict_attendance()` — estimates expected attendance for a `target_date` from
-   that weekday's history (falls back to the overall average if there aren't at
-   least 2 past occurrences of that weekday yet).
-2. `predict_demand()` — historical share of attending students who took a food ×
-   expected attendance, via `_estimate_serve_rate()`'s cascade:
-   1. **same-weekday, recent** — last 8 occurrences of the target weekday (needs ≥4),
-      so "pizza Friday" and slow seasonal drift are both picked up;
-   2. **recent window** — last 25 days overall (needs ≥8), when weekday-specific
-      history is too thin;
-   3. **all-time average** — the original, simplest estimate.
-   Sold-out days (`quantity_leftover == 0`) are excluded from all three — `served`
-   there was capped by what was prepared, not by actual demand, so including them
-   biases the rate low. Foods with fewer than 3 days of history altogether fall back
-   to their category's average share, then to a flat default (both flagged
-   `confidence: "low"`).
-3. `calculate_prep_quantity()` — predicted demand + a safety buffer, rounded up to a
-   whole serving. The buffer comes from `compute_data_driven_buffers()` when a food
-   has enough backtested days (≥15): the smallest buffer that would have covered the
-   90th-percentile day in a walk-forward backtest, with the resulting miss rate
-   reported alongside it as `shortage_rate_estimate`. Foods without enough backtest
-   history fall back to a fixed 10% (15% for vegetable/fruit/dairy, so nutritious
-   items are never cut just because they're less popular).
-4. `calculate_costs()` — see "Cost model" below; compares the recommended plan's total
-   cost against a historical baseline's total cost, with surplus and shortage costed
-   separately and consistently.
-5. `plan_day()` — runs the above for every menu item, adds an `estimated_plate_waste_*`
-   figure (predicted servings × an external USDA category plate-waste rate — *not*
-   measured from this cafeteria's own data, just a labeled external estimate, and never
-   added into the cost totals), and returns a JSON-friendly dict.
-6. `plan_month()` — calls `plan_day()` once per school day in a calendar month and
-   rolls the results into per-food and overall monthly totals.
+`predict_demand()`: the food's share of attending students (served / attendance over all
+its past days), nudged toward that weekday's own share:
+
+```
+share = w x weekday_share + (1 - w) x all_days_share,   w = n / (n + 4)
+forecast = share x expected attendance
+```
+
+where `n` is how many past days fell on that weekday. With 2 past Fridays the Friday share
+gets 33% weight; with 12 it gets 75%. This replaced a hard cascade (last 8 same weekdays,
+else last 25 days, else all history) that chased noise.
+
+Sold-out days are **kept**. Served on a sold-out day is capped, so it understates demand,
+but those are the high-demand days: the old code dropped them, which biased the estimate
+even lower. Foods with under 3 days of history fall back to their category's average
+share, then to a flat 25% (`confidence: "low"`).
+
+## Safety buffers (newsvendor)
+
+The cost model (next section) is `total = food prepared x unit cost + shortage x unit cost
+x m`. One more prepared serving costs `unit cost` for sure and saves `m x unit cost` if it
+would otherwise have been missing, so total cost is lowest when the share of days with
+enough food is:
+
+```
+service level = 1 - 1/m        (m = shortage_penalty_multiplier; 3x -> 67%, 5x -> 80%)
+```
+
+The buffer is that quantile of the food's walk-forward forecast errors (actual / forecast
+- 1), so `prep = ceil(forecast x (1 + buffer))`. Guardrails: never below the forecast,
+never below +10% for fruit, vegetables and milk, never above +40%. A food needs 15 backtest
+errors of its own; otherwise all foods' errors are pooled; otherwise the old fixed 10%/15%
+is used.
+
+The default `m = 3` is an assumption (the project plan's example treats running out as
+several times worse than a leftover). With `m <= 1` a shortage costs no more than the food
+it saves, so the rule says "no buffer". That is why the old default of 1x made under-
+preparing look free.
 
 ## Cost model
 
-For each food/day, four quantities are tracked **separately** — conflating them was a
-real bug found and fixed during review (see "Issues found and fixed"):
+Four quantities, kept separate everywhere:
 
-| Quantity | Meaning | Status |
+| Quantity | Meaning | In cost? |
 |---|---|---|
-| `recommended_prep` / `baseline_prep` | servings prepared | the decision being evaluated |
-| `estimated_surplus` | `max(0, prepared − predicted_demand)` | unserved food — a quantity, not plate waste |
-| `estimated_shortage` | `max(0, predicted_demand − prepared)` | demand the plan would miss — an ESTIMATE |
-| `estimated_plate_waste_*` | `predicted_demand × external USDA rate` | served-but-uneaten — not measured locally, never added into cost |
-
-**The cost formula** (`calculate_costs()`):
+| food prepared | servings cooked x unit cost | yes |
+| unserved surplus | cooked but never served (`prepared - served`) | already inside food prepared, never added again |
+| shortage | wanted but not available (`demand - served`) | yes, x unit cost x m |
+| plate waste | served but not eaten; external USDA category rate x servings served | **no**, reported only |
 
 ```
-preparation_cost = prepared_servings x unit_cost       # ALREADY includes surplus's cost
-shortage_cost     = shortage_servings x unit_cost x shortage_penalty_multiplier
-total_cost        = preparation_cost + shortage_cost    # NOT + surplus_cost again
+served        = min(prepared, demand)
+total_cost    = prepared x unit_cost + shortage x unit_cost x m
+savings       = baseline total_cost - TrayTrack total_cost
+savings %     = savings / baseline total_cost   (null when the baseline costs 0)
 ```
 
-`estimated_surplus_cost` is still reported (it's informative — "how much of
-preparation_cost was wasted") but it is a **subset of** `preparation_cost`, not an
-addition to it. Adding it a second time was exactly the double-counting bug a review
-caught: it silently rewarded under-preparing, because a baseline that ran short showed
-"no surplus cost" with no offsetting shortage cost either — free lunch, literally.
+TrayTrack and the baseline are always measured against the **same demand**:
 
-`shortage_penalty_multiplier` (default **1.0**) values one missing serving at that many
-times its own `unit_cost`. **This is a configurable assumption, not a measured cost** —
-a real stockout also costs goodwill, nutrition, and staff time that aren't priced here.
-`GET /plan/sensitivity` shows the same day's result at 0.5×, 1×, 1.5×, 2×, and 3× side
-by side, specifically so a single multiplier choice can't quietly make the comparison
-look one-sided. On *this* dataset, that table happens to show no variation at all —
-`evaluate_methods()` confirms the baseline proxy never actually falls short of predicted
-demand anywhere in these 34 days (the generator always has historical `quantity_prepared
->= quantity_served`, so the baseline ratio rarely undershoots a demand estimate derived
-from the same served numbers). That's a property of this particular synthetic dataset,
-not evidence the shortage-cost code path is unused or untested — see the hand-calculable
-`calculate_costs()` unit tests in `test_prototype.py` for cases where it does bite.
+- In the held-out evaluation, that is the actual served count for the day.
+- In forward planning (`/plan`, `/plan/month`), the true demand is unknown, so both plans
+  are priced as **expected values** over demand scenarios `forecast x (1 + each past
+  backtest error)` for that food, the same errors the buffer was sized on
+  (`cost_basis: "expected_over_N_backtest_errors"`). A food without backtest history falls
+  back to treating the forecast as exact (`cost_basis: "point_forecast"`), which can never
+  show a TrayTrack shortage, so its savings are less trustworthy.
 
-**Savings** = `baseline_total_cost − lunchloop_total_cost` (positive = LunchLoop cheaper,
-negative = more expensive). **Savings %** = `savings / baseline_total_cost × 100`, or
-`null`/"Unavailable" when `baseline_total_cost` is 0 (never a division error, never a
-silently-assumed value).
+The previous version measured both plans against TrayTrack's **own forecast**. That made
+TrayTrack's shortage zero by construction and counted its whole buffer as waste, so neither
+the shortage cost nor the savings meant anything.
 
-**The baseline is a proxy, not a measured real-world number**: `baseline_prep` is this
-food's own all-time historical `prepared / attendance` ratio (from this same CSV),
-scaled to the day's expected attendance — the best stand-in available, not a separately
-recorded "what the kitchen actually would have done today." Foods with fewer than 3
-days of history get no baseline at all (`None`), never a silently-assumed zero.
+**Baseline ("cooking the usual amount")**: each food's historical prepared-per-attending-
+student ratio, from data before the day only, times that day's attendance. It's a proxy,
+not a separately recorded "what the kitchen would have done".
 
-## How accuracy is measured
+## How the evaluation works
 
-Two different, complementary evaluations exist, both walk-forward (each prediction
-uses *only* data from strictly before that day — the only honest way to measure this;
-scoring a method on days it was fitted on overstates how good it is):
+School days are split in time order. Nothing is shuffled:
 
-- **`mae_report()` / `GET /accuracy`** — pure prediction accuracy (predicted servings vs.
-  actual `quantity_served`), old all-time-average method vs. the current weekday+recency
-  method. On this 34-day dataset: old misses by **6.82 servings/food/day (5.8% MAPE)**;
-  current misses by **7.24 servings/food/day (6.3% MAPE)** — the current method is
-  slightly **worse** here, not better. That's an honest result, not a bug: there isn't
-  enough real history yet (34 days) for the extra weekday/recency structure to pay off
-  over a plain average. (An earlier version of this dataset spanned a full fabricated
-  year and showed a ~9% improvement — which was itself circular, since a generator that
-  plants a pattern and a method built to find that exact pattern will always "win" on
-  its own fabricated data. See "Issues found and fixed.")
-- **`evaluate_methods()` / `GET /evaluate`** — the **cost** comparison (baseline vs.
-  LunchLoop total cost, the same days, the fixed default buffer rather than the
-  data-driven one, specifically to avoid tuning on the data being evaluated). On this
-  dataset, over 144 (day, food) predictions across 24 held-out days: baseline total cost
-  **$9,813.84**, LunchLoop total cost **$9,897.55** — **−$83.71 (−0.9%)**, i.e. LunchLoop
-  costs slightly *more* here, not less, at `shortage_penalty_multiplier = 1.0`. Fruit Cup
-  is the worst-performing food (−$72.00, −3.9%). These are **not asserted** — they're
-  computed fresh from this exact CSV every time `/evaluate` is called, and both the
-  per-food and the per-day breakdown are in the response, not just this one aggregate.
+| Window | Days | Used for |
+|---|---|---|
+| warm-up | Aug 31 to Sep 14 (10) | never scored |
+| validation | Sep 15 to Sep 25 (9) | choosing model settings (the `4` above) |
+| **test** | **Sep 28 to Oct 16 (15)** | **reporting only; nothing was tuned on it** |
 
-Both carry the same caveat: **this dataset is synthetic**, built with the same kind of
-weekday/seasonal structure these methods look for. A simulation over synthetic data
-demonstrates how the system behaves under its own assumptions; it does not prove real
-savings at a real school. Both `/accuracy` and `/evaluate` include this caveat directly
-in their JSON (`circularity_caveat`), not only in this README.
+Every scored prediction uses only data from strictly before that day: forecast, buffer
+(errors from earlier days only) and baseline alike. A test checks this by truncating the
+data and confirming no earlier prediction, buffer or prep changes. Attendance is the day's
+actual count for every method (it assumes a morning head count before cooking).
+
+## Results (synthetic data, regenerate with `GET /accuracy` and `GET /evaluate`)
+
+**Forecast accuracy, test window** (MAE, servings per food per day, 90 predictions):
+
+| Method | Validation MAE | Test MAE |
+|---|---|---|
+| old: all-time average share | 6.02 | 7.26 |
+| previous cascade (removed) | 5.96 | 8.00 |
+| current: weekday-shrunk share | 5.69 | 7.53 |
+
+The current method beat the old one on validation, which is why it was picked, but **it
+does not beat the old method on the held-out test window**: +0.28 servings/day worse, with
+a 95% bootstrap interval of -0.09 to +0.67. That means no clear difference either way. It
+does clearly beat the previous cascade (8.00). With 34 days of history there just isn't
+enough data for weekday structure to pay off reliably. The test window was scored once and
+not used to re-tune, so the result stays as it is.
+
+**Cost, test window, TrayTrack vs. usual amount** (total = food + shortage cost):
+
+| Shortage cost | Service level | Usual total | TrayTrack total | Savings | Surplus servings (usual / TT) | Shortage servings (usual / TT) | Validation savings |
+|---|---|---|---|---|---|---|---|
+| 1x | 0% | $6,142.39 | $5,806.76 | $335.63 (5.5%) | 1501 / 974 | 26 / 142 | $108.67 (2.9%) |
+| 1.5x | 33% | $6,151.41 | $5,858.79 | $292.62 (4.8%) | 1501 / 976 | 26 / 141 | $83.87 (2.3%) |
+| 2x | 50% | $6,160.44 | $5,916.40 | $244.04 (4.0%) | 1501 / 1010 | 26 / 116 | $59.05 (1.6%) |
+| **3x (default)** | **67%** | **$6,178.49** | **$5,982.40** | **$196.09 (3.2%)** | **1501 / 1088** | **26 / 67** | **$23.86 (0.6%)** |
+| 5x | 80% | $6,214.59 | $6,053.23 | $161.36 (2.6%) | 1501 / 1181 | 26 / 38 | $2.44 (0.1%) |
+
+How to read it: in this simulated school, TrayTrack cuts unserved surplus by 21 to 35%, but
+it **runs short more often** than the usual amount at every setting (at 3x: 67 vs. 26
+servings short). That trade comes out cheaper on these test days. The savings shrink as
+shortages are priced higher, and on the validation window they were much smaller (0.6% at
+3x, 0.1% at 5x). So the honest summary is "a few percent, sensitive to how bad you think
+running out is", not a robust win. These numbers are not asserted anywhere; they are
+recomputed from the CSV on every call.
 
 ## Input validation
 
-`validate_history(df)` checks a loaded CSV for the problems a real, hand-kept
-production record is prone to — `quantity_leftover != prepared - served` mismatches,
-duplicate `(date, food_item)` rows, negative values, and school days missing from the
-expected calendar — and returns a list of human-readable issues (empty = clean).
-`load_data()` calls it automatically and prints whatever it finds as warnings, so a
-real record can still be loaded (and used) with its problems visible rather than
-failing silently. `GET /data-quality` exposes the same check for the currently loaded
-CSV.
+`validate_history(df)` flags `quantity_leftover != prepared - served` mismatches, duplicate
+`(date, food_item)` rows, negative values, and expected school days missing from the data.
+`load_data()` prints them as warnings; `GET /data-quality` exposes the same check.
 
 ## Known limitations
 
-- No real item-by-item school cafeteria dataset is publicly available (schools keep
-  this as internal production records), so the dataset stays synthetic. If you can
-  get even a few days of a real production record, it can be converted into this
-  same CSV format and nothing else needs to change — `validate_history()` will flag
-  whatever's off about it.
-- Plate waste (served but uneaten food) isn't measured locally — `estimated_plate_waste_*`
-  applies an external benchmark rate to our own predicted servings, which is a
-  different (and weaker) thing than measuring it, and is never summed into any cost total.
-- `shortage_penalty_multiplier` is a modeling assumption (default 1x unit_cost); the
-  entire savings conclusion can flip sign depending on this choice (see `/plan/sensitivity`)
-  — don't present a single multiplier's result as "the" answer.
-- Weekday attendance/demand modeling only works where there's enough history for that
-  weekday (2+ for attendance, 4+ for demand); a brand-new school year or a new food
-  falls back progressively to coarser estimates. With only 34 days of real history,
-  this cascade doesn't yet outperform a plain average (see "How accuracy is measured").
-- Foods that sold out are excluded from their own rate estimate rather than corrected
-  for, so true demand on those days may still be understated beyond what the exclusion
-  accounts for; this dataset never fabricates a specific shortage quantity for a
-  historical sold-out day, only an estimate for a planned future day.
-- The backtest, buffers, and evaluation all assume the future looks statistically like
-  the recorded past (same foods, same weekday patterns); a real deployment should
-  re-run all three periodically as new days come in, and should NOT re-tune the
-  data-driven buffer on the same days it's then evaluated against (see "Cost model").
-- This dataset is SYNTHETIC. Every accuracy and savings number in this README and in
-  the API is a demonstration of mechanics on fabricated data, not a real-world claim.
+- The data is synthetic, and it was generated with the kind of weekday pattern the model
+  looks for. Real records are the only real test.
+- 15 test days is small. Differences of a few servings or a few percent are within noise
+  (see the bootstrap interval in `/accuracy`).
+- On sold-out days true demand is unknown and treated as equal to served. That hides
+  shortages that likely happened on those days, for both plans; it tends to flatter
+  whichever plan prepares less (usually TrayTrack). 3 of the 90 test rows sold out.
+- The shortage multiplier is an assumption. Goodwill, nutrition and staff time aren't
+  priced. Look at the whole sensitivity table, not one row.
+- Plate waste is an external USDA category rate applied to our servings, not a local
+  measurement, and it is never in any cost.
+- The baseline is a ratio proxy, not a recorded "usual" decision.
+- The backtest short-day rate in `/buffers` is in-sample; the out-of-sample rate is in
+  `/evaluate` (`lunchloop_days_short`).
+- Attendance is treated as known before cooking in the evaluation.
 
-## Issues found and fixed
+## Changes in this version
 
-A review of an earlier version of this project caught several real problems, kept here
-for context rather than erased:
-
-1. **Future-dated "history."** The dataset originally ran through June 2027 — a "history"
-   file containing fabricated rows for days that hadn't happened yet. Fixed by truncating
-   the CSV to end the day before "today," so `/plan/month` is the only thing that ever
-   touches the school year's later months.
-2. **Savings calculation double-counted / mis-counted cost.** `estimated_total_cost` was
-   computed as `surplus_cost + shortfall_cost`, omitting the baseline cost of correctly-
-   served food. The fix (see "Cost model") uses `preparation_cost + shortage_cost`, with
-   surplus_cost reported as a breakdown of (not an addition to) preparation_cost, and adds
-   `estimated_savings_pct_vs_baseline` with safe zero-baseline handling.
-3. **Backtest circularity.** The accuracy improvement claimed earlier came from a dataset
-   deliberately generated with the exact weekday/seasonal patterns the method was built to
-   find — not evidence it would work at a real school. `mae_report()` and `evaluate_methods()`
-   now both say this explicitly in their own JSON (`circularity_caveat`), not just in docs.
-4. **Winter leftover rate calibrated to the wrong metric.** An earlier generator multiplied
-   the synthetic *leftover* rate (prepared − served, our own quantity) by a seasonal
-   multiplier taken from a *plate-waste* study (served − eaten, a different, externally
-   measured quantity). Removed rather than patched; the study stays cited below as context.
-5. **Shortage-penalty assumption was invisible.** The cost of running short was hardcoded
-   at 1x `unit_cost` with no way to see how much the conclusion depended on that choice.
-   `shortage_penalty_multiplier` is now a parameter on every relevant function/endpoint,
-   and `/plan/sensitivity` shows the result across several values explicitly.
-6. **Buffers allowing deliberate shortfalls weren't said out loud.** `compute_data_driven_buffers()`
-   sizes each buffer to the backtested 90th-percentile day on purpose — accepting an
-   estimated shortage on the other ~10% of days — but this was only visible in a nested
-   field. It's now stated directly in `plan_day()`'s per-item notes and assumptions list.
+1. **Cost comparison measured against the forecast, not reality.** Fixed: the held-out
+   evaluation scores both plans against actual servings; forward plans use expected values
+   over past errors.
+2. **Shortage cost default of 1x made shortages free.** At 1x, cooking less is never
+   penalized. The default is now 3x, buffers follow from it (newsvendor), and every
+   endpoint takes the multiplier.
+3. **Buffers ignored the cost of running out** (fixed 90th percentile). Now
+   `1 - 1/m`, with fruit/vegetable/milk floors.
+4. **The evaluation never tested the buffers actually used.** It used fixed 10%/15%
+   buffers to avoid leakage. Now each test day's buffer uses only errors from earlier days.
+5. **Baseline.** The recorded prep was generated from served counts, so it is not used.
+6. **Sold-out days were dropped from the forecast**, biasing it low. Now kept.
+7. **Forecast**: the cascade was replaced by weekday shrinkage, chosen on validation only.
+8. **No held-out split.** Added a warm-up / validation / test split by date.
+9. **Dashboard**: added the held-out comparison; the cost-chart tooltip said "surplus
+   cost" while showing total cost; the buffer table showed `NaN%` (wrong field name); the
+   accuracy note had a hard-coded "~34 days" claim.
+10. **Tests**: added a pytest suite (hand calculations, limiting cases, leakage, no
+    double counting, monotonicity, API input checks). Removed the committed `__pycache__`
+    and the stale `sens.json` (saved output from the old cost model).
 
 ## Sources
 
-- [USDA FNS Research Summary, Spring 2019](https://schoolnutrition.org/wp-content/uploads/2022/06/USDA-FNS-Research-Summary-Spring2019.pdf) —
-  plate waste by food category (School Nutrition and Meal Cost Study, SY 2014–15);
-  figures verified word-for-word against the source PDF.
-- [Adjapong, Bender, Schaefer & Roe, *PLoS ONE* 19(12):e0299043 (2024)](https://pmc.ncbi.nlm.nih.gov/articles/PMC11676535/) —
-  WWF Food Waste Warriors data, 134 US schools; winter plate waste significantly
-  higher than spring for entrees (~+37%) and milk (~+26%), not for produce. Context
-  only — **not** used to calibrate this dataset (see "Issues found and fixed" #4).
-- Saha et al., *Childhood Obesity* (Nov. 2024) — photo-based plate-waste study; fruit,
-  vegetables, and milk selected below NSLP guidelines and substantially uneaten.
-- An Italian 78-school canteen study (food not consumed ~21.7% of what's prepared) —
-  an early benchmark for the overall leftover-rate order of magnitude.
+- [USDA FNS Research Summary, Spring 2019](https://schoolnutrition.org/wp-content/uploads/2022/06/USDA-FNS-Research-Summary-Spring2019.pdf):
+  plate waste by food category (School Nutrition and Meal Cost Study, SY 2014-15).
+- [Adjapong, Bender, Schaefer & Roe, *PLoS ONE* 19(12):e0299043 (2024)](https://pmc.ncbi.nlm.nih.gov/articles/PMC11676535/):
+  winter vs. spring plate waste in 134 US schools. Context only, not used to build the data.
+- Saha et al., *Childhood Obesity* (Nov. 2024): photo-based plate-waste study.
+- An Italian 78-school canteen study (food not consumed ~21.7% of what's prepared): an early
+  benchmark for the order of magnitude.

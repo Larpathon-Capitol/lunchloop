@@ -86,8 +86,9 @@ for f in month_plan["per_food_totals"]:
 t = month_plan["totals"]
 assert round(t["baseline_total_cost"] - t["estimated_total_cost_compared_items"], 2) == t["estimated_savings_vs_baseline"]
 
-# Sold-out days are excluded from the rate estimate, not just flagged: a sold-out day
-# (leftover=0) with an inflated served count should NOT pull the rate up.
+# Sold-out days are KEPT in the rate estimate: served there (100) is capped by what was
+# prepared, so it is a lower bound on demand. Dropping it would bias the estimate even lower.
+# (100 + 50 + 50 + 50) / 800 = 0.3125 x 200 = 62.5 -> 62.
 soldout_hist = pd.DataFrame({
     "date": pd.to_datetime(["2026-09-01", "2026-09-02", "2026-09-03", "2026-09-04"]),
     "food_item": ["Y"] * 4, "food_category": ["main"] * 4, "attendance": [200] * 4,
@@ -95,11 +96,11 @@ soldout_hist = pd.DataFrame({
     "quantity_leftover": [0, 50, 50, 50], "unit_cost": [1.0] * 4,
 })
 pred = predict_demand(soldout_hist, "Y", "main", 200)
-assert pred["predicted_demand"] == 50, "the sold-out day (100 served) should be excluded, not averaged in"
-assert "sold out" in pred["note"]
+assert pred["predicted_demand"] == 62, "the sold-out day (100 served) should be kept as a lower bound"
+assert "sold out" in pred["note"] and "lower bound" in pred["note"]
 
-# Weekday+recency cascade: same-weekday recent history should be preferred when there's
-# enough of it, and should pick up a weekday-specific pattern the all-time average misses.
+# Weekday shrinkage: with 6 past Fridays (weight 6/10), a strong Friday-specific pattern
+# should mostly come through. Overall rate 0.375, Friday rate 0.8 -> 0.63 x 400 = 252.
 weekday_hist = pd.DataFrame({
     "date": pd.date_range("2026-09-07", periods=40, freq="D"),  # every day, not just weekdays
     "food_item": ["Pizza"] * 40, "food_category": ["main"] * 40, "attendance": [400] * 40,
@@ -112,7 +113,7 @@ weekday_hist["quantity_leftover"] = 0
 weekday_hist.loc[weekday_hist["quantity_served"] == weekday_hist["quantity_prepared"].max(), "quantity_prepared"] += 1
 weekday_hist["quantity_leftover"] = weekday_hist["quantity_prepared"] - weekday_hist["quantity_served"]
 friday_pred = predict_demand(weekday_hist, "Pizza", "main", 400, target_date="2026-10-16")  # a Friday
-assert friday_pred["method"] == "weekday_recent"
+assert friday_pred["method"] == "weekday_shrunk"
 assert friday_pred["predicted_demand"] > 250, "should pick up the Friday-specific spike"
 
 # Accuracy backtest: sanity-check both methods compute, not that "new" beats "old" --
@@ -127,13 +128,16 @@ assert report["old_method"]["overall_mae_servings_per_day"] > 0
 assert report["new_method"]["overall_mae_servings_per_day"] > 0
 assert "circularity_caveat" in report
 
-# Data-driven buffers: every established food gets a buffer within the configured bounds,
-# and a plausible (not-all-or-nothing) shortfall rate.
+# Data-driven (newsvendor) buffers: every established food gets a buffer within the
+# configured bounds, protected categories keep their floor, and the in-sample short-day rate
+# is no worse than the target allows (1 - service level = 1/3 at the default multiplier 3).
 buffers = compute_data_driven_buffers(df)
 assert len(buffers) == 6
-for info in buffers.values():
-    assert 0.05 <= info["buffer"] <= 0.40
-    assert 0 < info["shortage_rate_estimate"] < 0.5
+for item, info in buffers.items():
+    assert 0 <= info["buffer"] <= 0.40
+    assert info["shortage_rate_estimate"] <= 1 - info["service_level_target"] + 1e-9
+cats = dict(df.drop_duplicates("food_item")[["food_item", "food_category"]].values)
+assert all(buffers[i]["buffer"] >= 0.10 for i in buffers if cats[i] in ("fruit", "vegetable", "dairy"))
 
 # Input validation: the generated CSV should be clean; a deliberately broken one should not be.
 assert validate_history(df) == []

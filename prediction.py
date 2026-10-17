@@ -167,41 +167,35 @@ def predict_attendance(df, target_date=None):
             "note": f"Not enough past {target_date.strftime('%A')}s yet, so the overall average was used."}
 
 
-WEEKDAY_WINDOW = 8        # use at most the last 8 occurrences of the matching weekday
-MIN_WEEKDAY_SAMPLES = 4    # need at least this many to trust a weekday-specific rate
-RECENT_WINDOW_DAYS = 25    # else, use at most the last 25 (non-sold-out) days overall
-MIN_RECENT_SAMPLES = 8     # need at least this many to trust that recent-window rate
+WEEKDAY_SHRINK_K = 4  # a weekday's own rate gets weight n / (n + 4) after n past occurrences
 
 
-def _estimate_serve_rate(clean_hist, target_date=None):
-    """The actual rate estimate behind predict_demand(), once a food has enough history.
+def _estimate_serve_rate(hist, target_date=None):
+    """The rate estimate behind predict_demand(), once a food has enough history.
 
-    Cascades from most to least specific, each needing a minimum sample size to trust it:
-    1. same-weekday, most recent WEEKDAY_WINDOW occurrences (catches "pizza Friday" and
-       slow seasonal drift, since recent same-weekday rows already track both).
-    2. most recent RECENT_WINDOW_DAYS overall (catches a trend/season when weekday-specific
-       data is too thin, e.g. a food that's new enough to have few Fridays yet).
-    3. the item's whole history (the original, simplest estimate).
-    clean_hist must already have sold-out days excluded and be sorted by date ascending.
+    All-history rate (served / attendance), nudged toward that weekday's own rate by
+    n / (n + WEEKDAY_SHRINK_K), where n = past occurrences of the weekday. With few Fridays
+    the Friday rate is mostly ignored (it's noise); with many it dominates (a real
+    "pizza Friday" pattern). This replaced a hard cascade (last 8 same-weekdays, else last
+    25 days, else all history) that chased noise: it scored worse than the plain all-time
+    average in the walk-forward backtest. k=4 was picked on the validation window only
+    (see split_dates()), never on the held-out test window.
     """
-    if target_date is not None:
-        weekday = pd.Timestamp(target_date).weekday()
-        same_weekday = clean_hist[clean_hist["date"].dt.weekday == weekday].tail(WEEKDAY_WINDOW)
-        if len(same_weekday) >= MIN_WEEKDAY_SAMPLES:
-            rate = same_weekday["quantity_served"].sum() / same_weekday["attendance"].sum()
-            day_name = pd.Timestamp(target_date).strftime("%A")
-            return rate, "weekday_recent", (f"Based on the last {len(same_weekday)} {day_name}s: "
-                                             f"{rate:.1%} of attending students took it.")
-
-    recent = clean_hist.tail(RECENT_WINDOW_DAYS)
-    if len(recent) >= MIN_RECENT_SAMPLES:
-        rate = recent["quantity_served"].sum() / recent["attendance"].sum()
-        return rate, "recent_window", (f"Based on the last {len(recent)} days: "
-                                        f"{rate:.1%} of attending students took it.")
-
-    rate = clean_hist["quantity_served"].sum() / clean_hist["attendance"].sum()
-    return rate, "history_scaled_by_attendance", (f"Based on all {len(clean_hist)} past days: "
-                                                   f"{rate:.1%} of attending students took it.")
+    rate = hist["quantity_served"].sum() / hist["attendance"].sum()
+    note = f"Based on all {len(hist)} past days: {rate:.1%} of attending students took it."
+    if target_date is None or rate == 0:
+        return rate, "history_scaled_by_attendance", note
+    day_name = pd.Timestamp(target_date).strftime("%A")
+    same = hist[hist["date"].dt.weekday == pd.Timestamp(target_date).weekday()]
+    if len(same) == 0:
+        return rate, "history_scaled_by_attendance", note + f" No past {day_name}s yet."
+    weekday_rate = same["quantity_served"].sum() / same["attendance"].sum()
+    weight = len(same) / (len(same) + WEEKDAY_SHRINK_K)
+    shrunk = weight * weekday_rate + (1 - weight) * rate
+    return shrunk, "weekday_shrunk", (
+        f"Past {day_name}s ran {weekday_rate / rate - 1:+.0%} vs. the all-days rate "
+        f"({len(same)} {day_name}s, weighted {weight:.0%}), so {shrunk:.1%} of attending "
+        "students are expected to take it.")
 
 
 def predict_demand(df, food_item, food_category=None, expected_attendance=None, target_date=None):
@@ -209,28 +203,26 @@ def predict_demand(df, food_item, food_category=None, expected_attendance=None, 
 
     Example: 120 served out of 200 attending, expected attendance 250
              -> (120 / 200) x 250 = 150 servings.
-    Pass target_date to let the estimate use the matching weekday's recent history
+    Pass target_date to let the estimate use the matching weekday's history
     (e.g. Fridays) instead of just an all-time average. Returns a dict (never negative).
     """
     hist = df[df["food_item"] == food_item].sort_values("date")
-    sold_out_mask = hist["quantity_leftover"] == 0
-    sold_out = int(sold_out_mask.sum())
-    # Sold-out days are excluded from the rate estimate: quantity_served there is capped by
-    # what was prepared, not by what students wanted, so including them biases the rate low.
-    clean = hist[~sold_out_mask]
+    # Sold-out days are KEPT. Served there is capped by what was prepared, so it is a lower
+    # bound on demand -- but those are the high-demand days, so dropping them (the previous
+    # behavior) biased the rate even lower than keeping the capped value does.
+    sold_out = int((hist["quantity_leftover"] == 0).sum())
     typical_attendance = df["attendance"].mean()
     attendance = typical_attendance if expected_attendance is None else max(0, expected_attendance)
 
-    if len(hist) >= MIN_RECORDS and len(clean) > 0:
-        rate, method, note = _estimate_serve_rate(clean, target_date)
+    if len(hist) >= MIN_RECORDS and hist["attendance"].sum() > 0:
+        rate, method, note = _estimate_serve_rate(hist, target_date)
         predicted = rate * attendance
         confidence = "ok"
         if expected_attendance is None:
             note += " No expected attendance given, so typical attendance was used."
         if sold_out:
-            note += (f" {sold_out} day(s) sold out and were excluded from this estimate "
-                     "(served was capped by what was prepared), so true demand may be a "
-                     "bit higher than even this suggests.")
+            note += (f" {sold_out} past day(s) sold out; served on those days is only a lower "
+                     "bound on demand, so true demand may be a bit higher than this.")
     else:
         # New (or barely-seen) food: use the average rate of its category, else a flat default.
         cat_hist = df[df["food_category"] == food_category]
@@ -253,103 +245,189 @@ def predict_demand(df, food_item, food_category=None, expected_attendance=None, 
 
 
 MIN_BACKTEST_WARMUP_DAYS = 10   # skip this many of the earliest school days (too little history yet)
+TEST_DAYS = 15                  # the last 15 school days (3 weeks) are the held-out test window
 
 
-def _walk_forward_predictions(df, min_warmup_days=MIN_BACKTEST_WARMUP_DAYS):
-    """Walk-forward backtest engine, shared by mae_report() and compute_data_driven_buffers().
+def split_dates(df, min_warmup_days=MIN_BACKTEST_WARMUP_DAYS, test_days=TEST_DAYS):
+    """Splits the school days into warm-up (never scored), validation (the only days used
+    to choose model settings such as WEEKDAY_SHRINK_K), and test (the last test_days days,
+    only ever used to REPORT results, never to tune anything)."""
+    dates = sorted(pd.Timestamp(d) for d in df["date"].unique())
+    test_start = max(min_warmup_days, len(dates) - test_days)
+    return {"warmup": dates[:min_warmup_days], "validation": dates[min_warmup_days:test_start],
+            "test": dates[test_start:]}
 
-    For each school day (after a warm-up period) and each food already established by then,
-    predicts that day's demand using ONLY data strictly before that date -- both with the
-    OLD all-time-average method (for comparison) and the current weekday/recency method --
-    then records the actual quantity_served. This is what "predicting the future from the
-    past" actually looks like; it's the only honest way to measure prediction error, since
-    scoring a method against days it was fitted on overstates how good it is.
 
-    Returns a DataFrame with one row per (date, food_item) that had enough prior history to
-    be scored at all: columns date, food_item, attendance, actual, old_pred, new_pred.
+def _walk_forward_predictions(df, min_warmup_days=MIN_BACKTEST_WARMUP_DAYS, test_days=TEST_DAYS):
+    """Walk-forward backtest engine, shared by mae_report(), compute_data_driven_buffers()
+    and evaluate_methods().
+
+    For each scored school day and each food already established by then, predicts that
+    day's demand using ONLY data strictly before that date, with both the OLD all-time-
+    average method and the current method, plus the baseline prep ("the usual amount per
+    student", also from prior days only). Both predictions are rounded to whole servings.
+    Attendance is the day's actual count for every method alike (it assumes a morning
+    head count is known before cooking).
+
+    Returns one row per scored (date, food_item): date, split ("validation"/"test"),
+    food_item, food_category, attendance, actual, sold_out, unit_cost, old_pred, new_pred,
+    baseline_prep.
     """
-    dates = sorted(df["date"].unique())
+    splits = split_dates(df, min_warmup_days, test_days)
+    test_set = set(splits["test"])
     records = []
-    for i, date in enumerate(dates):
-        if i < min_warmup_days:
-            continue
+    for date in splits["validation"] + splits["test"]:
         past = df[df["date"] < date]
-        today = df[df["date"] == date]
-        for _, row in today.iterrows():
-            item, cat, attendance, actual = (row["food_item"], row["food_category"],
-                                              row["attendance"], row["quantity_served"])
+        for _, row in df[df["date"] == date].iterrows():
+            item, cat, attendance = row["food_item"], row["food_category"], row["attendance"]
             item_hist = past[past["food_item"] == item]
             if len(item_hist) < MIN_RECORDS:
                 continue  # this food itself is still in its own warm-up period
             old_rate = item_hist["quantity_served"].sum() / item_hist["attendance"].sum()
-            old_pred = old_rate * attendance
-            new_pred = predict_demand(past, item, cat, attendance, target_date=date)["predicted_demand"]
-            records.append({"date": date, "food_item": item, "attendance": attendance,
-                             "actual": actual, "old_pred": old_pred, "new_pred": new_pred})
+            records.append({
+                "date": date, "split": "test" if date in test_set else "validation",
+                "food_item": item, "food_category": cat, "attendance": int(attendance),
+                "actual": int(row["quantity_served"]), "sold_out": bool(row["quantity_leftover"] == 0),
+                "unit_cost": float(row["unit_cost"]),
+                "old_pred": max(0, round(old_rate * attendance)),
+                "new_pred": predict_demand(past, item, cat, attendance, target_date=date)["predicted_demand"],
+                "baseline_prep": math.ceil(item_hist["quantity_prepared"].sum()
+                                           / item_hist["attendance"].sum() * max(0, attendance)),
+            })
     return pd.DataFrame(records)
 
 
-def mae_report(df, min_warmup_days=MIN_BACKTEST_WARMUP_DAYS):
-    """Backtested mean absolute error (servings/day), old all-time method vs. the current
-    weekday+recency method, overall and per food. This is the number for "how accurate is
-    this, really" -- computed from this exact dataset, not assumed.
-    """
+def walk_forward_residuals(df, min_warmup_days=MIN_BACKTEST_WARMUP_DAYS):
+    """Walk-forward rows plus rel_error = (actual - new_pred) / new_pred (rows with a zero
+    prediction are dropped, since a relative error is undefined there)."""
     res = _walk_forward_predictions(df, min_warmup_days)
     if res.empty:
-        return {"n_predictions": 0, "old_method": None, "new_method": None}
-
-    def summarize(pred_col):
-        abs_err = (res[pred_col] - res["actual"]).abs()
-        per_food = (abs_err.groupby(res["food_item"]).mean()).round(2).to_dict()
-        mape = (abs_err / res["actual"].replace(0, np.nan)).mean() * 100
-        return {"overall_mae_servings_per_day": round(abs_err.mean(), 2),
-                "overall_mape_pct": round(mape, 1) if pd.notna(mape) else None,
-                "mae_by_food": per_food}
-
-    return {"n_predictions": int(len(res)), "old_method": summarize("old_pred"),
-            "new_method": summarize("new_pred"),
-            "note": "Walk-forward: each prediction uses only data from before that day. "
-                    "'old' = the original all-time-average method; 'new' = weekday+recency, "
-                    "with sold-out days excluded from the rate estimate.",
-            "circularity_caveat": "This dataset is SYNTHETIC, generated with explicit weekday "
-                    "and seasonal patterns (e.g. a 'pizza Friday' bump) by the same codebase that "
-                    "built 'new_method' to look for exactly that kind of pattern. The error "
-                    "reduction above shows the method can recover patterns it was designed to "
-                    "find in data it was designed to find them in -- not how it would perform at "
-                    "a real school. Treat it as a demonstration that the method works as intended, "
-                    "not as a real-world accuracy claim, until it's been run against real records."}
-
-
-def compute_data_driven_buffers(df, percentile=90, min_buffer=0.05, max_buffer=0.40,
-                                 min_samples=15, min_warmup_days=MIN_BACKTEST_WARMUP_DAYS):
-    """Backtested, per-food safety buffers, replacing the fixed 10%/15% defaults.
-
-    For each food with enough backtested days, sets the buffer so that `percentile`% of
-    those PAST days would have had enough food prepared (i.e. actual <= predicted *
-    (1 + buffer)); the other (100 - percentile)% are an accepted, estimated shortfall rate --
-    "prepare for the 90th percentile day" rather than guessing a flat percentage.
-    Returns {food_item: {buffer, shortage_rate_estimate, low_pct, high_pct, samples}}.
-    Foods without min_samples backtested days are left out (callers fall back to the fixed
-    default for those).
-    """
-    res = _walk_forward_predictions(df, min_warmup_days)
-    if res.empty:
-        return {}
+        return res
     res = res[res["new_pred"] > 0].copy()
     res["rel_error"] = (res["actual"] - res["new_pred"]) / res["new_pred"]
+    return res
 
+
+def _mae_summary(res, pred_col):
+    abs_err = (res[pred_col] - res["actual"]).abs()
+    mape = (abs_err / res["actual"].replace(0, np.nan)).mean() * 100
+    return {"overall_mae_servings_per_day": round(float(abs_err.mean()), 2),
+            "overall_mape_pct": round(float(mape), 1) if pd.notna(mape) else None,
+            "mae_by_food": abs_err.groupby(res["food_item"]).mean().round(2).to_dict()}
+
+
+def mae_report(df, min_warmup_days=MIN_BACKTEST_WARMUP_DAYS, test_days=TEST_DAYS):
+    """Prediction accuracy (servings/day) of the old all-time method vs. the current method,
+    scored on the HELD-OUT test window, with the validation window reported separately.
+
+    Also reports a 95% bootstrap interval (resampling whole test days, fixed seed) for
+    "new MAE minus old MAE", so a small difference isn't mistaken for a real one.
+    """
+    res = _walk_forward_predictions(df, min_warmup_days, test_days)
+    if res.empty:
+        return {"n_predictions": 0, "old_method": None, "new_method": None}
+    test, val = res[res["split"] == "test"], res[res["split"] == "validation"]
+
+    diff = (test["new_pred"] - test["actual"]).abs() - (test["old_pred"] - test["actual"]).abs()
+    per_day = diff.groupby(test["date"]).sum().to_numpy()
+    counts = test.groupby("date").size().to_numpy()
+    idx = np.random.default_rng(0).integers(0, len(per_day), size=(2000, len(per_day)))
+    boot = per_day[idx].sum(axis=1) / counts[idx].sum(axis=1)
+    lo, hi = np.percentile(boot, [2.5, 97.5])
+
+    return {"n_predictions": int(len(test)),
+            "window": {"test_start": str(test["date"].min().date()), "test_end": str(test["date"].max().date()),
+                       "test_days": int(test["date"].nunique())},
+            "old_method": _mae_summary(test, "old_pred"), "new_method": _mae_summary(test, "new_pred"),
+            "new_minus_old_mae": round(float(diff.mean()), 2),
+            "new_minus_old_mae_95ci": [round(float(lo), 2), round(float(hi), 2)],
+            "new_beats_old_on_test": bool(diff.mean() < 0),
+            "validation": None if val.empty else {
+                "n_predictions": int(len(val)),
+                "start": str(val["date"].min().date()), "end": str(val["date"].max().date()),
+                "old_mae": round(float((val["old_pred"] - val["actual"]).abs().mean()), 2),
+                "new_mae": round(float((val["new_pred"] - val["actual"]).abs().mean()), 2)},
+            "note": "Walk-forward: each prediction uses only data from before that day. Model "
+                    "settings were chosen on the validation window; the test window (the last "
+                    f"{test_days} school days) was only used to report this result. 'old' = "
+                    "all-time average share; 'new' = that share nudged toward the same weekday's "
+                    "share by n/(n+4). Actual served on sold-out days is a lower bound on demand.",
+            "circularity_caveat": "This dataset is SYNTHETIC, generated with explicit weekday "
+                    "and seasonal patterns (e.g. a 'pizza Friday' bump) by the same project that "
+                    "built 'new_method' to look for that kind of pattern. Treat this as a "
+                    "demonstration of mechanics, not a real-world accuracy claim, until it has "
+                    "been run against real records."}
+
+
+SHORTAGE_PENALTY_MULTIPLIER = 3.0  # default: a missing serving costs 3x its own unit_cost
+PROTECTED_MIN_BUFFER = 0.10        # guardrail: fruit/vegetable/dairy never prepped below forecast + 10%
+MAX_BUFFER = 0.40
+MIN_BUFFER_SAMPLES = 15            # backtest errors needed before trusting an error distribution
+
+
+def service_level(shortage_penalty_multiplier=SHORTAGE_PENALTY_MULTIPLIER):
+    """Newsvendor target share of days with enough food, for THIS cost model.
+
+    total_cost = prep x unit_cost + shortage x unit_cost x m. One extra serving costs
+    unit_cost for sure and saves unit_cost x m with probability P(demand > prep), so total
+    cost is lowest where P(demand <= prep) = 1 - 1/m. With m <= 1 a shortage is no worse
+    than the food it saves, so the math says "no buffer" (the floors below still apply).
+    """
+    m = shortage_penalty_multiplier
+    return max(0.0, 1 - 1 / m) if m > 0 else 0.0
+
+
+def newsvendor_buffer(rel_errors, food_category=None,
+                      shortage_penalty_multiplier=SHORTAGE_PENALTY_MULTIPLIER):
+    """Buffer = the service_level() quantile of past relative errors (actual / predicted - 1),
+    so prep = forecast x (1 + buffer) covers that share of past days. Never below 0 (never
+    prep below the forecast), never below PROTECTED_MIN_BUFFER for protected categories,
+    never above MAX_BUFFER."""
+    floor = PROTECTED_MIN_BUFFER if food_category in PROTECTED_CATEGORIES else 0.0
+    buf = float(np.quantile(rel_errors, service_level(shortage_penalty_multiplier)))
+    return float(np.clip(buf, floor, MAX_BUFFER))
+
+
+def _pick_errors(item_errors, pooled_errors):
+    """This food's own backtest errors if there are enough, else all foods' errors pooled,
+    else None (callers then use the fixed default buffer)."""
+    if len(item_errors) >= MIN_BUFFER_SAMPLES:
+        return item_errors, "data_driven"
+    if len(pooled_errors) >= MIN_BUFFER_SAMPLES:
+        return pooled_errors, "data_driven_pooled"
+    return None, None
+
+
+def compute_data_driven_buffers(df, shortage_penalty_multiplier=SHORTAGE_PENALTY_MULTIPLIER,
+                                residuals=None, min_warmup_days=MIN_BACKTEST_WARMUP_DAYS):
+    """Per-food newsvendor buffers for LIVE planning, from the whole walk-forward backtest
+    (every one of those days is genuinely in the past when planning a future day).
+
+    Returns {food_item: {buffer, service_level_target, shortage_rate_estimate, low_pct,
+    high_pct, samples, source, rel_errors}}. rel_errors are kept so plan_day() can price
+    surplus AND shortage over the same error distribution the buffer was sized on.
+    shortage_rate_estimate is in-sample (share of those same past days the buffer would
+    have missed); the out-of-sample rate is in evaluate_methods().
+    Pass residuals (from walk_forward_residuals()) to skip recomputing the backtest.
+    """
+    res = walk_forward_residuals(df, min_warmup_days) if residuals is None else residuals
+    if res.empty:
+        return {}
+    pooled = res["rel_error"].to_numpy()
     buffers = {}
     for item, g in res.groupby("food_item"):
-        if len(g) < min_samples:
+        errors, source = _pick_errors(g["rel_error"].to_numpy(), pooled)
+        if errors is None:
             continue
-        buf = float(np.clip(np.percentile(g["rel_error"], percentile), min_buffer, max_buffer))
-        shortage_rate = float((g["rel_error"] > buf).mean())
+        buf = newsvendor_buffer(errors, g["food_category"].iloc[0], shortage_penalty_multiplier)
         buffers[item] = {
             "buffer": round(buf, 3),
-            "shortage_rate_estimate": round(shortage_rate, 3),
-            "low_pct": round(float(np.percentile(g["rel_error"], 10)) * 100, 1),
-            "high_pct": round(float(np.percentile(g["rel_error"], 90)) * 100, 1),
-            "samples": int(len(g)),
+            "service_level_target": round(service_level(shortage_penalty_multiplier), 3),
+            "shortage_rate_estimate": round(float((errors > buf).mean()), 3),
+            "low_pct": round(float(np.percentile(errors, 10)) * 100, 1),
+            "high_pct": round(float(np.percentile(errors, 90)) * 100, 1),
+            "samples": int(len(errors)), "source": source,
+            "rel_errors": [round(float(e), 4) for e in errors],
         }
     return buffers
 
@@ -365,169 +443,202 @@ def calculate_prep_quantity(predicted_demand, food_category=None, buffer=None,
     if buffer is not None:
         return math.ceil(max(0, predicted_demand) * (1 + buffer)), buffer, "manual"
     if buffers_table and food_item in buffers_table:
-        buffer = buffers_table[food_item]["buffer"]
-        return math.ceil(max(0, predicted_demand) * (1 + buffer)), buffer, "data_driven"
+        entry = buffers_table[food_item]
+        return (math.ceil(max(0, predicted_demand) * (1 + entry["buffer"])), entry["buffer"],
+                entry.get("source", "data_driven"))
     buffer = PROTECTED_BUFFER if food_category in PROTECTED_CATEGORIES else SAFETY_BUFFER
     return math.ceil(max(0, predicted_demand) * (1 + buffer)), buffer, "fixed_default"
 
 
-SHORTAGE_PENALTY_MULTIPLIER = 1.0  # default: value a missing serving at 1x its own unit_cost
-
-
 def calculate_costs(predicted_demand, recommended_prep, unit_cost, baseline_prep=None,
                      shortage_penalty_multiplier=SHORTAGE_PENALTY_MULTIPLIER):
-    """Cost accounting for one food/day, compared with a baseline. See README's "Cost model"
-    section for the full writeup; in short:
+    """Cost accounting for one food/day, for TrayTrack and (optionally) the baseline, both
+    measured against the SAME demand figure. See README's "Cost model" section.
 
-      preparation_cost = prepared servings x unit_cost.  This ALREADY INCLUDES the cost of
-          any surplus (unserved) servings -- they were still prepared and paid for. Adding
-          surplus_cost again on top of preparation_cost would double-count it.
-      shortage_cost = shortage servings x unit_cost x shortage_penalty_multiplier.  An
-          ADDITIONAL cost layered on top of a (lower) preparation cost when demand isn't
-          met. shortage_penalty_multiplier is a configurable ASSUMPTION, not a measured
-          stockout cost -- a real shortage also costs goodwill, nutrition, and staff time
-          that aren't priced here; the default (1.0) just values a missing serving the same
-          as its own ingredient cost. Pass other multipliers to see the comparison's
-          sensitivity to this assumption (see sensitivity_report() below).
-      total_cost = preparation_cost + shortage_cost.
+    predicted_demand is the demand both plans are measured against: the ACTUAL served count
+    in evaluate_methods(), one demand scenario in expected_costs().
 
-    surplus/shortage are also returned as plain serving counts, and surplus_cost is reported
-    as an informational breakdown of how much of preparation_cost is tied up in waste -- it
-    is NOT summed into total_cost separately.
+      served           = min(prepared, demand)
+      surplus          = prepared - served      (unserved food; NOT plate waste)
+      shortage         = demand - served        (students who wanted it and missed out)
+      preparation_cost = prepared x unit_cost   (already INCLUDES the surplus's cost)
+      shortage_cost    = shortage x unit_cost x shortage_penalty_multiplier (an ASSUMPTION)
+      total_cost       = preparation_cost + shortage_cost
 
-    predicted_demand is the model's own estimate, not a measured ground truth (actual demand
-    is unobservable whenever a food sells out) -- both this plan's and the baseline's surplus
-    and shortage are measured against this SAME estimate, so the comparison is apples-to-apples
-    even though the yardstick itself is uncertain. All figures here are ESTIMATES.
+    surplus_cost is reported as the part of preparation_cost spent on unserved food; it is
+    never added on top of total_cost (that would count it twice).
     """
-    predicted_demand = max(0, predicted_demand)
-    recommended_prep = max(0, recommended_prep)
-    surplus = max(0, recommended_prep - predicted_demand)
-    shortage = max(0, predicted_demand - recommended_prep)
-    prep_cost = round(recommended_prep * unit_cost, 2)
-    surplus_cost = round(surplus * unit_cost, 2)
-    shortage_cost = round(shortage * unit_cost * shortage_penalty_multiplier, 2)
-    total_cost = round(prep_cost + shortage_cost, 2)
+    def side(prep, demand):
+        served = min(prep, demand)
+        surplus, shortage = prep - served, demand - served
+        prep_cost = round(prep * unit_cost, 2)
+        shortage_cost = round(shortage * unit_cost * shortage_penalty_multiplier, 2)
+        return served, surplus, shortage, prep_cost, round(surplus * unit_cost, 2), shortage_cost, \
+            round(prep_cost + shortage_cost, 2)
 
-    result = {"estimated_surplus": surplus, "estimated_surplus_cost": surplus_cost,
+    demand = max(0, predicted_demand)
+    served, surplus, shortage, prep_cost, surplus_cost, shortage_cost, total_cost = \
+        side(max(0, recommended_prep), demand)
+    result = {"estimated_served": served,
+              "estimated_surplus": surplus, "estimated_surplus_cost": surplus_cost,
               "estimated_shortage": shortage, "estimated_shortage_cost": shortage_cost,
               "estimated_preparation_cost": prep_cost, "estimated_total_cost": total_cost,
               "shortage_penalty_multiplier": shortage_penalty_multiplier,
-              "baseline_prep": baseline_prep, "baseline_surplus_cost": None,
+              "baseline_prep": baseline_prep, "baseline_served": None, "baseline_surplus": None,
+              "baseline_shortage": None, "baseline_surplus_cost": None,
               "baseline_shortage_cost": None, "baseline_preparation_cost": None,
               "baseline_total_cost": None, "estimated_savings_vs_baseline": None,
               "estimated_savings_pct_vs_baseline": None}
     if baseline_prep is not None:
-        baseline_prep = max(0, baseline_prep)
-        baseline_surplus = max(0, baseline_prep - predicted_demand)
-        baseline_shortage = max(0, predicted_demand - baseline_prep)
-        baseline_prep_cost = round(baseline_prep * unit_cost, 2)
-        baseline_surplus_cost = round(baseline_surplus * unit_cost, 2)
-        baseline_shortage_cost = round(baseline_shortage * unit_cost * shortage_penalty_multiplier, 2)
-        baseline_total_cost = round(baseline_prep_cost + baseline_shortage_cost, 2)
-        savings = round(baseline_total_cost - total_cost, 2)
-        savings_pct = round(savings / baseline_total_cost * 100, 1) if baseline_total_cost > 0 else None
+        b_served, b_surplus, b_shortage, b_prep_cost, b_surplus_cost, b_shortage_cost, b_total = \
+            side(max(0, baseline_prep), demand)
+        savings = round(b_total - total_cost, 2)
         result.update({
-            "baseline_surplus_cost": baseline_surplus_cost,
-            "baseline_shortage_cost": baseline_shortage_cost,
-            "baseline_preparation_cost": baseline_prep_cost,
-            "baseline_total_cost": baseline_total_cost,
+            "baseline_served": b_served, "baseline_surplus": b_surplus, "baseline_shortage": b_shortage,
+            "baseline_surplus_cost": b_surplus_cost, "baseline_shortage_cost": b_shortage_cost,
+            "baseline_preparation_cost": b_prep_cost, "baseline_total_cost": b_total,
             "estimated_savings_vs_baseline": savings,
-            "estimated_savings_pct_vs_baseline": savings_pct,
+            "estimated_savings_pct_vs_baseline": round(savings / b_total * 100, 1) if b_total > 0 else None,
         })
     return result
 
 
-def evaluate_methods(df, min_warmup_days=MIN_BACKTEST_WARMUP_DAYS,
-                      shortage_penalty_multiplier=SHORTAGE_PENALTY_MULTIPLIER):
-    """Leak-free, cost-focused evaluation of the baseline vs. the LunchLoop prediction-based
-    plan, on the SAME held-out school days, using the SAME (model-estimated) demand yardstick
-    for both methods.
+_AVERAGED_COST_KEYS = (
+    "estimated_served", "estimated_surplus", "estimated_surplus_cost", "estimated_shortage",
+    "estimated_shortage_cost", "estimated_preparation_cost", "estimated_total_cost",
+    "baseline_served", "baseline_surplus", "baseline_shortage", "baseline_surplus_cost",
+    "baseline_shortage_cost", "baseline_preparation_cost", "baseline_total_cost")
 
-    For each school day after the warm-up, and each food with enough prior history: predicts
-    that day's demand using only data strictly before it, computes the recommended prep using
-    the FIXED default safety buffer (10%/15%, NOT compute_data_driven_buffers()), and computes
-    both methods' costs via calculate_costs() against the baseline (that food's historical
-    prepared/attendance ratio, using only data strictly before that day too).
 
-    Why the fixed buffer here specifically: compute_data_driven_buffers() tunes itself on the
-    WHOLE dataset. Using it inside this same walk-forward evaluation would leak
-    future-relative-to-day-N information into day N's score and let the method "pass its own
-    exam" -- exactly the kind of circularity this function exists to avoid. The data-driven
-    buffer remains a separate, legitimate feature for LIVE planning (where "all current
-    history" genuinely is all past data), just not for evaluating against that same history.
-
-    Returns per-day rows, a per-food aggregate, an overall aggregate (total costs, savings $
-    and %, surplus, shortage, prediction MAE), and which days/foods were excluded and why.
-    Every number here comes from the SYNTHETIC dataset -- see synthetic_data/circularity_caveat.
+def expected_costs(predicted_demand, recommended_prep, unit_cost, baseline_prep=None,
+                   shortage_penalty_multiplier=SHORTAGE_PENALTY_MULTIPLIER, rel_errors=None):
+    """calculate_costs() averaged over demand scenarios forecast x (1 + each past backtest
+    error), so a future day's surplus AND shortage are both priced, for TrayTrack and the
+    baseline alike. Without errors it falls back to treating the forecast as exact, which
+    can never show a TrayTrack shortage; that case is flagged cost_basis="point_forecast".
     """
-    dates = sorted(df["date"].unique())
-    records, excluded = [], []
-    for i, date in enumerate(dates):
-        if i < min_warmup_days:
-            excluded.append({"date": str(pd.Timestamp(date).date()), "food_item": None,
-                              "reason": "warm-up period"})
-            continue
-        past = df[df["date"] < date]
-        today = df[df["date"] == date]
-        for _, row in today.iterrows():
-            item, cat = row["food_item"], row["food_category"]
-            attendance, actual_served = row["attendance"], row["quantity_served"]
-            item_hist = past[past["food_item"] == item]
-            if len(item_hist) < MIN_RECORDS:
-                excluded.append({"date": str(pd.Timestamp(date).date()), "food_item": item,
-                                  "reason": "insufficient prior history for this food"})
-                continue
-            pred = predict_demand(past, item, cat, attendance, target_date=date)
-            predicted_demand = pred["predicted_demand"]
-            recommended_prep, _buf, _src = calculate_prep_quantity(predicted_demand, cat)
-            baseline_prep = math.ceil(item_hist["quantity_prepared"].sum()
-                                       / item_hist["attendance"].sum() * max(0, attendance))
-            costs = calculate_costs(predicted_demand, recommended_prep, float(row["unit_cost"]),
-                                     baseline_prep, shortage_penalty_multiplier=shortage_penalty_multiplier)
-            records.append({"date": str(pd.Timestamp(date).date()), "food_item": item,
-                             "food_category": cat, "attendance": int(attendance),
-                             "actual_served": int(actual_served), "sold_out": bool(row["quantity_leftover"] == 0),
-                             "predicted_demand": predicted_demand, "recommended_prep": recommended_prep,
-                             "baseline_prep": baseline_prep, "prediction_abs_error": abs(predicted_demand - actual_served),
-                             **costs})
+    if rel_errors is None or len(rel_errors) == 0:
+        out = calculate_costs(predicted_demand, recommended_prep, unit_cost, baseline_prep,
+                              shortage_penalty_multiplier)
+        out["cost_basis"] = "point_forecast"
+        return out
+    scenarios = [calculate_costs(max(0, round(predicted_demand * (1 + e))), recommended_prep,
+                                 unit_cost, baseline_prep, shortage_penalty_multiplier)
+                 for e in rel_errors]
+    out = dict(scenarios[0])
+    for key in _AVERAGED_COST_KEYS:
+        if out[key] is not None:
+            out[key] = round(float(np.mean([s[key] for s in scenarios])), 2)
+    if out["baseline_total_cost"] is not None:
+        savings = round(out["baseline_total_cost"] - out["estimated_total_cost"], 2)
+        out["estimated_savings_vs_baseline"] = savings
+        out["estimated_savings_pct_vs_baseline"] = (
+            round(savings / out["baseline_total_cost"] * 100, 1) if out["baseline_total_cost"] > 0 else None)
+    out["cost_basis"] = f"expected_over_{len(rel_errors)}_backtest_errors"
+    return out
 
-    if not records:
+
+def evaluate_methods(df, min_warmup_days=MIN_BACKTEST_WARMUP_DAYS,
+                      shortage_penalty_multiplier=SHORTAGE_PENALTY_MULTIPLIER, test_days=TEST_DAYS):
+    """Leak-free cost comparison of the baseline ("cook the usual amount per student") vs.
+    TrayTrack, on the SAME held-out school days, against the ACTUAL served counts.
+
+    For each scored day, using only data strictly before it: TrayTrack's forecast, its
+    newsvendor buffer (sized on backtest errors from earlier days only), and the baseline
+    prep. Both plans are then costed with calculate_costs() against what was actually
+    served that day. Headline numbers ("overall", "per_food") are the TEST window only;
+    "validation" is reported separately; "daily" lists every scored row with its split.
+
+    Known bias: on sold-out days actual served is capped by what the kitchen made, so true
+    demand is unknown and treated as = served. That hides shortages that likely happened
+    on those days, for BOTH plans, which tends to flatter whichever plan prepares less.
+    """
+    m = shortage_penalty_multiplier
+    splits = split_dates(df, min_warmup_days, test_days)
+    wf = _walk_forward_predictions(df, min_warmup_days, test_days)
+    excluded = [{"date": str(d.date()), "food_item": None, "reason": "warm-up period"}
+                for d in splits["warmup"]]
+    scored = set(zip(wf["date"], wf["food_item"])) if not wf.empty else set()
+    for d in splits["validation"] + splits["test"]:
+        for item in df.loc[df["date"] == d, "food_item"]:
+            if (d, item) not in scored:
+                excluded.append({"date": str(d.date()), "food_item": item,
+                                 "reason": "insufficient prior history for this food"})
+    if wf.empty:
         return {"evaluated_predictions": 0, "excluded": excluded, "daily": [], "per_food": {},
-                "overall": {}, "synthetic_data": True}
+                "overall": {}, "validation": None, "synthetic_data": True}
 
+    wf["rel_error"] = (wf["actual"] - wf["new_pred"]) / wf["new_pred"].replace(0, np.nan)
+    waste_rates = BENCHMARKS["usda_plate_waste_by_category"]
+    records = []
+    for row in wf.itertuples():
+        prior = wf[(wf["date"] < row.date) & wf["rel_error"].notna()]
+        errors, source = _pick_errors(prior.loc[prior["food_item"] == row.food_item, "rel_error"].to_numpy(),
+                                      prior["rel_error"].to_numpy())
+        if errors is None:
+            prep, buf, source = calculate_prep_quantity(row.new_pred, row.food_category)
+        else:
+            buf = newsvendor_buffer(errors, row.food_category, m)
+            prep = math.ceil(row.new_pred * (1 + buf))
+        costs = calculate_costs(row.actual, prep, row.unit_cost, row.baseline_prep, m)
+        rate = waste_rates.get(row.food_category)
+        records.append({
+            "date": str(row.date.date()), "split": row.split, "food_item": row.food_item,
+            "food_category": row.food_category, "attendance": row.attendance,
+            "actual_served": row.actual, "sold_out": row.sold_out,
+            "predicted_demand": row.new_pred, "old_method_prediction": row.old_pred,
+            "prediction_abs_error": abs(row.new_pred - row.actual),
+            "buffer_used": round(buf, 3), "buffer_source": source, "recommended_prep": prep,
+            "estimated_plate_waste_servings": round(costs["estimated_served"] * rate) if rate is not None else None,
+            "baseline_estimated_plate_waste_servings": round(costs["baseline_served"] * rate) if rate is not None else None,
+            **costs})
     res = pd.DataFrame(records)
 
     def agg(sub):
-        baseline_total = round(sub["baseline_total_cost"].sum(), 2)
-        lunchloop_total = round(sub["estimated_total_cost"].sum(), 2)
-        savings = round(baseline_total - lunchloop_total, 2)
+        baseline_total = round(float(sub["baseline_total_cost"].sum()), 2)
+        traytrack_total = round(float(sub["estimated_total_cost"].sum()), 2)
+        savings = round(baseline_total - traytrack_total, 2)
         return {
             "n": int(len(sub)),
-            "baseline_total_cost": baseline_total, "lunchloop_total_cost": lunchloop_total,
+            "baseline_total_cost": baseline_total, "lunchloop_total_cost": traytrack_total,
+            "baseline_food_cost": round(float(sub["baseline_preparation_cost"].sum()), 2),
+            "lunchloop_food_cost": round(float(sub["estimated_preparation_cost"].sum()), 2),
+            "baseline_shortage_cost": round(float(sub["baseline_shortage_cost"].sum()), 2),
+            "lunchloop_shortage_cost": round(float(sub["estimated_shortage_cost"].sum()), 2),
             "estimated_savings_vs_baseline": savings,
             "estimated_savings_pct_vs_baseline": round(savings / baseline_total * 100, 1) if baseline_total > 0 else None,
             "estimated_surplus_servings": int(sub["estimated_surplus"].sum()),
             "estimated_shortage_servings": int(sub["estimated_shortage"].sum()),
-            "baseline_surplus_servings": int((sub["baseline_prep"] - sub["predicted_demand"]).clip(lower=0).sum()),
-            "baseline_shortage_servings": int((sub["predicted_demand"] - sub["baseline_prep"]).clip(lower=0).sum()),
-            "mae_servings_per_day": round(sub["prediction_abs_error"].mean(), 2),
+            "baseline_surplus_servings": int(sub["baseline_surplus"].sum()),
+            "baseline_shortage_servings": int(sub["baseline_shortage"].sum()),
+            "lunchloop_days_short": int((sub["estimated_shortage"] > 0).sum()),
+            "baseline_days_short": int((sub["baseline_shortage"] > 0).sum()),
+            "estimated_plate_waste_servings": int(sub["estimated_plate_waste_servings"].sum()),
+            "baseline_estimated_plate_waste_servings": int(sub["baseline_estimated_plate_waste_servings"].sum()),
+            "sold_out_rows": int(sub["sold_out"].sum()),
+            "mae_servings_per_day": round(float(sub["prediction_abs_error"].mean()), 2),
+            "old_method_mae_servings_per_day": round(float((sub["old_method_prediction"] - sub["actual_served"]).abs().mean()), 2),
         }
 
-    per_food = {item: agg(sub) for item, sub in res.groupby("food_item")}
-    overall = agg(res)
-    overall["evaluated_days"] = int(res["date"].nunique())
-    overall["shortage_penalty_multiplier"] = shortage_penalty_multiplier
-
+    test, val = res[res["split"] == "test"], res[res["split"] == "validation"]
+    overall = agg(test)
+    overall.update({"evaluated_days": int(test["date"].nunique()),
+                    "window_start": test["date"].min(), "window_end": test["date"].max(),
+                    "shortage_penalty_multiplier": m, "service_level_target": round(service_level(m), 3)})
     return {
-        "evaluated_predictions": int(len(res)), "excluded": excluded,
-        "daily": res.to_dict("records"), "per_food": per_food, "overall": overall,
+        "evaluated_predictions": int(len(test)), "excluded": excluded,
+        "daily": res.to_dict("records"),
+        "per_food": {item: agg(sub) for item, sub in test.groupby("food_item")},
+        "overall": overall, "validation": agg(val) if len(val) else None,
         "synthetic_data": True,
-        "note": "Baseline and LunchLoop are scored on the SAME held-out days, using only data "
-                "from before each day, with the FIXED default buffer (not the data-driven one, "
-                "to avoid tuning on the same data being evaluated). A simulation over synthetic "
-                "data demonstrates how the system behaves under its own assumptions -- it does "
-                "NOT prove real-world savings at an actual school.",
+        "note": "Baseline and TrayTrack are scored on the SAME held-out test days against the "
+                "ACTUAL served counts, using only data from before each day (forecast, buffer "
+                "and baseline alike). Food cost already includes surplus; shortage cost is "
+                "added once; plate waste is a separate external-benchmark estimate and is not "
+                "in any cost. On sold-out days true demand is unknown and treated as = served, "
+                "which hides likely shortages for both plans. A simulation over synthetic data "
+                "shows how the system behaves under its own assumptions; it does NOT prove "
+                "real-world savings at an actual school.",
         "circularity_caveat": ("This dataset is SYNTHETIC and was generated with the same kind "
                 "of weekday/seasonal structure this method looks for; treat these numbers as a "
                 "demonstration of mechanics, not a real-world accuracy or savings claim."),
@@ -565,6 +676,7 @@ def plan_month(df, year, month, menu=None, buffers_table=None,
                 "total_baseline_surplus_cost": 0.0, "total_baseline_shortage_cost": 0.0,
                 "total_baseline_preparation_cost": 0.0, "total_baseline_total_cost": 0.0,
                 "total_estimated_savings_vs_baseline": 0.0,
+                "total_baseline_prep": 0, "total_baseline_surplus": 0, "total_baseline_shortage": 0,
                 "total_estimated_plate_waste_servings": 0, "total_estimated_plate_waste_cost": 0.0,
                 "has_baseline": False,
             })
@@ -581,6 +693,9 @@ def plan_month(df, year, month, menu=None, buffers_table=None,
                 agg["total_estimated_plate_waste_cost"] += item["estimated_plate_waste_cost"]
             if item["baseline_total_cost"] is not None:
                 agg["has_baseline"] = True
+                agg["total_baseline_prep"] += item["baseline_prep"]
+                agg["total_baseline_surplus"] += item["baseline_surplus"]
+                agg["total_baseline_shortage"] += item["baseline_shortage"]
                 agg["total_baseline_surplus_cost"] += item["baseline_surplus_cost"]
                 agg["total_baseline_shortage_cost"] += item["baseline_shortage_cost"]
                 agg["total_baseline_preparation_cost"] += item["baseline_preparation_cost"]
@@ -590,6 +705,8 @@ def plan_month(df, year, month, menu=None, buffers_table=None,
     per_food_totals = []
     for agg in by_food.values():
         if not agg.pop("has_baseline"):
+            for key in ("total_baseline_prep", "total_baseline_surplus", "total_baseline_shortage"):
+                agg[key] = None
             agg["total_baseline_surplus_cost"] = None
             agg["total_baseline_shortage_cost"] = None
             agg["total_baseline_preparation_cost"] = None
@@ -605,6 +722,10 @@ def plan_month(df, year, month, menu=None, buffers_table=None,
             agg["total_estimated_savings_pct_vs_baseline"] = (
                 round(agg["total_estimated_savings_vs_baseline"] / agg["total_baseline_total_cost"] * 100, 1)
                 if agg["total_baseline_total_cost"] > 0 else None)
+        for key in ("total_estimated_surplus", "total_estimated_shortage",
+                    "total_baseline_surplus", "total_baseline_shortage"):
+            if agg[key] is not None:
+                agg[key] = round(agg[key], 1)
         agg["total_estimated_surplus_cost"] = round(agg["total_estimated_surplus_cost"], 2)
         agg["total_estimated_shortage_cost"] = round(agg["total_estimated_shortage_cost"], 2)
         agg["total_estimated_preparation_cost"] = round(agg["total_estimated_preparation_cost"], 2)
@@ -626,6 +747,7 @@ def plan_month(df, year, month, menu=None, buffers_table=None,
         "estimated_savings_vs_baseline": savings,
         "estimated_savings_pct_vs_baseline": round(savings / baseline_total * 100, 1) if baseline_total > 0 else None,
         "shortage_penalty_multiplier": shortage_penalty_multiplier,
+        "service_level_target": round(service_level(shortage_penalty_multiplier), 3),
     }
     return {
         "year": year, "month": month, "school_days": len(days),
@@ -666,9 +788,10 @@ def plan_day(df, expected_attendance=None, target_date=None, menu=None, buffers_
     expected_attendance: pass a number if you already know it (e.g. from a head count
     or RSVP system). Leave it as None and pass target_date to have TrayTrack estimate
     attendance from that weekday's history instead (e.g. Fridays run lower). target_date
-    also lets predict_demand() use that weekday's recent history (e.g. "pizza Friday").
-    buffers_table (optional): output of compute_data_driven_buffers() -- backtested,
-    per-food safety buffers used instead of the fixed 10%/15% defaults where available.
+    also lets predict_demand() use that weekday's history (e.g. "pizza Friday").
+    buffers_table (optional): output of compute_data_driven_buffers() for the SAME
+    shortage_penalty_multiplier -- newsvendor buffers used instead of the fixed 10%/15%
+    defaults where available, plus the backtest errors used to price expected costs.
     shortage_penalty_multiplier: see calculate_costs() -- a configurable assumption, not
     a measured cost.
     If menu is None, every food in the history is planned.
@@ -709,23 +832,29 @@ def plan_day(df, expected_attendance=None, target_date=None, menu=None, buffers_
         if len(hist) >= MIN_RECORDS:
             baseline = math.ceil(hist["quantity_prepared"].sum() / hist["attendance"].sum()
                                  * max(0, expected_attendance))
-        costs = calculate_costs(pred["predicted_demand"], prep, unit_cost, baseline,
-                                 shortage_penalty_multiplier=shortage_penalty_multiplier)
+        buffer_info = (buffers_table.get(name) if buffers_table and buffer_source.startswith("data_driven")
+                       else None)
+        # Expected surplus/shortage over this food's own backtest errors (the same errors the
+        # buffer was sized on), for TrayTrack and baseline alike.
+        costs = expected_costs(pred["predicted_demand"], prep, unit_cost, baseline,
+                               shortage_penalty_multiplier,
+                               rel_errors=buffer_info["rel_errors"] if buffer_info else None)
 
-        # Estimated plate waste: an EXTERNAL benchmark rate (see BENCHMARKS) applied to our
-        # own predicted servings. Not measured locally -- surplus already covers that.
+        # Estimated plate waste: an EXTERNAL benchmark rate (see BENCHMARKS) applied to the
+        # servings we expect to hand out. Not measured locally, and never added to any cost.
         waste_rate = waste_rates.get(cat)
-        est_plate_waste = round(pred["predicted_demand"] * waste_rate) if waste_rate is not None else None
+        est_plate_waste = round(costs["estimated_served"] * waste_rate) if waste_rate is not None else None
         est_plate_waste_cost = round(est_plate_waste * unit_cost, 2) if est_plate_waste is not None else None
 
         note = pred["note"]
         if cat in PROTECTED_CATEGORIES:
-            note += " Nutritious item: kept on the menu with a larger buffer; some surplus is expected."
-        buffer_info = buffers_table.get(name) if buffers_table and buffer_source == "data_driven" else None
+            note += (f" Nutritious item: buffer is never below {PROTECTED_MIN_BUFFER:.0%}; "
+                     "some surplus is expected.")
         if buffer_info:
-            note += (f" Buffer sized to the backtested 90th-percentile day: on an estimated "
-                      f"{buffer_info['shortage_rate_estimate']:.0%} of days, this is expected to "
-                      "run short anyway -- that's a deliberate tradeoff, not an error.")
+            note += (f" Buffer +{buffer:.0%} targets enough food on {buffer_info['service_level_target']:.0%} "
+                     f"of days (shortage counted as {shortage_penalty_multiplier}x unit cost); in the "
+                     f"backtest it would have run short on {buffer_info['shortage_rate_estimate']:.0%} "
+                     "of days. That is a deliberate tradeoff, not an error.")
         items.append({"food_item": name, "food_category": cat,
                       "predicted_demand": pred["predicted_demand"],
                       "recommended_prep": prep, "buffer_used": buffer, "buffer_source": buffer_source,
@@ -760,7 +889,13 @@ def plan_day(df, expected_attendance=None, target_date=None, menu=None, buffers_
                    "estimated_savings_vs_baseline": savings,
                    "estimated_savings_pct_vs_baseline": (
                        round(savings / baseline_total_cost * 100, 1) if baseline_total_cost > 0 else None),
+                   "estimated_surplus_servings": total("estimated_surplus"),
+                   "estimated_shortage_servings": total("estimated_shortage"),
+                   "baseline_surplus_servings": total("baseline_surplus"),
+                   "baseline_shortage_servings": total("baseline_shortage"),
+                   "estimated_plate_waste_servings": total("estimated_plate_waste_servings"),
                    "shortage_penalty_multiplier": shortage_penalty_multiplier,
+                   "service_level_target": round(service_level(shortage_penalty_multiplier), 3),
                    "foods_without_baseline": [i["food_item"] for i in items if i["baseline_total_cost"] is None]},
         "assumptions": [
             "Data is SYNTHETIC. unit_cost values are assumptions (popcorn chicken ~$0.58 is "
@@ -780,13 +915,18 @@ def plan_day(df, expected_attendance=None, target_date=None, menu=None, buffers_
             "measured stockout cost (a real shortage also costs goodwill, nutrition, and staff "
             "time that aren't priced here). Try other multipliers to see how sensitive the "
             "comparison is to this choice.",
-            "Buffers are sized to the backtested 90th-percentile day on purpose: each food is "
-            "expected to run a little short on roughly 10% of days (see shortage_rate_estimate) "
-            "rather than being buffered against every possible spike.",
-            "Foods that sold out are excluded from their own demand estimate (served was capped "
-            "by what was prepared there), not just flagged -- but demand on those days is still "
-            "an ESTIMATE, not a known quantity.",
-            "estimated_plate_waste_* applies an external USDA benchmark rate to our predicted "
-            "servings; it is not measured from this cafeteria's own data.",
+            "Buffers use the newsvendor rule for this cost model: prepare enough for "
+            f"{service_level(shortage_penalty_multiplier):.0%} of days (1 - 1/multiplier), read off "
+            "each food's walk-forward forecast errors. Never below the forecast, never below "
+            f"+{PROTECTED_MIN_BUFFER:.0%} for fruit/vegetable/dairy, never above +{MAX_BUFFER:.0%}.",
+            "Surplus, shortage and savings are EXPECTED values: averaged over demand scenarios "
+            "built from past forecast errors (cost_basis says which). Foods without enough "
+            "backtest history fall back to treating the forecast as exact (cost_basis = "
+            "point_forecast), which cannot show a TrayTrack shortage.",
+            "Sold-out days are kept in each food's demand estimate; served on those days is "
+            "only a lower bound on demand.",
+            "estimated_plate_waste_* applies an external USDA benchmark rate to the servings we "
+            "expect to hand out; it is not measured from this cafeteria's own data and is never "
+            "added to any cost.",
         ],
     }
