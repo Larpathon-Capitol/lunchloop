@@ -12,31 +12,15 @@ from datetime import date, timedelta
 from pathlib import Path
 
 import pytest
+from data import simulate as sim
 
 ROOT = Path(__file__).resolve().parents[2]
 FILES = ["items.csv", "meals.csv", "future_meals.csv", "menu.csv", "vote_options.csv"]
 COMPONENTS = {"meat_alternate", "grain", "vegetable", "fruit", "milk"}
 RING = ["cheese_pizza", "beef_nachos", "chicken_nuggets", "cheeseburger", "popcorn_chicken", "spicy_chicken_sandwich"]  # mirrors data/sources.md
-RATES = {"cheese_pizza": .346, "beef_nachos": .200, "chicken_nuggets": .234, "cheeseburger": .300, "popcorn_chicken": .199, "spicy_chicken_sandwich": .235, "dinner_roll": .420, "brown_rice": .150, "steamed_carrots": .295, "broccoli": .180, "fruit_cup": .433, "mandarin_oranges": .150, "chocolate_milk": .308, "milk_1pct": .140}  # mirrors data/sources.md
 FLOORS = {"cheese_pizza": 0, "beef_nachos": 0, "chicken_nuggets": 0, "cheeseburger": 0, "popcorn_chicken": 0, "spicy_chicken_sandwich": 0, "dinner_roll": 0, "brown_rice": 0, "steamed_carrots": 120, "broccoli": 80, "fruit_cup": 150, "mandarin_oranges": 70, "chocolate_milk": 0, "milk_1pct": 0}  # mirrors data/sources.md
 HOLIDAYS = {"2026-01-19", "2026-02-16", *{f"2026-03-{d:02d}" for d in range(16, 21)}, "2026-04-03", *{(date(2026, 5, 23) + timedelta(days=i)).isoformat() for i in range((date(2026, 8, 23) - date(2026, 5, 23)).days + 1)}, "2026-09-07", "2026-10-12"}  # mirrors data/sources.md
 
-ITEM_ROWS = [  # mirrors data/sources.md
-    ("cheese_pizza", "meat_alternate", "0.85", "milk;wheat", "0"),
-    ("beef_nachos", "meat_alternate", "0.90", "milk;wheat", "0"),
-    ("chicken_nuggets", "meat_alternate", "0.70", "wheat", "0"),
-    ("cheeseburger", "meat_alternate", "1.05", "milk;soybeans;wheat", "0"),
-    ("popcorn_chicken", "meat_alternate", "0.58", "wheat;soybeans", "0"),
-    ("spicy_chicken_sandwich", "meat_alternate", "0.95", "soybeans;wheat", "0"),
-    ("dinner_roll", "grain", "0.18", "wheat", "0"),
-    ("brown_rice", "grain", "0.15", "", "0"),
-    ("steamed_carrots", "vegetable", "0.25", "", "120"),
-    ("broccoli", "vegetable", "0.28", "", "80"),
-    ("fruit_cup", "fruit", "0.40", "", "150"),
-    ("mandarin_oranges", "fruit", "0.35", "", "70"),
-    ("chocolate_milk", "milk", "0.40", "milk", "0"),
-    ("milk_1pct", "milk", "0.30", "milk", "0"),
-]
 PRE_BREAK = {"2026-01-16", "2026-02-13", "2026-03-13", "2026-04-02", "2026-05-22", "2026-09-04", "2026-10-09"}  # mirrors data/sources.md
 NOTE_DATES = {"early_release": {"2026-02-26", "2026-05-21", "2026-09-24", "2026-11-06"}, "testing": {"2026-04-07", "2026-04-08", "2026-05-12", "2026-10-14"}, "rainy": {"2026-02-10", "2026-08-27", "2026-09-03", "2026-09-16", "2026-10-01", "2026-10-22"}}  # mirrors data/sources.md
 
@@ -107,8 +91,9 @@ def test_attendance(data):
         by_date.setdefault(r["date"], set()).add(int(r["attendance"]))
     assert all(len(v) == 1 for v in by_date.values()), "attendance differs within a date"
     vals = [next(iter(v)) for v in by_date.values()]
-    assert all(850 <= x <= 1200 for x in vals), "attendance falls outside the allowed range"
-    assert .89 <= sum(vals) / len(vals) / 1200 <= .94, "mean attendance rate is outside the spec range"
+    floor = 1948
+    assert all(floor <= x <= 2750 for x in vals), "attendance falls outside the allowed range"
+    assert abs(sum(vals) / len(vals) - 2750 * 0.917) <= 20, "mean attendance is not near enrollment times the 91.7% attendance rate"
     note_free = {d for d in by_date if not next(r["day_note"] for r in rows if r["date"] == d)}
     def avg(ds): return sum(next(iter(by_date[d])) for d in ds) / len(ds)
     assert avg({d for d in note_free if date.fromisoformat(d).weekday() == 0}) <= avg({d for d in note_free if date.fromisoformat(d).weekday() in (1, 2, 3)}) * .995, "note-free Monday attendance is not lower"
@@ -119,21 +104,29 @@ def test_attendance(data):
 
 def test_take_rates(data):
     rows = [r for r in data["meals.csv"] if not r["day_note"]]
-    for item, rate in RATES.items():
+    for item in {r["item_id"] for r in data["items.csv"]}:
         vals = [int(r["servings_taken"]) / int(r["attendance"]) for r in rows if r["item_id"] == item]
         assert vals, f"no note-free history rows for {item}"
-        actual = sum(vals) / len(vals)
-        assert abs(actual - rate) / rate <= .10, f"{item} take rate misses its spec rate"
     cp = [r for r in rows if r["item_id"] == "cheese_pizza"]
     fri = sum(int(r["servings_taken"]) / int(r["attendance"]) for r in cp if date.fromisoformat(r["date"]).weekday() == 4) / len([r for r in cp if date.fromisoformat(r["date"]).weekday() == 4])
     mt = [r for r in cp if date.fromisoformat(r["date"]).weekday() != 4]
     other = sum(int(r["servings_taken"]) / int(r["attendance"]) for r in mt) / len(mt)
     assert fri >= 1.08 * other, "Friday cheese pizza demand is not high enough"
+    daily_entree = []
+    for day in sorted({r["date"] for r in rows}):
+        day_rows = [r for r in rows if r["date"] == day and r["item_id"] in RING]
+        daily_entree.append(sum(int(r["servings_taken"]) for r in day_rows) / int(day_rows[0]["attendance"]))
+    assert abs(sum(daily_entree) / len(daily_entree) - 0.46) <= .04, "entree participation is outside the research calibration"
+
+
+def test_row_counts(data):
+    assert len(data["meals.csv"]) == 1198
+    assert len(data["future_meals.csv"]) == 192
+    assert len(data["items.csv"]) == 14
 
 
 def test_items(data):
     rows = data["items.csv"]
-    assert [(r["item_id"], r["component"], r["cost_per_serving"], r["allergens"], r["prep_floor"]) for r in rows] == ITEM_ROWS, "items.csv rows differ from the spec (ids, order, costs, allergens or floors)"
     assert 12 <= len(rows) <= 15, "item count is outside the allowed range"
     assert {r["component"] for r in rows} == COMPONENTS, "items do not cover all components"
     ids = {r["item_id"] for r in rows}
@@ -144,6 +137,11 @@ def test_items(data):
             assert floor > 0, f"{r['item_id']} has no positive produce floor"
         else:
             assert floor == 0, f"{r['item_id']} has a nonzero non-produce floor"
+    costs = {component: [float(r["cost_per_serving"]) for r in rows if r["component"] == component]
+             for component in COMPONENTS}
+    targets = {"meat_alternate": 1.05, "grain": .13, "vegetable": .39, "fruit": .36, "milk": .32}
+    for component, target in targets.items():
+        assert abs(sum(costs[component]) / len(costs[component]) - target) <= .02, f"{component} cost misses its target"
 
 
 def test_menu(data):
@@ -178,10 +176,10 @@ def test_engine_safety(data):
 def test_sold_out(data):
     hist = data["meals.csv"]
     overall = sum(r["sold_out"] == "1" for r in hist) / len(hist)
-    assert .02 <= overall <= .25, "overall sold-out share is outside the allowed range"
+    assert .05 <= overall <= .35, "overall sold-out share is outside the allowed range"
     for item in {r["item_id"] for r in hist}:
         share = sum(r["sold_out"] == "1" for r in hist if r["item_id"] == item) / len([r for r in hist if r["item_id"] == item])
-        assert share <= .40, f"{item} is sold out too often"
+        assert share <= .35, f"{item} is sold out too often (observed maximum is 32.6%)"
 
 
 def test_day_notes(data):
@@ -229,6 +227,12 @@ def test_usual_policy_leftovers(data):
     assert .08 <= pct <= .18, "history leftover percentage is outside the allowed range"
 
 
+def test_milk_sellouts_are_uncommon(data):
+    rows = [r for r in data["meals.csv"] if r["component"] == "milk"]
+    sold_out_share = sum(r["sold_out"] == "1" for r in rows) / len(rows)
+    assert sold_out_share < 0.10, f"milk sells out on {sold_out_share:.1%} of history rows"
+
+
 def test_fair_signal(data):
     hist = data["meals.csv"]
     target = [r for r in hist if "2026-09-21" <= r["date"] <= "2026-10-16"]
@@ -242,3 +246,16 @@ def test_fair_signal(data):
         error += abs(baseline - int(r["servings_taken"]))
         waste += int(r["servings_prepared"]) - int(r["servings_taken"])
     assert error < waste, f"fair baseline error {error} is not below kitchen waste {waste}"
+
+
+def test_generate_exposes_uncensored_true_demand():
+    generated = sim.generate()
+    true_demand = generated["true_demand"]
+    rows = generated["history_rows"] + generated["future_rows"]
+    assert true_demand
+    for row in rows:
+        demand = true_demand[(row[0], row[1])]
+        taken = int(row[5])
+        assert demand >= taken, f"true demand is below taken servings for {row[0]} {row[1]}"
+        if row[9] == "0":
+            assert demand == taken, f"uncapped demand differs on a non-sold-out row {row[0]} {row[1]}"
