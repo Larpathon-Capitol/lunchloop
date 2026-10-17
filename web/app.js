@@ -5,6 +5,7 @@ const API = (params.get("api") || window.LUNCHLOOP_API || "http://127.0.0.1:8000
 const view = document.getElementById("view");
 const $ = (html) => Object.assign(document.createElement("div"), { innerHTML: html.trim() }).firstElementChild;
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 const device = (() => {
   try {
@@ -23,80 +24,123 @@ async function api(path, body) {
   return data;
 }
 
-const fmtDate = (iso, opts) => new Date(iso + "T12:00:00").toLocaleDateString("en-US", opts);
+const fmtDate = (iso, o) => new Date(iso + "T12:00:00").toLocaleDateString("en-US", o);
 const dayName = (iso) => fmtDate(iso, { weekday: "long" });
 const longDate = (iso) => fmtDate(iso, { weekday: "long", month: "long", day: "numeric" });
 const nice = (id) => id.replace(/_/g, " ").replace(/^./, (c) => c.toUpperCase());
 const money = (n) => "$" + Math.round(n).toLocaleString();
-const ALLERGEN = (a) => (a.length ? a.join(", ") : "No listed allergens");
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+
+const EMOJI = {
+  cheese_pizza: "🍕", beef_nachos: "🌮", chicken_nuggets: "🍗", cheeseburger: "🍔", popcorn_chicken: "🍿",
+  spicy_chicken_sandwich: "🥪", dinner_roll: "🥖", brown_rice: "🍚", steamed_carrots: "🥕", broccoli: "🥦",
+  fruit_cup: "🍓", mandarin_oranges: "🍊", chocolate_milk: "🍫", milk_1pct: "🥛",
+};
+const icon = (id) => EMOJI[id] || "🍽️";
+const REEL = ["🍕", "🌮", "🍗", "🍔", "🥪", "🍿", "🥗", "🍎", "🥕", "🍓", "🌯", "🍝"];
+
+/* number that eases to its target */
+function countTo(el, to, { dur = 900, fmt = (n) => Math.round(n).toLocaleString() } = {}) {
+  const from = el._v ?? 0; el._v = to;
+  if (reduced || from === to) { el.textContent = fmt(to); return; }
+  const t0 = performance.now(); cancelAnimationFrame(el._raf);
+  const step = (t) => {
+    const k = Math.min(1, (t - t0) / dur), e = 1 - Math.pow(1 - k, 4);
+    el.textContent = fmt(from + (to - from) * e);
+    if (k < 1) el._raf = requestAnimationFrame(step);
+  };
+  el._raf = requestAnimationFrame(step);
+}
 
 function mount(el) { el.classList.add("view"); view.replaceChildren(el); return el; }
 function message(text) { mount($(`<div class="msg">${esc(text)}</div>`)); }
+function loading() { mount($(`<div><div class="sk" style="height:60px;width:60%"></div><div class="sk"></div><div class="sk"></div></div>`)); }
 
 /* ---------- student ---------- */
 
 async function student() {
+  loading();
   let me, spin, health;
-  try { [health, me, spin] = await Promise.all([api("/health"), api(`/me?device=${device}`), api(`/spin?device=${device}`).catch((e) => (e.status === 404 ? null : Promise.reject(e)))]); }
-  catch { return message("Can't reach LunchLoop."); }
+  try {
+    [health, me, spin] = await Promise.all([
+      api("/health"), api(`/me?device=${device}`),
+      api(`/spin?device=${device}`).catch((e) => (e.status === 404 ? null : Promise.reject(e))),
+    ]);
+  } catch { return message("Can't reach LunchLoop."); }
 
   const root = mount($(`<section>
-    <div class="eyebrow">${longDate(health.today)}</div>
-    <h1>What's for lunch?</h1>
-    <div class="stats"></div>
-    <div class="slot"></div>
+    <div><div class="eyebrow">${longDate(health.today)}</div><h1>What's for <span class="grad">lunch?</span></h1></div>
+    <div class="me glass"></div>
+    <div class="spin-zone"></div>
     <div class="guess"></div>
   </section>`));
 
-  const stats = (m) => {
-    const box = root.querySelector(".stats");
-    box.innerHTML = `<div class="stat"><b>${m.streak}</b><span>day streak</span></div><div class="stat"><b>${m.xp}</b><span>XP</span></div>`;
-    if (m.badges.length) box.insertAdjacentHTML("afterend", `<div class="pills">${m.badges.map((b) => `<span class="pill">${esc(nice(b))}</span>`).join("")}</div>`);
-  };
-  stats(me);
+  const meBox = root.querySelector(".me");
+  function drawMe(m) {
+    const frac = m.streak ? Math.min(1, (m.streak % 7 || 7) / 7) : 0;
+    meBox.innerHTML = `
+      <div class="ring"><svg viewBox="0 0 104 104"><defs><linearGradient id="rg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="var(--accent)"/><stop offset="1" stop-color="#ff7a59"/></linearGradient></defs>
+        <circle class="tr" cx="52" cy="52" r="46"/><circle class="pr" cx="52" cy="52" r="46"/></svg><b>0</b></div>
+      <div class="col"><div><div class="xp">0</div><div class="lab">XP</div></div>
+      ${m.badges.length ? `<div class="pills">${m.badges.map((b) => `<span class="pill">${esc(nice(b))}</span>`).join("")}</div>` : ""}</div>`;
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      meBox.querySelector(".pr").style.strokeDashoffset = 289 * (1 - frac);
+      countTo(meBox.querySelector(".ring b"), m.streak, { dur: 1100 });
+      countTo(meBox.querySelector(".xp"), m.xp, { dur: 1100 });
+    }));
+  }
+  drawMe(me);
 
-  const slot = root.querySelector(".slot");
-  if (!spin) slot.append($(`<div class="msg">No voting today.</div>`));
-  else if (spin.already_voted) showResults(slot, spin, null, null);
-  else showSpin(slot, spin);
+  const zone = root.querySelector(".spin-zone");
+  if (!spin) zone.append($(`<div class="msg">No voting today.</div>`));
+  else if (spin.already_voted) done(zone);
+  else offer(zone, spin);
 
   guessSection(root.querySelector(".guess"), me, health.today);
 
-  function showSpin(slot, spin) {
-    slot.replaceChildren($(`<div class="hero"><button class="cta">Spin</button></div>`));
-    slot.querySelector(".cta").onclick = () => {
-      const stack = $(`<div class="stack"></div>`);
-      slot.replaceChildren($(`<div class="eyebrow" style="margin:28px 0 12px">${dayName(spin.target_date)}'s ${esc(spin.target_slot)}</div>`), stack);
-      spin.options.forEach((o, i) => {
-        const b = $(`<button class="card cascade" style="animation-delay:${i * 140}ms"><div class="name">${esc(o.name)}</div><div class="sub">${esc(ALLERGEN(o.allergens))}</div></button>`);
-        b.onclick = async () => {
-          stack.querySelectorAll("button").forEach((x) => (x.disabled = true));
-          try {
-            const r = await api("/vote", { device, item_id: o.item_id });
-            showResults(slot, spin, o.item_id, r.tally);
-            const m = await api(`/me?device=${device}`); root.querySelector(".pills")?.remove(); stats(m);
-          } catch { showResults(slot, spin, null, null); }
-        };
-        stack.append(b);
-      });
-    };
+  function done(zone) {
+    zone.replaceChildren($(`<div class="done"><div class="eyebrow">Vote in</div><h1>See you <span class="grad">tomorrow.</span></h1></div>`));
   }
 
-  async function showResults(slot, spin, picked, tally) {
-    if (!tally) {
-      // already voted earlier: tally is only returned by a vote, so show a quiet confirmation
-      slot.replaceChildren($(`<div class="hero"><div class="eyebrow">Your vote is in</div><h1>See you tomorrow.</h1></div>`));
-      return;
-    }
-    const total = Object.values(tally).reduce((a, b) => a + b, 0) || 1;
-    const stack = $(`<div class="stack"></div>`);
-    slot.replaceChildren($(`<div class="eyebrow" style="margin:28px 0 12px">${dayName(spin.target_date)}'s ${esc(spin.target_slot)}</div>`), stack);
-    spin.options.forEach((o) => {
-      const pct = Math.round(((tally[o.item_id] || 0) / total) * 100);
-      const c = $(`<div class="card ${o.item_id === picked ? "picked" : "dim"}"><i class="bar-fill"></i><div class="name">${esc(o.name)}</div><div class="pct">${pct}%</div></div>`);
-      stack.append(c);
-      requestAnimationFrame(() => requestAnimationFrame(() => (c.querySelector(".bar-fill").style.width = pct + "%")));
+  function offer(zone, spin) {
+    const cta = $(`<button class="cta" aria-label="Spin">Spin</button>`);
+    zone.replaceChildren(cta);
+    cta.onclick = () => reveal(zone, spin);
+  }
+
+  async function reveal(zone, spin) {
+    const label = $(`<div class="eyebrow" style="margin:0 0 12px;text-align:center">${dayName(spin.target_date)}'s ${esc(spin.target_slot)}</div>`);
+    const grid = $(`<div class="reels"></div>`);
+    zone.replaceChildren(label, grid);
+    const H = 84, N = 22;
+    const opts = spin.options.map((o, i) => {
+      const faces = Array.from({ length: N - 1 }, () => REEL[Math.floor(Math.random() * REEL.length)]).concat(icon(o.item_id));
+      const el = $(`<button class="opt glass" disabled><div class="win"><div class="strip">${faces.map((f) => `<span>${f}</span>`).join("")}</div></div>
+        <div class="nm">${esc(o.name)}</div><div class="al">${esc(o.allergens.length ? o.allergens.join(" · ") : "")}</div>
+        <i class="fill"></i><span class="pc"></span></button>`);
+      grid.append(el); el._o = o; return el;
     });
+    await wait(30);
+    opts.forEach((el, i) => {
+      const s = el.querySelector(".strip"), dur = reduced ? 1 : 1900 + i * 520;
+      s.style.transition = `transform ${dur}ms cubic-bezier(.1,.75,.15,1), filter ${dur}ms`;
+      s.style.transform = `translateY(${-(N - 1) * H}px)`;
+      setTimeout(() => { s.classList.add("stop"); el.querySelector(".nm").classList.add("show"); el.disabled = false; }, dur - 250);
+    });
+    opts.forEach((el) => (el.onclick = async () => {
+      opts.forEach((x) => (x.disabled = true));
+      try {
+        const r = await api("/vote", { device, item_id: el._o.item_id });
+        const total = Object.values(r.tally).reduce((a, b) => a + b, 0) || 1;
+        opts.forEach((x) => {
+          const pct = Math.round(((r.tally[x._o.item_id] || 0) / total) * 100);
+          x.classList.add("res", x._o.item_id === el._o.item_id ? "picked" : "dim");
+          x.querySelector(".fill").style.height = pct + "%";
+          countTo(x.querySelector(".pc"), pct, { fmt: (n) => Math.round(n) + "%" });
+        });
+        drawMe(await api(`/me?device=${device}`));
+      } catch { done(zone); }
+    }));
   }
 }
 
@@ -105,81 +149,133 @@ async function guessSection(box, me, today) {
   let next = null;
   for (let i = 1; i <= 5 && !next; i++) {
     const d = new Date(today + "T12:00:00"); d.setDate(d.getDate() + i);
-    const iso = d.toISOString().slice(0, 10);
-    next = await api(`/prep?date=${iso}`).catch(() => null);
+    next = await api(`/prep?date=${d.toISOString().slice(0, 10)}`).catch(() => null);
   }
   if (!next) return;
   const options = next.items.filter((i) => i.component === "meat_alternate");
   if (!options.length) return;
-  const head = `<h2>Call it · ${dayName(next.date)}</h2>`;
-  const done = (id) => box.replaceChildren($(`<div>${head}<div class="card"><div class="name">${esc(options.find((o) => o.item_id === id)?.name || nice(id))}</div><div class="sub">Your pick</div></div></div>`));
-  if (lg && lg.target_date === next.date) return done(lg.item_id);
-  const wrap = $(`<div>${head}<div class="stack"></div></div>`);
+  const wrap = $(`<div><h2>Call it · ${dayName(next.date)}</h2><div class="calls"></div></div>`);
+  const list = wrap.querySelector(".calls");
+  const mark = (id) => list.querySelectorAll(".call").forEach((b) => { b.disabled = true; b.classList.add(b._id === id ? "picked" : "dim"); });
   options.forEach((o) => {
-    const b = $(`<button class="card"><div class="name">${esc(o.name)}</div></button>`);
-    b.onclick = async () => { try { await api("/guess", { device, item_id: o.item_id }); } catch {} done(o.item_id); };
-    wrap.querySelector(".stack").append(b);
+    const b = $(`<button class="call glass"><span class="tile c-meat_alternate">${icon(o.item_id)}</span>${esc(o.name)}</button>`);
+    b._id = o.item_id;
+    b.onclick = async () => { mark(o.item_id); try { await api("/guess", { device, item_id: o.item_id }); } catch {} };
+    list.append(b);
   });
   box.replaceChildren(wrap);
+  if (lg && lg.target_date === next.date) mark(lg.item_id);
 }
 
 /* ---------- kitchen ---------- */
 
 const ORDER = ["meat_alternate", "grain", "vegetable", "fruit", "milk"];
-const LABEL = { meat_alternate: "Entrees", grain: "Grains", vegetable: "Vegetables", fruit: "Fruit", milk: "Milk" };
+
+function chart(series) {
+  const by = {};
+  series.forEach((r) => {
+    const d = (by[r.date] ||= { a: 0, b: 0 });
+    d.a += Math.max(0, r.prep_usual - r.taken); d.b += Math.max(0, r.prep_lunchloop - r.taken);
+  });
+  const days = Object.keys(by).sort(), W = 600, Hh = 150;
+  const max = Math.max(...days.map((d) => Math.max(by[d].a, by[d].b))) || 1;
+  const pts = (k) => days.map((d, i) => [(i / Math.max(1, days.length - 1)) * W, Hh - (by[d][k] / max) * (Hh - 12) - 4]);
+  const path = (p) => p.map(([x, y], i) => {
+    if (!i) return `M${x},${y}`;
+    const [px, py] = p[i - 1], cx = (px + x) / 2;
+    return `C${cx},${py} ${cx},${y} ${x},${y}`;
+  }).join(" ");
+  const pb = pts("b"), pa = pts("a");
+  return `<svg viewBox="0 0 ${W} ${Hh}" preserveAspectRatio="none" height="150">
+    <defs><linearGradient id="cg" x1="0" x2="1"><stop offset="0" stop-color="var(--accent)"/><stop offset="1" stop-color="var(--accent-2)"/></linearGradient>
+    <linearGradient id="ag" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--accent)" stop-opacity=".28"/><stop offset="1" stop-color="var(--accent)" stop-opacity="0"/></linearGradient></defs>
+    <path class="ar" d="${path(pb)} L${W},${Hh} L0,${Hh} Z"/>
+    <path class="ln a" pathLength="1" d="${path(pa)}" vector-effect="non-scaling-stroke"/>
+    <path class="ln b" pathLength="1" d="${path(pb)}" vector-effect="non-scaling-stroke"/></svg>`;
+}
 
 async function kitchen() {
-  let prep, meter, savings;
-  try { [prep, meter, savings] = await Promise.all([api("/prep"), api("/meter"), api("/savings")]); }
+  loading();
+  let prep, savings;
+  try { [prep, savings] = await Promise.all([api("/prep"), api("/savings")]); }
   catch { return message("Can't reach LunchLoop."); }
 
+  const saved = savings.usual.dollars_wasted - savings.lunchloop.dollars_wasted;
   const root = mount($(`<section>
-    <div class="eyebrow">${longDate(prep.date)}</div>
-    <h1>Cook this much.</h1>
-    <div class="slider"><input type="range" min="80" max="120" value="100" aria-label="Attendance"><output>${prep.attendance.toLocaleString()}</output></div>
+    <div><div class="eyebrow">${longDate(prep.date)}</div>
+    <div class="total grad" style="margin-top:10px"><span class="tn">0</span><small>servings to cook</small></div></div>
+    <div class="dial glass"><input type="range" min="80" max="120" value="100" aria-label="Attendance"><output></output></div>
     <div class="lists"></div>
     <h2>Last 4 weeks</h2>
-    <div class="big">
-      <div class="card"><div class="v good">${savings.leftover_cut_pct}%</div><div class="l">fewer leftovers</div></div>
-      <div class="card"><div class="v good">${money(savings.usual.dollars_wasted - savings.lunchloop.dollars_wasted)}</div><div class="l">food saved</div></div>
+    <div class="stats">
+      <div class="stat glass"><div class="v grad" data-to="${savings.leftover_cut_pct}">0%</div><div class="l">fewer leftovers</div></div>
+      <div class="stat glass"><div class="v grad" data-to="${saved}">$0</div><div class="l">food saved</div></div>
     </div>
+    <div class="chart glass">${chart(savings.series)}<div class="key"><span><i class="b"></i>LunchLoop</span><span><i></i>Usual</span></div></div>
   </section>`));
 
-  const slider = root.querySelector("input"), out = root.querySelector("output"), lists = root.querySelector(".lists");
-  const draw = (data, animate) => {
-    out.textContent = data.attendance.toLocaleString();
-    const groups = ORDER.map((c) => [c, data.items.filter((i) => i.component === c)]).filter(([, a]) => a.length);
-    lists.innerHTML = groups.map(([c, items]) => `<h2>${LABEL[c]}</h2><div class="group">${items.map((i) => `
-      <div class="row"><div><div class="n">${esc(i.name)}</div><div class="why">${esc(i.reason)}</div></div><div class="num" data-prep="${i.prep}">${i.prep}</div></div>`).join("")}</div>`).join("");
-  };
-  draw(prep);
+  const totalEl = root.querySelector(".total"), out = root.querySelector("output"), slider = root.querySelector("input");
+  const tnum = totalEl.querySelector(".tn");
+
+  const lists = root.querySelector(".lists"), rows = {};
+  const groups = ORDER.map((c) => prep.items.filter((i) => i.component === c)).filter((a) => a.length);
+  groups.forEach((items) => {
+    const g = $(`<div class="glass grp" style="margin-top:12px"></div>`);
+    items.forEach((i) => {
+      const r = $(`<button class="row"><i class="bg"></i><span class="tile c-${i.component}">${icon(i.item_id)}</span>
+        <span class="tx"><div class="n">${esc(i.name)}</div><div class="why">${esc(i.reason)}</div></span><span class="num">0</span></button>`);
+      r.onclick = () => r.classList.toggle("open");
+      g.append(r); rows[i.item_id] = r;
+    });
+    lists.append(g);
+  });
+
+  const fillSlider = () => slider.style.setProperty("--p", ((slider.value - slider.min) / (slider.max - slider.min)) * 100 + "%");
+  function update(data, dur = 800) {
+    const max = Math.max(...data.items.map((i) => i.prep)) || 1;
+    let sum = 0;
+    data.items.forEach((i) => {
+      sum += i.prep; const r = rows[i.item_id]; if (!r) return;
+      countTo(r.querySelector(".num"), i.prep, { dur });
+      r.querySelector(".bg").style.transform = `scaleX(${i.prep / max})`;
+      r.querySelector(".why").textContent = i.reason;
+    });
+    countTo(tnum, sum, { dur: dur + 300 });
+    countTo(out, data.attendance, { dur });
+  }
+  fillSlider(); update(prep, 1300);
+  root.querySelectorAll(".stat .v").forEach((el) => {
+    const to = +el.dataset.to, money_ = el.textContent.startsWith("$");
+    countTo(el, to, { dur: 1600, fmt: (n) => (money_ ? money(n) : n.toFixed(1) + "%") });
+  });
 
   let timer, seq = 0;
   slider.oninput = () => {
-    const m = slider.value / 100;
-    out.textContent = Math.round(prep.attendance * m).toLocaleString();
+    fillSlider();
     clearTimeout(timer);
     timer = setTimeout(async () => {
       const mine = ++seq;
       try {
-        const r = await api("/simulate", { date: prep.date, attendance_multiplier: m, price_multiplier: 1.0, ratio: 3.0 });
-        if (mine === seq) draw(r);
+        const r = await api("/simulate", { date: prep.date, attendance_multiplier: slider.value / 100, price_multiplier: 1.0, ratio: 3.0 });
+        if (mine === seq) update(r, 450);
       } catch {}
-    }, 120);
+    }, 90);
   };
 }
 
 /* ---------- router ---------- */
 
+function place() {
+  const on = document.querySelector(".seg a.on"), t = document.querySelector(".thumb");
+  t.style.width = on.offsetWidth + "px";
+  t.style.transform = `translateX(${on.offsetLeft - 2}px)`;
+}
 function route() {
   const tab = location.hash.startsWith("#/kitchen") ? "kitchen" : "student";
-  const links = document.querySelectorAll(".seg a"), thumb = document.querySelector(".thumb");
-  links.forEach((a) => a.classList.toggle("on", a.dataset.tab === tab));
-  const on = document.querySelector(".seg a.on");
-  thumb.style.width = on.offsetWidth + "px";
-  thumb.style.transform = `translateX(${on.offsetLeft - 2}px)`;
+  document.querySelectorAll(".seg a").forEach((a) => a.classList.toggle("on", a.dataset.tab === tab));
+  place();
   (tab === "kitchen" ? kitchen : student)();
 }
 addEventListener("hashchange", route);
-addEventListener("resize", () => { const on = document.querySelector(".seg a.on"), t = document.querySelector(".thumb"); t.style.width = on.offsetWidth + "px"; t.style.transform = `translateX(${on.offsetLeft - 2}px)`; });
+addEventListener("resize", place);
 document.fonts.ready.then(route);
