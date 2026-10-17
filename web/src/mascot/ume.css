@@ -1,4 +1,4 @@
-/* Ume. Transforms only; the drawing itself never reflows. */
+/* The mascot's DOM half. The 3D model is drawn by the shared layer into .mascot__stage. */
 .ume {
   position: relative;
   display: inline-block;
@@ -30,17 +30,45 @@
   box-shadow: var(--focus-ring);
 }
 
-.ume-hop,
-.ume-squash,
-.ume-breathe {
-  width: 100%;
-  height: 100%;
-  transform-origin: 50% 90%;
-  will-change: transform;
+/* The box the 3D layer draws into: the slot plus headroom for hops and room for the shadow.
+   Keep in step with STAGE in rig/bus.ts. */
+.mascot__stage {
+  position: absolute;
+  top: -90%;
+  bottom: -15%;
+  left: -50%;
+  right: -50%;
+  pointer-events: none;
 }
 
-.ume-squash {
-  transform-origin: 50% 90%;
+/* The shared canvas: over the page (2), under the header, tab bar, sheets, toasts and curtains. */
+.mascot-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.mascot__bits {
+  position: absolute;
+  left: 50%;
+  top: 8%;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+  z-index: 3;
+}
+
+.mascot__bit {
+  position: absolute;
+  left: -8px;
+  top: -8px;
+  display: block;
+  will-change: transform, opacity;
+}
+
+.mascot__bit svg {
+  display: block;
 }
 
 .ume-bubble {

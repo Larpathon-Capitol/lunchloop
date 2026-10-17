@@ -85,13 +85,13 @@ export const student = {
 
   spin: {
     heading: (slot: string, day: string) => `Pick the ${slot} for ${day}`,
-    lead: 'Spin for three choices, then vote for the one you want on the menu.',
+    lead: 'Spin through every entree. Four land on the ballot, and at least one is always vegetarian.',
     button: 'Spin',
     spinning: 'Spinning',
     landed: (names: string[]) => `Your choices: ${names.join(', ')}.`,
     pickFirst: 'Pick one to vote',
-    choices: 'Your three choices',
-    idle: 'Three entrees land here.',
+    choices: 'Your four choices',
+    idle: 'Four entrees land here.',
     vote: (name: string) => `Vote for ${name}`,
     voting: 'Counting your vote',
     info: (name: string) => `About ${name}`,
@@ -117,15 +117,15 @@ export const student = {
   },
 
   meter: {
-    heading: 'Leftovers avoided in our simulated school',
+    heading: 'Leftovers avoided',
     week: (day: string) => `Week of ${day}`,
-    servings: 'fewer leftover servings than the usual amount',
-    dollars: 'saved, even after counting the times it ran short',
-    unit: (n: number) => `Each tray is ${n} servings.`,
-    figure: (servings: string, dollars: string | null, week: string) =>
-      dollars
-        ? `Week of ${week}: ${servings} fewer leftover servings than the usual amount, and ${dollars} saved, even after counting the times it ran short.`
-        : `Week of ${week}: ${servings} fewer leftover servings than the usual amount.`,
+    lead: 'Our simulated school cooked',
+    servings: (n: number) => (n === 1 ? 'fewer leftover serving than usual' : 'fewer leftover servings than usual'),
+    /** Wraps the dollar amount: ", and saved $63, even after counting the times it ran short." */
+    dollarsLead: ', and saved ',
+    dollarsTail: ', even after counting the times it ran short.',
+    end: '.',
+    none: 'Our simulated school didn’t avoid any leftovers that week.',
   },
 
   calledIt: {
@@ -155,16 +155,14 @@ export const student = {
     title: 'Stamps',
     earned: 'Earned',
     notYet: 'Not yet',
-    totals: 'Your totals',
-    xp: 'XP',
-    streak: 'day streak',
-    pets: (n: number) => (n === 1 ? 'pet for Ume' : 'pets for Ume'),
     list: {
       streak_3: { name: 'Three day streak', seal: '3 days', days: 3 },
       streak_7: { name: 'Seven day streak', seal: '7 days', days: 7 },
-      called_it_5: { name: 'Called it five times', seal: 'Caller' },
-    } as Record<'streak_3' | 'streak_7' | 'called_it_5', { name: string; seal: string; days?: number }>,
+      called_it_5: { name: 'Called it five times', seal: 'Caller', calls: 5 },
+    } as Record<'streak_3' | 'streak_7' | 'called_it_5', { name: string; seal: string; days?: number; calls?: number }>,
     daysOf: (n: number, of: number) => `${n} of ${of} days`,
+    callsOf: (n: number, of: number) => `${n} of ${of} calls`,
+    callsProgress: 'Right calls so far',
     rule: 'A day counts when you pack a tray or vote.',
   },
 
@@ -175,6 +173,57 @@ export const student = {
     unknownGroup: 'Not listed',
     note: 'Confirm allergens with cafeteria staff.',
     close: 'Close',
+  },
+
+  diet: {
+    vegetarian: 'Vegetarian',
+    vegan: 'Vegan',
+    spicy: 'Spicy',
+    beef: 'Contains beef',
+    pork: 'Contains pork',
+    glutenFree: 'Gluten-free',
+    dairyFree: 'Dairy-free',
+    /** The allergen line on a food: "Has milk, wheat". */
+    has: (list: string) => `Has ${list}`,
+    noAllergens: 'No listed allergens',
+    label: 'Diet',
+    fits: 'Fits you',
+    unknown: 'Diet info not listed',
+    /** Why a food doesn't fit, joined into one line: "Not vegetarian, has milk". */
+    miss: {
+      vegetarian: 'Not vegetarian',
+      vegan: 'Not vegan',
+      no_pork: 'Has pork',
+      no_beef: 'Has beef',
+      gluten_free: 'Not gluten-free',
+      dairy_free: 'Not dairy-free',
+      not_spicy: 'Spicy',
+    } as Record<string, string>,
+    hasAllergy: (list: string) => `has ${list}`,
+  },
+
+  needs: {
+    button: 'My needs',
+    buttonCount: (n: number) => (n === 1 ? 'My needs, 1 set' : `My needs, ${n} set`),
+    title: 'My needs',
+    lead: 'Tell us what you eat and what you avoid. We flag foods that don’t fit, and you still decide.',
+    dietHeading: 'What I eat',
+    allergyHeading: 'Allergies',
+    options: {
+      vegetarian: 'Vegetarian',
+      vegan: 'Vegan',
+      no_pork: 'No pork',
+      no_beef: 'No beef',
+      gluten_free: 'Gluten-free',
+      dairy_free: 'Dairy-free',
+      not_spicy: 'Not spicy',
+    } as Record<string, string>,
+    saved: 'Saved on this device only.',
+    note: 'We go by the school’s allergen list. Always check with cafeteria staff.',
+    clear: 'Clear all',
+    done: 'Done',
+    mascot: 'Got it. I’ll flag anything that doesn’t fit you.',
+    mascotCleared: 'All clear. Every food shows as usual.',
   },
 
   errors: {

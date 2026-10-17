@@ -1,6 +1,8 @@
 // Typed client for the LunchLoop API (see docs/backend-contract.md).
 // VITE_API_URL points at the deployed backend; in dev the Vite proxy forwards /api.
 
+import { getDemoDate } from './demo'
+
 const API_ROOT = (import.meta.env.VITE_API_URL ?? '').replace(/\/$/, '')
 
 export type Allergen =
@@ -15,7 +17,7 @@ export interface MealCheck {
   below_floor: { item_id: string; prep: number; floor: number }[]
 }
 
-export interface PrepItem {
+export interface PrepItem extends DietInfo {
   item_id: string
   name: string
   component: Component
@@ -68,17 +70,37 @@ export interface Savings {
   series: { date: string; item_id: string; prep_lunchloop: number; prep_usual: number; taken: number }[]
 }
 
-export interface SpinOption {
+/** Diet tags the kitchen marks on each food. vegan always comes with vegetarian. */
+export type DietTag = 'vegetarian' | 'vegan' | 'contains_pork' | 'contains_beef' | 'spicy'
+
+/** Dietary facts on every food: tags from the kitchen, plus two worked out from the allergens. */
+export interface DietInfo {
+  diet: DietTag[]
+  /** No wheat allergen. */
+  gluten_free: boolean
+  /** No milk allergen. */
+  dairy_free: boolean
+}
+
+export interface SpinOption extends DietInfo {
   item_id: string
   name: string
   allergens: Allergen[]
+}
+
+/** Every entree, for the spinning reel. Only `options` can be voted for. */
+export interface PoolItem extends DietInfo {
+  item_id: string
+  name: string
 }
 
 export interface Spin {
   date: string
   target_date: string
   target_slot: string
+  /** Today's ballot: four entrees, at least one vegetarian. */
   options: SpinOption[]
+  pool: PoolItem[]
   already_voted: boolean
   simulated: true
 }
@@ -103,6 +125,8 @@ export interface Me {
   xp: number
   badges: string[]
   last_guess: { target_date: string; item_id: string; correct: boolean | null } | null
+  /** Correct "call it" guesses so far. */
+  correct_calls?: number
   /** This device voted today at this school. */
   voted_today: boolean
   /** This device packed a tray today at this school. */
@@ -111,7 +135,7 @@ export interface Me {
 }
 
 /** One food on tomorrow's tray. */
-export interface TrayItem {
+export interface TrayItem extends DietInfo {
   item_id: string
   name: string
   allergens: Allergen[]
@@ -239,6 +263,24 @@ export interface Events {
   simulated: true
 }
 
+export interface DemoCalendar {
+  /** The simulated "today" this browser is on. */
+  today: string
+  school_days: string[]
+  default_today: string
+  simulated: true
+}
+
+export interface DemoCrowd {
+  ok: true
+  added: number
+  date: string
+  totals: { votes: number; trays: number }
+  simulated: true
+}
+
+export type EventScope = 'live' | 'simulated'
+
 export interface ForecastTrace {
   item_id: string
   name: string
@@ -271,12 +313,19 @@ export class ApiError extends Error {
   }
 }
 
+// A presenter can step the simulated school's calendar. The day lives in this browser only and
+// rides along as X-Demo-Date; the server ignores it for the live school.
+function demoHeader(): Record<string, string> {
+  const day = getDemoDate()
+  return day ? { 'X-Demo-Date': day } : {}
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   let res: Response
   try {
     res = await fetch(`${API_ROOT}/api${path}`, {
       ...init,
-      headers: { 'Content-Type': 'application/json', ...init?.headers },
+      headers: { 'Content-Type': 'application/json', ...demoHeader(), ...init?.headers },
     })
   } catch {
     throw new ApiError(0, 'unreachable')
@@ -327,7 +376,11 @@ export const api = {
   schools: () => request<Schools>('/schools'),
   adminLogin: (school_id: string, password: string) => request<AdminLogin>('/admin/login', post({ school_id, password })),
   adminSummary: (token: string) => request<AdminSummary>('/admin/summary', bearer(token)),
-  events: (after = 0, limit?: number) => request<Events>(`/events${query({ after, limit })}`),
+  events: (after = 0, limit?: number, scope?: EventScope) => request<Events>(`/events${query({ after, limit, scope })}`),
+  /** Simulated schools only. */
+  demoCalendar: (schoolId = DEFAULT_SCHOOL) => request<DemoCalendar>(`/demo/calendar${query({ school: schoolId })}`),
+  /** Adds 1 to 40 simulated students who vote, pack a tray and sometimes guess, on the current demo day. */
+  demoCrowd: (count: number, schoolId = DEFAULT_SCHOOL) => request<DemoCrowd>('/demo/crowd', post({ school: schoolId, count })),
   traceForecast: (item_id: string, date?: string, ratio?: number) =>
     request<ForecastTrace>(`/trace/forecast${query({ item_id, date, ratio })}`),
 }

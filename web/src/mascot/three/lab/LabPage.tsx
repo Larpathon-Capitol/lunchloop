@@ -42,7 +42,7 @@ export function LabPage() {
         <label>talk <input type="range" min={0} max={1} step={0.01} defaultValue={0} onChange={(e) => set({ talk: +e.target.value })} /></label>
         <label>blink <input type="range" min={0} max={1} step={0.01} defaultValue={0} onChange={(e) => set({ blink: +e.target.value })} /></label>
         <button onClick={() => set({ bounce: 1 })}>bounce</button>
-        <label><input type="checkbox" checked={auto} onChange={(e) => setAuto(e.target.checked)} /> auto look and blink</label>
+        <label><input type="checkbox" checked={auto} onChange={(e) => { setAuto(e.target.checked); if (!e.target.checked) set({ blink: 0, look: { x: 0, y: 0 } }) }} /> auto look and blink</label>
         <select value={only} onChange={(e) => setOnly(e.target.value as MascotId | 'all')}>
           <option value="all">all</option>
           {IDS.map((id) => <option key={id} value={id}>{id}</option>)}

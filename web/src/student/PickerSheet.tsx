@@ -1,12 +1,14 @@
 // The picker for one food group: each of tomorrow's foods in that group as a big row, and a
-// gentle "Skip this one". Picks can change any time before packing.
+// gentle "Skip this one". Each food shows its diet badges, allergens and, when the student
+// set needs, whether it fits them (foods that fit come first). Picks can change any time before packing.
 import { motion } from 'framer-motion'
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import type { Component, TrayGroup } from '../shared/api'
 import { copy } from '../shared/copy'
-import { allergenName } from '../shared/format'
-import { Allergen, Check, Info, Skip, foodGroupIcon } from '../shared/icons'
+import { Check, Info, Skip, foodGroupIcon } from '../shared/icons'
 import { press } from '../shared/motion'
+import { checkFood, sortByNeeds, useNeeds } from '../shared/needs'
+import { FoodMeta } from './FoodFacts'
 import { FoodGlyph } from './FoodGlyph'
 import { GLAZE, groupName } from './groups'
 import { Sheet } from './Sheet'
@@ -24,13 +26,16 @@ interface Props {
 function Content({ group, current, onPick }: { group: TrayGroup; current: string | null | undefined; onPick: Props['onPick'] }) {
   const [openInfo, setOpenInfo] = useState<string | null>(null)
   const name = groupName(group.component)
+  const needs = useNeeds()
+  const items = useMemo(() => sortByNeeds(group.items, needs), [group.items, needs])
   return (
     <ul className="picks" aria-label={t.items(name)}>
-        {group.items.map((item) => {
+        {items.map((item) => {
           const on = current === item.item_id
           const infoOpen = openInfo === item.item_id
+          const miss = checkFood(item, needs).status === 'conflict'
           return (
-            <li key={item.item_id} className={on ? 'pick pick--on' : 'pick'}>
+            <li key={item.item_id} className={`pick${on ? ' pick--on' : ''}${miss ? ' pick--miss' : ''}`}>
               <div className="pick__row">
                 <motion.button type="button" className="pick__main" aria-pressed={on} onClick={() => onPick(group.component, item.item_id)} whileTap={press}>
                   <span className="glyph-disc" style={{ color: GLAZE[group.component] }}>
@@ -38,16 +43,7 @@ function Content({ group, current, onPick }: { group: TrayGroup; current: string
                   </span>
                   <span className="pick__text">
                     <span className="pick__name">{item.name}</span>
-                    <span className="pick__allergens">
-                      {item.allergens.length ? (
-                        <>
-                          <Allergen />
-                          {t.contains(item.allergens.map((a) => allergenName(a).toLowerCase()).join(', '))}
-                        </>
-                      ) : (
-                        t.noAllergens
-                      )}
-                    </span>
+                    <FoodMeta food={item} full />
                   </span>
                   {on && (
                     <span className="pick__check" aria-hidden="true">

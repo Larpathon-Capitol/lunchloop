@@ -29,6 +29,13 @@ export interface TrayState {
   focus: Component | null
   /** Where on screen the tray should be framed, in viewport pixels. Set by <TraySlot>. */
   slot: { x: number; y: number; width: number; height: number } | null
+  /**
+   * True while the tray sits still and visible in the current slot. Goes false the moment it
+   * starts flying to a new slot (the hero to game glide) and true again once it has landed.
+   * Written by the stage only. Screens read it with useTrayLanded() to hold their UI back
+   * until the tray is in place.
+   */
+  landed: boolean
 }
 
 let state: TrayState = {
@@ -37,6 +44,7 @@ let state: TrayState = {
   picks: {},
   focus: null,
   slot: null,
+  landed: false,
 }
 const listeners = new Set<() => void>()
 
@@ -56,6 +64,11 @@ export const trayStore = {
 
 export function useTray<T>(select: (s: TrayState) => T): T {
   return useSyncExternalStore(trayStore.subscribe, () => select(state))
+}
+
+/** True once the tray has come to rest in the current screen's slot. See TrayState.landed. */
+export function useTrayLanded(): boolean {
+  return useSyncExternalStore(trayStore.subscribe, () => state.landed, () => false)
 }
 
 // Events from the stage back to the screens.

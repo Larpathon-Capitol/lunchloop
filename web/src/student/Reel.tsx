@@ -1,10 +1,12 @@
-// The spin reel: a column of menu items that spins on a spring, ticks as rows pass,
-// and lands with today's three choices filling the window. The last three rows of the
-// strip are the ballot itself, so they become tappable the moment the reel reaches
-// them, while the spring finishes its one small overshoot.
+// The spin reel: a column of every entree that spins on a spring, ticks as rows pass,
+// and lands with today's four choices filling the window. The last rows of the strip are
+// the ballot itself, so they become tappable the moment the reel reaches them, while the
+// spring finishes its one small overshoot. Once it rests, the window opens to fit the
+// ballot rows, which are taller than the spinning rows (they carry diet info).
 import { animate, motion, useMotionValue, useMotionValueEvent, useReducedMotion } from 'framer-motion'
-import { useEffect, useMemo, useRef } from 'react'
-import type { SpinOption } from '../shared/api'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import type { PoolItem, SpinOption } from '../shared/api'
+import { Leaf } from '../shared/icons'
 import { copy } from '../shared/copy'
 import { sound } from '../shared/sound'
 import { FoodGlyph } from './FoodGlyph'
@@ -12,6 +14,10 @@ import { reelSpring } from './springs'
 import { ChoiceRow } from './ChoiceRow'
 
 const FILL = 40
+/** Rows visible in the window while spinning, one per ballot option. */
+const WINDOW = 4
+/** Spinning row height in px. Matches --reel-row in student.css. */
+const ROW = 60
 const TICK_GAP_MS = 40
 const t = copy.student.spin
 
@@ -19,7 +25,8 @@ type Phase = 'idle' | 'spinning' | 'landed'
 
 interface Props {
   options: SpinOption[]
-  pool: { item_id: string; name: string }[]
+  /** Every entree, in the order the strip shows them. */
+  pool: (Pick<PoolItem, 'item_id' | 'name'> & Partial<PoolItem>)[]
   phase: Phase
   selected: string | null
   disabled?: boolean
@@ -28,14 +35,14 @@ interface Props {
   onInfo: (option: SpinOption) => void
 }
 
-/** Filler rows from real menu items, never the same item twice in a row. */
+/** Filler rows: the pool in order, repeated to fill, never the same item twice in a row. */
 function buildFiller(pool: Props['pool'], options: SpinOption[]) {
-  const source = pool.length > 1 ? pool : options
+  const source: Props['pool'] = pool.length > 1 ? pool : options
   if (!source.length) return []
-  const rows: { item_id: string; name: string }[] = []
+  const rows: Props['pool'] = []
   let i = 0
   while (rows.length < FILL) {
-    const next = source[(i * 7 + 3) % source.length]
+    const next = source[i % source.length]
     i++
     const last = rows[rows.length - 1]
     if (last && last.item_id === next.item_id && source.length > 1) continue
@@ -69,6 +76,8 @@ export function Reel({ options, pool, phase, selected, disabled, onLanded, onSel
 
   const spinning = phase !== 'idle'
   const live = phase === 'landed'
+  // True once the spring has come to rest: the filler goes and the window opens up.
+  const [open, setOpen] = useState(false)
 
   /** Runs once per spin, however many times the spring or StrictMode calls it. */
   const land = () => {
@@ -103,9 +112,16 @@ export function Reel({ options, pool, phase, selected, disabled, onLanded, onSel
     if (reduce || !h) {
       y.set(target)
       land()
+      setOpen(true)
       return
     }
-    const controls = animate(y, target, { ...reelSpring, onComplete: land })
+    const controls = animate(y, target, {
+      ...reelSpring,
+      onComplete: () => {
+        land()
+        setOpen(true)
+      },
+    })
     return () => controls.stop()
     // `land` reads refs only; options and filler are frozen for the spin.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -118,19 +134,36 @@ export function Reel({ options, pool, phase, selected, disabled, onLanded, onSel
 
   if (!spinning || !options.length) return <Idle />
 
+  const ghost = (o: Props['pool'][number]) => (
+    <span className="reel__ghost">
+      <FoodGlyph id={o.item_id} />
+      <span className="reel__name">{o.name}</span>
+      {o.diet?.includes('vegetarian') && (
+        <span className="reel__veg">
+          <Leaf />
+        </span>
+      )}
+    </span>
+  )
+
   return (
-    <div className={live ? 'reel reel--live' : 'reel'}>
-      <motion.div className="reel__strip" style={{ y }}>
-        <div aria-hidden="true">
-          {filler.map((o, i) => (
-            <div className="reel__row" key={i} ref={i === 0 ? rowRef : undefined}>
-              <span className="reel__ghost">
-                <FoodGlyph id={o.item_id} />
-                <span className="reel__name">{o.name}</span>
-              </span>
-            </div>
-          ))}
-        </div>
+    <motion.div
+      className={`reel${live ? ' reel--live' : ''}${open ? ' reel--open' : ''}`}
+      initial={false}
+      animate={{ height: open ? 'auto' : ROW * WINDOW }}
+      transition={reduce ? { duration: 0 } : { type: 'spring', stiffness: 260, damping: 30 }}
+    >
+      {/* Dropping the filler and zeroing y in the same render keeps the ballot exactly where it is. */}
+      <motion.div className="reel__strip" style={{ y: open ? 0 : y }}>
+        {!open && (
+          <div aria-hidden="true">
+            {filler.map((o, i) => (
+              <div className="reel__row" key={i} ref={i === 0 ? rowRef : undefined}>
+                {ghost(o)}
+              </div>
+            ))}
+          </div>
+        )}
         {live ? (
           <div className="reel__choices" role="group" aria-label={t.choices} ref={groupRef}>
             {options.map((o) => (
@@ -138,6 +171,7 @@ export function Reel({ options, pool, phase, selected, disabled, onLanded, onSel
                 key={o.item_id}
                 item_id={o.item_id}
                 name={o.name}
+                facts={o}
                 on={selected === o.item_id}
                 disabled={disabled}
                 popIn={!reduce}
@@ -150,15 +184,12 @@ export function Reel({ options, pool, phase, selected, disabled, onLanded, onSel
           <div aria-hidden="true">
             {options.map((o) => (
               <div className="reel__row" key={o.item_id}>
-                <span className="reel__ghost">
-                  <FoodGlyph id={o.item_id} />
-                  <span className="reel__name">{o.name}</span>
-                </span>
+                {ghost(o)}
               </div>
             ))}
           </div>
         )}
       </motion.div>
-    </div>
+    </motion.div>
   )
 }

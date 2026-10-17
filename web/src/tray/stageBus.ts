@@ -7,6 +7,7 @@ type Point = { x: number; y: number }
 let hovered = false
 const listeners = new Set<() => void>()
 let rim: ((u: number, v: number) => Point | null) | null = null
+let presence: (() => number) | null = null
 
 export const stageBus = {
   /** The stage calls this when the pointer (or keyboard focus) is on the tray in the hero. */
@@ -31,6 +32,12 @@ export const stageBus = {
    * back (-1 is the edge nearest the viewer). Null while the tray is hidden.
    */
   rimPoint: (u: number, v: number) => rim?.(u, v) ?? null,
+  /** The stage registers how visible the tray is right now (0 hidden to 1 shown). */
+  registerPresence(fn: (() => number) | null) {
+    presence = fn
+  },
+  /** How visible the tray is this frame, 0 to 1, so things riding on it can fade with it. */
+  presence: () => presence?.() ?? 0,
 }
 
 export function useTrayHovered() {

@@ -8,54 +8,74 @@
 
 html {
   -webkit-text-size-adjust: 100%;
-  scrollbar-color: var(--nezumi) var(--washi);
-  accent-color: var(--shu);
+  scrollbar-color: var(--ink-soft) var(--pink-1);
+  accent-color: var(--pink-5);
+  background: var(--pink-1);
 }
 
 ::selection {
-  background: var(--sakura);
-  color: var(--sumi);
+  background: var(--pink-3);
+  color: var(--ink);
 }
 
 body {
   margin: 0;
-  background: var(--washi);
-  color: var(--sumi);
-  caret-color: var(--shu);
+  background: var(--pink-1);
+  color: var(--ink);
+  caret-color: var(--pink-5-deep);
   font-family: var(--font-ui);
   font-size: var(--text-base);
   line-height: var(--leading);
+  font-optical-sizing: auto;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 h1,
 h2,
 h3 {
   font-family: var(--font-display);
-  font-weight: 700;
+  font-weight: var(--display-weight);
+  font-synthesis: var(--display-synthesis);
   line-height: var(--leading-tight);
+  letter-spacing: 0;
   margin: 0;
+  text-wrap: balance;
+}
+
+/* Use on anything else set in the world's display face (mascot name, big numbers) */
+.display {
+  font-family: var(--font-display);
+  font-weight: var(--display-weight);
+  font-synthesis: var(--display-synthesis);
+  line-height: var(--leading-tight);
 }
 
 p {
   margin: 0;
 }
 
+/* Links read in ink with a pink underline: pink-5 text would fail contrast on the pink ground */
 a {
-  color: var(--shu);
+  color: var(--ink);
+  text-decoration-color: var(--pink-5);
   text-underline-offset: 0.2em;
-  text-decoration-thickness: 1px;
+  text-decoration-thickness: 2px;
+}
+a:hover {
+  text-decoration-color: var(--ink);
 }
 
 button {
   font: inherit;
   color: inherit;
+  touch-action: manipulation;
 }
 
 :focus-visible {
   outline: none;
   box-shadow: var(--focus-ring);
-  border-radius: var(--radius);
+  border-radius: var(--radius-sm);
 }
 
 .num {
@@ -71,11 +91,59 @@ button {
   white-space: nowrap;
 }
 
+/* A faint layer of the world's tile. Put it on an absolutely positioned child (or the
+   element itself) behind content. The tile comes from the active kit via --pattern. */
+.world-pattern {
+  background-image: var(--pattern);
+  background-size: var(--pattern-size);
+  background-repeat: repeat;
+  opacity: 0.5;
+  pointer-events: none;
+}
+html[data-mode='staff'] .world-pattern {
+  background-image: none;
+}
+
+/* World switch (theme/switch.ts): the new world wipes in as a circle from the tap point,
+   the old snapshot holds still underneath. */
+html.theme-vt::view-transition-old(root),
+html.theme-vt::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+html.theme-vt::view-transition-old(root) {
+  z-index: 1;
+}
+html.theme-vt::view-transition-new(root) {
+  z-index: 2;
+}
+html.theme-vt--fade::view-transition-old(root) {
+  animation: theme-fade-out 200ms linear both;
+}
+html.theme-vt--fade::view-transition-new(root) {
+  animation: theme-fade-in 200ms linear both;
+}
+@keyframes theme-fade-out {
+  to {
+    opacity: 0;
+  }
+}
+@keyframes theme-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
   *::after {
     transition-duration: 0ms !important;
     animation-duration: 0ms !important;
+  }
+  /* The cross-fade is the calm path for the world switch, so it keeps its 200ms */
+  html.theme-vt--fade::view-transition-old(root),
+  html.theme-vt--fade::view-transition-new(root) {
+    animation-duration: 200ms !important;
   }
 }

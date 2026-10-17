@@ -44,43 +44,6 @@
   height: 22px;
 }
 
-.btn-shu {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--s2);
-  min-height: 52px;
-  padding: 0 var(--s6);
-  border: 0;
-  border-radius: var(--radius);
-  background: var(--shu);
-  color: var(--on-shu);
-  font-weight: 700;
-  font-size: var(--text-md);
-  cursor: pointer;
-  box-shadow: 0 3px 0 var(--shu-deep);
-  transition: background-color var(--t-fast) var(--ease), box-shadow var(--t-fast) var(--ease);
-  -webkit-tap-highlight-color: transparent;
-}
-.btn-shu:hover {
-  background: var(--shu-deep);
-}
-.btn-shu:active {
-  box-shadow: 0 1px 0 var(--shu-deep);
-}
-.btn-shu:disabled {
-  cursor: not-allowed;
-  background: var(--line);
-  color: var(--nezumi);
-  box-shadow: none;
-}
-.btn-shu[data-busy] {
-  cursor: progress;
-}
-.btn-shu--big {
-  width: 100%;
-}
-
 .btn-ink {
   display: inline-flex;
   align-items: center;
@@ -274,7 +237,7 @@
   height: 24px;
 }
 .hud__icon--streak {
-  color: var(--shu);
+  color: var(--pink-5-deep, var(--shu));
 }
 .hud__icon--xp {
   color: var(--kin);
@@ -681,7 +644,7 @@ span.chip__body {
   overflow: hidden;
 }
 .chip--open .chip__state {
-  color: var(--shu);
+  color: var(--ink);
 }
 .chip--skipped .chip__state {
   color: var(--nezumi);
@@ -1124,9 +1087,10 @@ span.chip__body {
   box-shadow: inset 0 0 0 1px var(--ai), 0 0 0 1px var(--ai-deep);
 }
 .reel {
-  --reel-row: 64px;
+  /* Matches ROW in Reel.tsx. The window shows four rows while spinning. */
+  --reel-row: 60px;
   position: relative;
-  height: calc(var(--reel-row) * 3);
+  height: calc(var(--reel-row) * 4);
   overflow: hidden;
   border-radius: var(--radius-sm);
   background: var(--shoji);
@@ -1142,7 +1106,7 @@ span.chip__body {
 .reel--idle {
   display: grid;
   place-items: center;
-  background: repeating-linear-gradient(var(--shoji) 0 63px, var(--line) 63px 64px);
+  background: repeating-linear-gradient(var(--shoji) 0 59px, var(--line) 59px 60px);
 }
 .reel__idle-text {
   padding: var(--s2) var(--s4);
@@ -1170,13 +1134,15 @@ span.chip__body {
   color: var(--sumi);
 }
 .reel__choices .choice {
-  height: var(--reel-row);
+  min-height: var(--reel-row);
   border-radius: 0;
   border-bottom: 1px solid var(--line);
 }
+.reel__choices .choice:last-child {
+  border-bottom: 0;
+}
 .reel__choices .choice__main {
-  min-height: 0;
-  height: 100%;
+  min-height: var(--reel-row);
 }
 
 .choices {
@@ -1360,186 +1326,6 @@ span.chip__body {
   line-height: 26px;
 }
 
-/* ---------- Stamps ---------- */
-
-.stampbook {
-  display: grid;
-  gap: var(--s5);
-}
-.stampbook__page {
-  position: relative;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: var(--s6) var(--s4);
-  margin: 0;
-  padding: var(--s4) 0;
-  list-style: none;
-  border-top: var(--hairline);
-  border-bottom: var(--hairline);
-}
-.stamp {
-  display: grid;
-  justify-items: center;
-  align-content: start;
-  gap: var(--s3);
-  text-align: center;
-}
-.stamp--0 {
-  grid-column: 1 / -1;
-}
-.stamp--2 {
-  margin-top: var(--s8);
-}
-.stamp__art {
-  display: block;
-  line-height: 0;
-}
-.stamp__text {
-  display: grid;
-  gap: 2px;
-}
-.stamp__name {
-  font-weight: 700;
-}
-.stamp__state {
-  font-size: var(--text-sm);
-  color: var(--nezumi);
-}
-.pencil {
-  position: relative;
-  display: grid;
-  place-items: center;
-}
-.pencil svg {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  fill: none;
-  stroke: var(--nezumi);
-  stroke-width: 1.2;
-  stroke-dasharray: 2 3;
-  opacity: 0.7;
-}
-.pencil__label {
-  position: relative;
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: var(--text-md);
-  color: var(--nezumi);
-}
-.stampbook__rule {
-  font-size: var(--text-sm);
-  color: var(--nezumi);
-  text-align: center;
-}
-.totals {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: var(--s2);
-}
-.totals__item {
-  display: grid;
-  justify-items: center;
-  gap: 2px;
-  padding: var(--s4) var(--s2);
-  text-align: center;
-}
-.totals__icon svg {
-  width: 26px;
-  height: 26px;
-}
-.totals__icon--streak {
-  color: var(--shu);
-}
-.totals__icon--xp {
-  color: var(--kin);
-}
-.totals__icon--pet {
-  color: var(--g-fruit);
-}
-.totals__value {
-  font-size: var(--text-xl);
-  font-weight: 900;
-  line-height: 1.1;
-}
-.totals__label {
-  font-size: var(--text-sm);
-  color: var(--nezumi);
-}
-
-/* ---------- Waste meter ---------- */
-
-.meter {
-  display: grid;
-  gap: var(--s4);
-  padding: var(--s5);
-  border-radius: var(--radius);
-  background: var(--ai);
-  color: var(--on-ai);
-}
-.meter .section-title {
-  color: var(--on-ai);
-  font-size: var(--text-base);
-}
-.meter__head {
-  display: grid;
-  gap: 2px;
-}
-.meter__week,
-.meter__label,
-.meter__unit {
-  color: var(--on-ai-soft);
-  font-size: var(--text-sm);
-}
-.meter__figures {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--s4) var(--s8);
-}
-.meter__figure {
-  display: grid;
-  gap: 2px;
-  max-width: 24ch;
-}
-.meter__big {
-  font-family: var(--font-display);
-  font-size: var(--text-2xl);
-  font-weight: 800;
-  line-height: 1;
-  color: var(--kin-light);
-}
-.meter__trays {
-  display: grid;
-  gap: var(--s2);
-  max-width: 420px;
-}
-.meter__tray {
-  position: relative;
-  display: block;
-  aspect-ratio: 22 / 14;
-}
-.meter__tray svg {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  fill: none;
-  stroke-width: 1.4;
-}
-.meter__tray-empty svg {
-  stroke: var(--on-ai-soft);
-  opacity: 0.5;
-}
-.meter__tray-full {
-  position: absolute;
-  inset: 0;
-}
-.meter__tray-full svg {
-  stroke: var(--kin-light);
-  stroke-width: 1.8;
-}
-
 /* Narrow phones: tighten the HUD so the week strip never runs off the edge. */
 @media (max-width: 419px) {
   .hud {
@@ -1637,12 +1423,10 @@ span.chip__body {
   }
   .chip--picked::after,
   .chip--focus::after {
-    left: 6px;
+    left: calc(var(--s5) + 40px + var(--s3));
     right: auto;
-    top: 30%;
-    bottom: 30%;
-    width: 3px;
-    height: auto;
+    bottom: 10px;
+    width: 28px;
   }
   .chip__body,
   .chip--skel {
@@ -1669,14 +1453,6 @@ span.chip__body {
   .tabscreen {
     max-width: 680px;
   }
-  .stampbook__page {
-    grid-template-columns: 1.3fr 1fr 1fr;
-    align-items: end;
-    padding: var(--s8) 0;
-  }
-  .stamp--0 {
-    grid-column: auto;
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1684,4 +1460,387 @@ span.chip__body {
   .week__dot--waiting {
     animation: none;
   }
+}
+
+/* ---------- v2: worlds, display type and feedback ---------- */
+
+/* Display face for titles, big numbers and the mascot name; Gabarito (the UI face) for the rest.
+   Londrina Solid only reads right at 900; the other two worlds ship a single weight. */
+.pack__title,
+.tabscreen__title,
+.hud__value {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-synthesis: none;
+  letter-spacing: 0;
+}
+html[data-theme='americas'] .pack__title,
+html[data-theme='americas'] .tabscreen__title,
+html[data-theme='americas'] .hud__value {
+  font-weight: 900;
+}
+.hud__value,
+.pack__count,
+.num {
+  font-variant-numeric: tabular-nums;
+}
+.pack__title {
+  color: var(--accent-2, var(--ink));
+}
+html[data-theme='asia'] .pack__title,
+html[data-theme='asia'] .tabscreen__title {
+  color: var(--accent-1, var(--ink));
+}
+
+/* The sliding pill under the open (or next) food group. */
+.chip__pill {
+  position: absolute;
+  inset: 4px;
+  z-index: 0;
+  border-radius: calc(var(--radius) - 2px);
+  background: var(--pink-2, #ffc2d1);
+  pointer-events: none;
+}
+.chip__body {
+  position: relative;
+  z-index: 1;
+}
+.chip--picked .chip__disc {
+  color: var(--surface, #fff);
+}
+
+/* Desktop: hold the columns beside the tray back until the tray has landed from the hero. */
+.traytab .pack__side,
+.traytab .pack__after,
+.traytab > section {
+  transition: opacity 320ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+@media (min-width: 960px) {
+  .traytab--waiting .pack__side,
+  .traytab--waiting .pack__after,
+  .traytab--waiting .pack__head,
+  .traytab--waiting > section {
+    opacity: 0;
+    pointer-events: none;
+  }
+}
+
+/* Streak flame: pulses and throws a ring when the streak grows. */
+.hud__icon--streak {
+  position: relative;
+  color: var(--pink-5-deep, #c4466c);
+}
+.hud__ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 2px solid var(--pink-5, #fb6f92);
+  pointer-events: none;
+}
+.hud__icon--xp {
+  color: var(--xp-ink, var(--kin));
+}
+.week__dot--on {
+  background: var(--pink-5, var(--shu));
+}
+.week__blossom {
+  fill: var(--surface, #fff);
+}
+.week__blossom .week__heart {
+  fill: var(--pink-5, var(--shu));
+}
+
+/* Narrow phones: the Monday to Friday strip must fit, so it wraps under the stats. */
+@media (max-width: 399px) {
+  .hud {
+    flex-wrap: wrap;
+    row-gap: var(--s2);
+  }
+  .week {
+    gap: 4px;
+  }
+  .week__dot {
+    width: 28px;
+    height: 28px;
+  }
+  .pack__head {
+    padding-right: 76px;
+  }
+  .pack__plum {
+    width: 84px;
+    right: calc(var(--s2) * -1);
+  }
+}
+/* "Choose" sits on pink: ink keeps it readable on the pill and the panel. */
+.chip--open .chip__state {
+  color: var(--ink, var(--sumi));
+  text-decoration: underline;
+  text-decoration-color: var(--pink-5, #fb6f92);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 3px;
+}
+
+/* Sheet top edge: a soft grab handle; East Asia keeps its noren panels in the field color. */
+html:not([data-theme='asia']) .sheet__noren {
+  display: block;
+  width: 44px;
+  height: 5px;
+  margin: var(--s3) auto 0;
+  padding: 0;
+  border-radius: var(--radius-pill);
+  background: var(--pink-3, #ffb3c6);
+}
+html:not([data-theme='asia']) .sheet__noren::before,
+html:not([data-theme='asia']) .sheet__noren span {
+  display: none;
+}
+html[data-theme='asia'] .sheet__noren span {
+  background: var(--field, var(--ai));
+}
+/* Dela Gothic's zero closes up into a dot at HUD size, so East Asia keeps HUD numbers in the UI face. */
+html[data-theme='asia'] .hud__value {
+  font-family: var(--font-ui);
+  font-weight: 800;
+}
+
+/* Diet info on foods: calm outlined chips, then one-line notes. Icons always sit beside text. */
+.reel__veg {
+  display: inline-grid;
+  margin-left: auto;
+  color: var(--leaf-deep);
+}
+.reel__veg svg {
+  width: 18px;
+  height: 18px;
+}
+.choice__text {
+  display: grid;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+  padding: var(--s2) 0;
+}
+.choice--facts .choice__name {
+  line-height: 1.2;
+}
+.food-meta {
+  display: grid;
+  gap: 4px;
+  justify-items: start;
+  font-weight: 500;
+}
+.diet {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.diet__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 8px 1px 6px;
+  border: 1px solid var(--hairline-color);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  color: var(--ink-soft);
+  font-size: 12.5px;
+  font-weight: 600;
+  line-height: 18px;
+  white-space: nowrap;
+}
+.diet__chip svg {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  stroke-width: 2;
+}
+.diet__chip--leaf {
+  border-color: color-mix(in srgb, var(--leaf) 55%, transparent);
+  color: var(--leaf-deep);
+}
+.food-line {
+  display: inline-flex;
+  align-items: flex-start;
+  gap: 5px;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.3;
+  color: var(--ink-soft);
+}
+.food-line svg {
+  flex: none;
+  width: 15px;
+  height: 15px;
+  margin-top: 1px;
+}
+.food-line--fits {
+  color: var(--leaf-deep);
+  font-weight: 700;
+}
+.food-line--fits svg {
+  stroke-width: 2.4;
+}
+/* A kind warning: deep brick text (7:1 on the pink ground), never color alone. */
+.food-line--warn {
+  color: #8f2416;
+  font-weight: 700;
+}
+/* Foods that don't fit stay tappable; they just step back a little. */
+.choice--miss:not(.choice--on) .glyph-disc,
+.pick--miss:not(.pick--on) .glyph-disc {
+  opacity: 0.6;
+}
+.pick__text .food-meta {
+  margin-top: 2px;
+}
+.facts dd .diet {
+  padding-top: 2px;
+}
+.facts__needs {
+  margin: 0 0 var(--s4);
+}
+.facts__needs:empty {
+  display: none;
+}
+
+/* The "My needs" button: a small outlined pill that sits in a screen header. */
+.needs-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: var(--touch);
+  padding: 0 14px 0 10px;
+  border: 1.5px solid var(--pink-3);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  color: var(--ink);
+  font-family: var(--font-ui);
+  font-size: var(--text-sm);
+  font-weight: 700;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition: border-color var(--t-fast) var(--ease), background-color var(--t-fast) var(--ease);
+}
+.needs-btn:hover {
+  border-color: var(--pink-4);
+}
+.needs-btn svg {
+  flex: none;
+  width: 20px;
+  height: 20px;
+}
+.needs-btn__count {
+  display: inline-grid;
+  place-items: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  border-radius: var(--radius-pill);
+  background: var(--leaf-deep);
+  color: #fff;
+  font-size: 12px;
+  line-height: 1;
+}
+/* The needs button sits under the date so the headline keeps its width and the corner art stays clear. */
+.pack__needs {
+  justify-self: start;
+  margin-top: var(--s1);
+}
+.tabscreen__needs {
+  order: 3;
+}
+
+/* The needs sheet: two groups of toggle chips, a note, then the actions. */
+.needs {
+  display: grid;
+  gap: var(--s4);
+}
+.needs__lead {
+  color: var(--ink-soft);
+}
+.needs__group {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+.needs__legend {
+  padding: 0;
+  margin-bottom: var(--s2);
+  font-weight: 800;
+  font-size: var(--text-md);
+  color: var(--ink);
+}
+.needs__grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2);
+}
+.need {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: var(--touch);
+  padding: 0 14px 0 10px;
+  border: 1.5px solid var(--pink-3);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  color: var(--ink);
+  font-family: var(--font-ui);
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition: background-color var(--t-fast) var(--ease), border-color var(--t-fast) var(--ease);
+}
+.need:hover {
+  border-color: var(--pink-4);
+}
+.need[aria-pressed='true'] {
+  border-color: var(--leaf-deep);
+  background: color-mix(in srgb, var(--leaf) 16%, var(--surface));
+}
+.need__box {
+  display: inline-grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  box-shadow: inset 0 0 0 1.5px var(--ink-soft);
+}
+.need[aria-pressed='true'] .need__box {
+  background: var(--leaf-deep);
+  box-shadow: none;
+  color: #fff;
+}
+.need__box svg {
+  width: 15px;
+  height: 15px;
+  stroke-width: 2.6;
+}
+.needs__note {
+  font-size: var(--text-sm);
+  color: var(--ink-soft);
+}
+.needs__note + .needs__note {
+  margin-top: calc(var(--s3) * -1);
+}
+.needs__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s3);
+}
+.needs__clear {
+  background: transparent;
+  font-family: var(--font-ui);
+  font-size: var(--text-base);
+  cursor: pointer;
+}
+.needs__clear:disabled {
+  opacity: 0.45;
+  cursor: default;
 }

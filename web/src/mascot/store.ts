@@ -1,7 +1,10 @@
-// A tiny event bus for the docked Ume. Any screen can call ume.hop(), ume.react()
-// or ume.moveTo() without prop drilling; <UmeDock /> listens with useSyncExternalStore.
+// A tiny event bus for the world's mascot. Any screen can call ume.hop(), ume.react()
+// or ume.moveTo() without prop drilling; <UmeDock /> and <UmeInline /> listen with
+// useSyncExternalStore. `mascot` is the same object under a world-neutral name.
 import { useSyncExternalStore } from 'react'
 import { storeGet, storeSet } from '../shared/device'
+import { THEME_INFO } from '../theme/registry'
+import { themeStore } from '../theme/store'
 import type { RectLike, UmeMood } from './types'
 
 export type UmeMove = { rect: RectLike; id: number; holdMs: number }
@@ -81,6 +84,9 @@ export const ume = {
   },
 }
 
+/** The same controls as `ume`, for code that should not care which world is showing. */
+export const mascot = ume
+
 // Pets, counted per browser. Two milestones get a one-time spin.
 const PETS_KEY = 'lunchloop.ume.pets'
 const SPUN_KEY = 'lunchloop.ume.spun'
@@ -150,6 +156,6 @@ export function announce(text: string) {
   el.textContent = ''
   // A short gap lets screen readers announce the same line twice in a row.
   window.setTimeout(() => {
-    el.textContent = `Ume says: ${text}`
+    el.textContent = `${THEME_INFO[themeStore.get()].mascotName} says: ${text}`
   }, 60)
 }

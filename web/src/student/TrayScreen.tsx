@@ -1,21 +1,23 @@
 // The core loop: pack tomorrow's tray. One pick or skip per food group, then pack it,
 // get stamped, and see what everyone else packed.
-import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
+import { AnimatePresence, LayoutGroup, motion, useReducedMotion } from 'framer-motion'
 import { useEffect, useRef, useState } from 'react'
 import { api, ApiError, type Component, type Tray, type TrayPicks } from '../shared/api'
-import { BrushProgress, HankoStamp, isStreakMilestone, useCelebrate } from '../celebrate'
+import { BrushProgress, isStreakMilestone, useCelebrate } from '../celebrate'
 import { UmeInline, lines, pickLine, ume } from '../mascot'
 import { copy } from '../shared/copy'
 import { fmtLongDay } from '../shared/format'
 import { Skip, foodGroupIcon } from '../shared/icons'
-import { PlumSprig } from '../shared/art/PlumSprig'
 import { press } from '../shared/motion'
 import { sound } from '../shared/sound'
 import { ErrorNotice } from '../shared/ui/Notice'
 import { useApi } from '../shared/useApi'
-import { TraySlot, trayEvents, trayStore } from '../tray/store'
+import { useKit } from '../theme/registry'
+import { TraySlot, trayEvents, trayStore, useTrayLanded } from '../tray/store'
+import { flyToTray } from './flyToTray'
 import { GLAZE, groupName } from './groups'
 import { PickerSheet } from './PickerSheet'
+import { NeedsButton } from './NeedsSheet'
 import { Quests } from './Quests'
 import { Reveal } from './Reveal'
 import { popSpring } from './springs'
@@ -31,9 +33,25 @@ function sentence(msg: string) {
   return `${s[0].toUpperCase()}${s.slice(1)}${/[.!?]$/.test(s) ? '' : '.'}`
 }
 
+/**
+ * True once the 3D tray has settled into this screen's slot after the hero glide, so the
+ * columns beside it can fade in without drawing over a tray that is still flying.
+ * Falls back to showing everything after 2.5s in case the stage never reports.
+ */
+function useLandedGate(): boolean {
+  const landed = useTrayLanded()
+  const [late, setLate] = useState(false)
+  useEffect(() => {
+    const id = window.setTimeout(() => setLate(true), 2500)
+    return () => window.clearTimeout(id)
+  }, [])
+  return landed || late
+}
+
 export function TrayScreen() {
   const { tray, reloadTray } = useStudent()
   const [meter, reloadMeter] = useApi(() => api.meter(), [])
+  const shown = useLandedGate()
 
   let body
   if (tray.state === 'loading') body = <TraySkeleton />
@@ -47,7 +65,7 @@ export function TrayScreen() {
   else body = <Packing key={tray.data.open_date} data={tray.data} />
 
   return (
-    <div className="traytab">
+    <div className={shown ? 'traytab' : 'traytab traytab--waiting'}>
       {body}
       {meter.state === 'error' && meter.error.status !== 0 && <ErrorNotice error={meter.error} onRetry={reloadMeter} />}
       {meter.state === 'ready' && <WasteMeter meter={meter.data} />}
@@ -112,6 +130,7 @@ function Packing({ data }: { data: Tray }) {
   const { device, me, setMe, refreshMe, setTray, reloadTray, draft, setDraftPick, bumpHud } = useStudent()
   const reduce = useReducedMotion()
   const celebrate = useCelebrate()
+  const { Seal, Corner } = useKit()
   const [open, setOpen] = useState<Component | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -135,6 +154,8 @@ function Packing({ data }: { data: Tray }) {
   const left = groups.length - decided
   const ready = !packed && left === 0 && pickedCount > 0
   const openGroup = open ? (groups.find((g) => g.component === open) ?? null) : null
+  // The soft pill rests on the open group, or on the next one still to decide.
+  const pillOn = packed ? null : (open ?? groups.find((g) => picks[g.component] === undefined)?.component ?? null)
 
   // The tray's own taps open the picker for that compartment.
   useEffect(
@@ -157,6 +178,10 @@ function Packing({ data }: { data: Tray }) {
     setOpen(null)
     setError(null)
     const name = groupName(component)
+    // Where the pick was tapped: the sheet's button if it still has focus, else the chip.
+    const active = document.activeElement
+    const fromEl = active instanceof HTMLElement && active.closest('[role="dialog"]') ? active : document.querySelector<HTMLElement>(`[data-chip="${component}"]`)
+    if (item_id && fromEl) void flyToTray(fromEl.getBoundingClientRect(), component, GLAZE[component])
     if (item_id) {
       sound.pluck(before)
       ume.react('happy', pickLine(lines.pick))
@@ -225,21 +250,23 @@ function Packing({ data }: { data: Tray }) {
       <header className="pack__head">
         <h1 className="pack__title">{packed ? t.headingPacked : t.heading}</h1>
         <p className="pack__day">{t.forDay(fmtLongDay(data.target_date))}</p>
-        <PlumSprig variant="corner" className="pack__plum" />
+        <NeedsButton className="pack__needs" />
+        <Corner className="pack__plum" />
       </header>
 
       <div className="pack__stage" ref={stageRef}>
         <TraySlot className="pack__slot" />
         {packed && revealed && (
           <span className="pack__seal">
-            <HankoStamp visible silent size={76} label={t.packedSeal} />
+            <Seal visible silent size={76} label={t.packedSeal} />
           </span>
         )}
       </div>
 
       <div className="pack__side">
+        <LayoutGroup id="tray-chips">
         <ul className="chips" aria-label={t.chipsLabel}>
-          {groups.map((g) => {
+          {groups.map((g, i) => {
             const pick = picks[g.component]
             const item = typeof pick === 'string' ? g.items.find((i) => i.item_id === pick) : null
             const state = item ? item.name : pick === null ? t.skipped : t.choose
@@ -264,11 +291,23 @@ function Packing({ data }: { data: Tray }) {
               </>
             )
             return (
-              <li
+              <motion.li
                 key={g.component}
+                data-chip={g.component}
+                initial={reduce ? false : { opacity: 0, y: 16, scale: 0.92 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                transition={{ type: 'spring', stiffness: 380, damping: 22, mass: 0.8, delay: 0.12 + i * 0.06 }}
                 className={`chip chip--${kind}${open === g.component ? ' chip--focus' : ''}`}
                 style={{ ['--glaze' as string]: GLAZE[g.component] }}
               >
+                {pillOn === g.component && (
+                  <motion.span
+                    layoutId="chip-pill"
+                    className="chip__pill"
+                    aria-hidden="true"
+                    transition={reduce ? { duration: 0 } : { type: 'spring', stiffness: 380, damping: 22, mass: 0.8 }}
+                  />
+                )}
                 {packed ? (
                   <span className="chip__body">{inner}</span>
                 ) : (
@@ -286,12 +325,13 @@ function Packing({ data }: { data: Tray }) {
                     {inner}
                   </motion.button>
                 )}
-              </li>
+              </motion.li>
             )
           })}
         </ul>
+        </LayoutGroup>
 
-        {/* Ume sits in the layout here, beside the progress line, with room above it for a line. */}
+        {/* The mascot sits in the layout here, beside the progress line, with room above it for a line. */}
         <UmeInline size={56} className="pack__ume">
           {!packed && (
             <div className="pack__progress">
@@ -314,7 +354,7 @@ function Packing({ data }: { data: Tray }) {
                 <motion.button
                   key="pack"
                   type="button"
-                  className="btn-shu btn-shu--big"
+                  className="btn-press btn-press--big"
                   onClick={pack}
                   disabled={busy}
                   initial={reduce ? { opacity: 0 } : { scale: 0.7, opacity: 0 }}

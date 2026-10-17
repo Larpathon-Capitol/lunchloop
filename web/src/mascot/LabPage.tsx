@@ -1,9 +1,15 @@
+// A bench for the live mascots: every world, size and mood, the speech lines and the dock.
 import { useRef, useState } from 'react'
+import { THEME_INFO } from '../theme/registry'
+import { themeStore, useThemeId } from '../theme/store'
+import { THEMES, type MascotId } from '../theme/types'
 import { lines, pickLine, greetingLine } from './lines'
 import { ume, usePetCount } from './store'
 import { MOODS, type UmeMood } from './types'
 import { Ume } from './Ume'
 import { UmeDock } from './UmeDock'
+
+const IDS: MascotId[] = ['chispa', 'ume', 'lafa']
 
 const params = new URLSearchParams(location.search)
 const startMood = (params.get('mood') as UmeMood | null) ?? 'idle'
@@ -15,6 +21,7 @@ export function LabPage() {
   const [hopKey, setHopKey] = useState(0)
   const pets = usePetCount()
   const rim = useRef<HTMLDivElement>(null)
+  const theme = useThemeId()
 
   const speak = (text: string) => {
     setSay(text)
@@ -23,7 +30,27 @@ export function LabPage() {
 
   return (
     <main className="lab">
-      <h1>Ume</h1>
+      <h1>{THEME_INFO[theme].mascotName}</h1>
+
+      <section>
+        <h2>World</h2>
+        <div className="lab-controls" role="group" aria-label="World">
+          {THEMES.map((id) => (
+            <button key={id} type="button" aria-pressed={theme === id} onClick={() => themeStore.set(id)}>
+              {THEME_INFO[id].label}
+            </button>
+          ))}
+        </div>
+      </section>
+
+      <section id="trio" className="lab-stage" data-ground="washi">
+        {IDS.map((id) => (
+          <div className="lab-cell" key={id}>
+            <Ume size={160} mood={mood} mascotId={id} hopKey={hopKey} />
+            {id}
+          </div>
+        ))}
+      </section>
 
       <section>
         <h2>Mood</h2>

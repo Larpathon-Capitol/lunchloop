@@ -1,10 +1,36 @@
-import { drawPetal, makeCanvas, prefersReducedMotion, rand, readPalette, type PetalKind } from './petals'
+import type { ParticleStyle } from '../theme/types'
+import { currentStyle, drawPetal, makeCanvas, prefersReducedMotion, rand, readGold, resolveColors, type PetalKind } from './petals'
 
 export interface DriftOptions {
   /** Up to 10. Default 8. */
   count?: number
   /** Peak opacity, 0 to 1. Default 0.7. */
   opacity?: number
+  /** Which shapes and colors drift. Default: the current world's kit. Seeds are never drifted. */
+  style?: ParticleStyle
+}
+
+const ACCENTS: ReadonlySet<PetalKind> = new Set<PetalKind>(['fleck', 'star'])
+
+// Drifting sizes per kind, smaller than a burst so the hero stays calm.
+const DRIFT_SIZE: Record<PetalKind, [number, number]> = {
+  blossom: [10, 14],
+  petal: [8, 12],
+  fleck: [4, 6],
+  papel: [13, 17],
+  confetti: [8, 11],
+  star: [6, 9],
+  leaf: [10, 14],
+  seed: [6, 8],
+  marigold: [9, 12],
+}
+
+/** Kinds to drift: no seeds, accents only if nothing else is left, petal as the last resort. */
+function driftKinds(style: ParticleStyle): PetalKind[] {
+  const usable = style.kinds.filter((k) => k !== 'seed')
+  const mains = usable.filter((k) => !ACCENTS.has(k))
+  if (mains.length) return mains
+  return usable.length ? usable : ['petal']
 }
 
 interface Drifter {
@@ -28,7 +54,7 @@ interface Drifter {
 }
 
 /**
- * Ambient petals drifting slowly across a container, for the hero.
+ * Ambient particles (the world's kit shapes) drifting slowly across a container, for the hero.
  * Each petal loops every 6 to 10 seconds. Pauses while the tab is hidden or the container is off screen.
  * Returns stop(). Does nothing with reduced motion.
  */
@@ -38,7 +64,10 @@ export function driftPetals(container: HTMLElement, opts: DriftOptions = {}): ()
   if (!made) return () => {}
   const { canvas, ctx, dpr } = made
   const count = Math.max(1, Math.min(10, Math.round(opts.count ?? 8)))
-  const pal = readPalette()
+  const style = opts.style ?? currentStyle()
+  const kinds = driftKinds(style)
+  const colors = resolveColors(style.colors)
+  const gold = readGold()
   const peak = Math.max(0.1, Math.min(1, opts.opacity ?? 0.7))
 
   const prevPosition = container.style.position
@@ -59,18 +88,20 @@ export function driftPetals(container: HTMLElement, opts: DriftOptions = {}): ()
   size()
 
   const make = (i: number): Drifter => {
-    const kind: PetalKind = i % 3 === 0 ? 'blossom' : 'petal'
-    const sakura = i % 2 === 0
+    const kind: PetalKind = kinds[i % kinds.length]
+    const fill = ACCENTS.has(kind) ? gold : colors[i % colors.length]
+    const outlined = (kind === 'petal' || kind === 'blossom') && colors.length > 1 && fill === colors[0]
+    const [lo, hi] = DRIFT_SIZE[kind]
     return {
       kind,
       x0: rand(-0.05, 1.05) * w,
       y0: -30,
       dx: rand(-0.12, 0.28) * w,
       dy: h + 60,
-      size: kind === 'blossom' ? rand(10, 14) : rand(8, 12),
-      fill: sakura ? pal.sakura : pal.ume,
-      edge: sakura ? pal.ume : null,
-      center: pal.kinLight,
+      size: rand(lo, hi),
+      fill,
+      edge: outlined ? colors[colors.length - 1] : null,
+      center: gold,
       rot: rand(0, 6.28),
       spin: rand(-0.9, 0.9),
       swayAmp: rand(14, 34),

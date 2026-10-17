@@ -120,26 +120,31 @@
 }
 .b-counts__list {
   margin: var(--s3) 0 0;
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  border-top: var(--hairline);
-}
-.b-counts__item {
   display: flex;
-  flex-direction: column-reverse;
+  flex-wrap: wrap;
+  gap: var(--s2);
+}
+/* A running tally as small inline pills ("12 votes"), not a wall of big numbers */
+.b-counts__item {
+  display: inline-flex;
+  flex-direction: row-reverse;
+  align-items: baseline;
   gap: var(--s1);
-  padding: var(--s3) 0;
-  border-bottom: var(--hairline);
+  padding: var(--s1) var(--s3);
+  border: var(--hairline);
+  border-radius: var(--radius-pill);
+  background: var(--pink-1);
 }
 .b-counts__label {
-  color: var(--nezumi);
+  color: var(--ink-soft);
+  font-size: var(--text-sm);
 }
 .b-counts__num {
   margin: 0;
   font-family: var(--font-ui);
   font-variant-numeric: tabular-nums;
-  font-size: var(--text-xl);
-  font-weight: 700;
+  font-size: var(--text-sm);
+  font-weight: 800;
   line-height: var(--leading-tight);
 }
 .b-counts__num span {
@@ -601,7 +606,9 @@
     background: var(--washi);
   }
   .b-item[aria-pressed='true'] .b-item__name {
-    color: var(--shu);
+    color: var(--ink);
+    text-decoration: underline 2px var(--pink-5);
+    text-underline-offset: 0.2em;
   }
   .b-item__name {
     grid-area: name;
@@ -629,6 +636,131 @@
   font-family: var(--font-ui);
   font-weight: 700;
 }
-.b-counts__item:last-child:nth-child(odd) {
-  grid-column: 1 / -1;
+
+/* Back to the feed chooser */
+.b-back {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s1);
+  min-height: var(--touch);
+  margin: calc(var(--s3) * -1) 0 calc(var(--s3) * -1) calc(var(--s2) * -1);
+  padding: 0 var(--s2);
+  justify-self: start;
+  border-radius: var(--radius);
+  color: var(--ink-soft);
+  font-weight: 700;
+  text-decoration: none;
+}
+.b-back:hover {
+  color: var(--ink);
+  background: var(--pink-2);
+}
+.b-back:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.b-log__empty {
+  display: grid;
+  gap: var(--s3);
+  justify-items: start;
+}
+
+/* Chooser: two big links in a list, split by hairlines, not cards */
+.backstage--chooser {
+  max-width: 760px;
+  margin: 0 auto;
+}
+.b-picks {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-top: var(--hairline);
+}
+.b-picks > li {
+  border-bottom: var(--hairline);
+}
+.b-pick {
+  display: flex;
+  align-items: center;
+  gap: var(--s4);
+  padding: var(--s6) var(--s2);
+  margin: 0 calc(var(--s2) * -1);
+  border-radius: var(--radius);
+  color: var(--ink);
+  text-decoration: none;
+  transition: background-color var(--t-fast) var(--ease);
+}
+.b-pick:hover {
+  background: var(--surface);
+}
+.b-pick:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+.b-pick__text {
+  display: grid;
+  gap: var(--s1);
+  flex: 1;
+  min-width: 0;
+}
+.b-pick__name {
+  font-size: var(--text-lg);
+  font-weight: 800;
+}
+.b-pick__line {
+  color: var(--ink-soft);
+}
+.b-pick__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s1) var(--s2);
+  margin-top: var(--s1);
+  font-size: var(--text-sm);
+  color: var(--ink-soft);
+}
+.b-pick__meta .b-status__dot[data-status='live'] {
+  background: var(--ok);
+}
+.b-pick__meta .b-status__dot[data-status='offline'] {
+  background: var(--warn);
+}
+.b-pick__latest {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+.b-pick__latest::before {
+  content: '';
+  display: inline-block;
+  width: 3px;
+  height: 3px;
+  margin: 0 var(--s2) 0.2em 0;
+  border-radius: 50%;
+  background: currentColor;
+  vertical-align: middle;
+}
+.b-pick__go {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: var(--touch);
+  height: var(--touch);
+  border-radius: 50%;
+  background: var(--pink-2);
+  transition: transform var(--t-fast) var(--ease);
+}
+.b-pick__go svg {
+  transform: scaleX(-1);
+}
+.b-pick:hover .b-pick__go {
+  transform: translateX(3px);
+}
+@media (prefers-reduced-motion: reduce) {
+  .b-pick:hover .b-pick__go {
+    transform: none;
+  }
 }

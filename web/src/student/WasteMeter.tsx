@@ -1,92 +1,68 @@
 // The school waste meter: leftovers avoided versus cooking the usual amount, in the
-// simulated school's latest week, drawn as a short row of lunch trays that fill once.
-// Each tray is a fixed number of servings (picked so there are at most 8), and the
-// row is exactly as long as the number needs, so it never implies a goal.
-import { motion, useReducedMotion } from 'framer-motion'
-import { useEffect, useState } from 'react'
+// simulated school's latest week, told as one sentence. The number gets a brush underline
+// that paints once, the first time the meter scrolls into view for that week.
+import { useInView, useReducedMotion } from 'framer-motion'
+import { useEffect, useRef, useState } from 'react'
+import { BrushProgress } from '../celebrate'
 import type { Meter } from '../shared/api'
 import { copy } from '../shared/copy'
 import { fmtDay, fmtInt, fmtMoney } from '../shared/format'
-import { dur } from '../shared/motion'
 import { CountUp } from './CountUp'
+import './stampbook.css'
 
 const t = copy.student.meter
-const MAX_TRAYS = 8
-const UNITS = [5, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000, 10000]
-/** Weeks whose trays already filled, so coming back to Today doesn't replay it. */
-const filled = new Set<string>()
-
-function trayUnit(servings: number) {
-  return UNITS.find((u) => Math.ceil(servings / u) <= MAX_TRAYS) ?? UNITS[UNITS.length - 1]
-}
-
-function Tray() {
-  return (
-    <svg viewBox="0 0 22 14" aria-hidden="true">
-      <rect x="0.75" y="0.75" width="20.5" height="12.5" rx="2" />
-      <path d="M8 1v12M8 7h13.2" />
-    </svg>
-  )
-}
+/** Weeks whose underline already painted, so coming back to Today doesn't replay it. */
+const painted = new Set<string>()
 
 export function WasteMeter({ meter }: { meter: Meter }) {
   const reduce = useReducedMotion()
-  const [still] = useState(() => reduce || filled.has(meter.week_start))
+  const [still] = useState(() => reduce || painted.has(meter.week_start))
+  const ref = useRef<HTMLDivElement>(null)
+  const inView = useInView(ref, { once: true, amount: 0.6 })
+  const show = still || inView
   useEffect(() => {
-    filled.add(meter.week_start)
-  }, [meter.week_start])
-  const unit = trayUnit(meter.servings_saved)
-  const count = Math.max(1, Math.ceil(meter.servings_saved / unit))
-  const trays = Array.from({ length: count }, (_, i) => Math.min(1, Math.max(0, meter.servings_saved / unit - i)))
-  const stagger = dur.med / count
+    if (show) painted.add(meter.week_start)
+  }, [show, meter.week_start])
+
+  const servings = Math.round(meter.servings_saved)
   // Show dollars only when LunchLoop still comes out ahead after counting shortages.
   const showDollars = meter.net_dollars_saved >= 0.5
   const week = fmtDay(meter.week_start, { month: 'short', day: 'numeric' })
 
   return (
-    <section className="meter" aria-labelledby="meter-title">
-      <div className="meter__head">
-        <h2 id="meter-title" className="section-title">
+    <section className="leftovers" aria-labelledby="meter-title">
+      <div className="leftovers__head">
+        <h2 id="meter-title" className="leftovers__title">
           {t.heading}
         </h2>
-        <p className="meter__week">{t.week(week)}</p>
+        <p className="leftovers__week">{t.week(week)}</p>
       </div>
-      <div className="meter__figures">
-        <p className="meter__figure">
-          <span className="meter__big">
-            <CountUp id="meter-servings" value={meter.servings_saved} format={fmtInt} />
-          </span>
-          <span className="meter__label">{t.servings}</span>
-        </p>
-        {showDollars && (
-          <p className="meter__figure">
-            <span className="meter__big">
-              <CountUp id="meter-dollars" value={meter.net_dollars_saved} format={fmtMoney} />
+      {servings > 0 ? (
+        // A div, not a p: the brush underline is a div, which can't sit inside a paragraph.
+        <div className="leftovers__sentence" ref={ref}>
+          {t.lead}{' '}
+          <span className="leftovers__figure">
+            <span className="leftovers__big">
+              <CountUp id="meter-servings" value={servings} format={fmtInt} />
             </span>
-            <span className="meter__label">{t.dollars}</span>
-          </p>
-        )}
-      </div>
-      <div className="meter__trays" style={{ gridTemplateColumns: `repeat(${count}, minmax(0, 1fr))` }} role="img" aria-label={t.figure(fmtInt(meter.servings_saved), showDollars ? fmtMoney(meter.net_dollars_saved) : null, week)}>
-        {trays.map((fill, i) => (
-          <span className="meter__tray" key={i}>
-            <span className="meter__tray-empty">
-              <Tray />
+            <span className="leftovers__underline" aria-hidden="true">
+              <BrushProgress value={show ? 1 : 0} height={14} color="var(--pink-4, #FF8FAB)" />
             </span>
-            <motion.span
-              className="meter__tray-full"
-              initial={still ? false : { clipPath: 'inset(0 100% 0 0)' }}
-              whileInView={{ clipPath: `inset(0 ${(1 - fill) * 100}% 0 0)` }}
-              viewport={{ once: true }}
-              style={still ? { clipPath: `inset(0 ${(1 - fill) * 100}% 0 0)` } : undefined}
-              transition={{ duration: dur.fast, delay: i * stagger, ease: [0.2, 0, 0, 1] }}
-            >
-              <Tray />
-            </motion.span>
-          </span>
-        ))}
-      </div>
-      <p className="meter__unit">{t.unit(unit)}</p>
+          </span>{' '}
+          {t.servings(servings)}
+          {showDollars ? (
+            <>
+              {t.dollarsLead}
+              <span className="leftovers__money num">{fmtMoney(meter.net_dollars_saved)}</span>
+              {t.dollarsTail}
+            </>
+          ) : (
+            t.end
+          )}
+        </div>
+      ) : (
+        <p className="leftovers__sentence">{t.none}</p>
+      )}
     </section>
   )
 }

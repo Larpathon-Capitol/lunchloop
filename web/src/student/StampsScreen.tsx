@@ -1,36 +1,67 @@
-// Stamps: a page from a stamp book. Earned stamps are inked vermilion; the rest are a faint
-// pencil outline, with streak progress under them. Totals sit at the foot of the page.
-import { HankoStamp, NumberRoll } from '../celebrate'
-import { UmeInline, usePetCount } from '../mascot'
+// Stamps: a page from a stamp book. Earned stamps carry the world's seal; the rest are a faint
+// pencil outline, with progress under them. Streak and XP live in the HUD, so the page stops there.
+import { motion, useReducedMotion, type Variants } from 'framer-motion'
+import { BrushProgress } from '../celebrate'
+import { UmeInline } from '../mascot'
+import type { Me } from '../shared/api'
 import { copy } from '../shared/copy'
-import { Blossom, Coin, Hand } from '../shared/icons'
 import { ErrorNotice } from '../shared/ui/Notice'
+import { useKit } from '../theme/registry'
 import { PanelSkeleton } from './VoteScreen'
 import { useStudent } from './state'
+import './stampbook.css'
 
 const t = copy.student.stamps
+type StampId = keyof typeof t.list
 // The week streak is the headline stamp, so it is drawn largest.
-const ORDER = [
+const ORDER: readonly { id: StampId; size: number; tilt: number }[] = [
   { id: 'streak_7', size: 132, tilt: -4 },
   { id: 'streak_3', size: 96, tilt: 5 },
   { id: 'called_it_5', size: 104, tilt: -2 },
-] as const
+]
+
+const pageMotion: Variants = { hidden: {}, shown: { transition: { staggerChildren: 0.06 } } }
+const stampMotion: Variants = {
+  hidden: { opacity: 0, scale: 0.7, y: 10 },
+  shown: { opacity: 1, scale: 1, y: 0, transition: { type: 'spring', stiffness: 380, damping: 22 } },
+}
+const stampMotionReduced: Variants = {
+  hidden: { opacity: 0 },
+  shown: { opacity: 1, transition: { duration: 0.15 } },
+}
 
 function Pencil({ size, label }: { size: number; label: string }) {
   return (
-    <span className="pencil" style={{ width: size, height: size }} aria-hidden="true">
+    <span className="sbook__pencil" style={{ width: size, height: size }} aria-hidden="true">
       <svg viewBox="0 0 100 100">
         <rect x="6" y="6" width="88" height="88" rx="5" />
         <rect x="12" y="12" width="76" height="76" rx="2" />
       </svg>
-      <span className="pencil__label">{label}</span>
+      <span className="sbook__pencil-label">{label}</span>
     </span>
   )
 }
 
+/** What sits under a stamp's name: earned, days so far, calls so far, or nothing. */
+function Progress({ me, earned, days, calls }: { me: Me; earned: boolean; days?: number; calls?: number }) {
+  if (earned) return <span className="sbook__state">{t.earned}</span>
+  if (days) return <span className="sbook__state num">{t.daysOf(Math.min(me.streak, days), days)}</span>
+  if (calls && typeof me.correct_calls === 'number') {
+    const n = Math.max(0, Math.min(me.correct_calls, calls))
+    return (
+      <>
+        <span className="sbook__state num">{t.callsOf(n, calls)}</span>
+        <BrushProgress className="sbook__brush" value={n / calls} height={12} color="var(--pink-4, #FF8FAB)" label={t.callsProgress} />
+      </>
+    )
+  }
+  return null
+}
+
 export function StampsScreen() {
   const { me, meError, refreshMe } = useStudent()
-  const pets = usePetCount()
+  const { Seal } = useKit()
+  const reduce = useReducedMotion()
   return (
     <div className="tabscreen">
       <header className="tabscreen__head">
@@ -45,58 +76,25 @@ export function StampsScreen() {
         </div>
       )}
       {me && (
-        <div className="stampbook">
-          <ul className="stampbook__page">
-            {ORDER.map(({ id, size, tilt }, i) => {
+        <div className="sbook">
+          <motion.ul className="sbook__page" variants={pageMotion} initial="hidden" animate="shown">
+            {ORDER.map(({ id, size, tilt }) => {
               const earned = me.badges.includes(id)
               const info = t.list[id]
               return (
-                <li key={id} className={`stamp stamp--${i}${earned ? ' stamp--earned' : ''}`}>
-                  <span className="stamp__art" style={{ transform: `rotate(${tilt}deg)` }}>
-                    {earned ? <HankoStamp visible silent size={size} label={info.seal} /> : <Pencil size={size} label={info.seal} />}
+                <motion.li key={id} className={`sbook__stamp sbook__stamp--${id}${earned ? ' is-earned' : ''}`} variants={reduce ? stampMotionReduced : stampMotion}>
+                  <span className="sbook__art" style={{ width: size, height: size, transform: `rotate(${tilt}deg)` }}>
+                    {earned ? <Seal visible silent size={size} label={info.seal} /> : <Pencil size={size} label={info.seal} />}
                   </span>
-                  <span className="stamp__text">
-                    <span className="stamp__name">{info.name}</span>
-                    {earned ? (
-                      <span className="stamp__state">{t.earned}</span>
-                    ) : info.days ? (
-                      <span className="stamp__state num">{t.daysOf(Math.min(me.streak, info.days), info.days)}</span>
-                    ) : null}
+                  <span className="sbook__text">
+                    <span className="sbook__name">{info.name}</span>
+                    <Progress me={me} earned={earned} days={info.days} calls={info.calls} />
                   </span>
-                </li>
+                </motion.li>
               )
             })}
-          </ul>
-          <p className="stampbook__rule">{t.rule}</p>
-          <section className="totals" aria-label={t.totals}>
-            <p className="totals__item">
-              <span className="totals__icon totals__icon--streak">
-                <Blossom />
-              </span>
-              <span className="totals__value">
-                <NumberRoll value={me.streak} />
-              </span>
-              <span className="totals__label">{t.streak}</span>
-            </p>
-            <p className="totals__item">
-              <span className="totals__icon totals__icon--xp">
-                <Coin />
-              </span>
-              <span className="totals__value">
-                <NumberRoll value={me.xp} />
-              </span>
-              <span className="totals__label">{t.xp}</span>
-            </p>
-            <p className="totals__item">
-              <span className="totals__icon totals__icon--pet">
-                <Hand />
-              </span>
-              <span className="totals__value">
-                <NumberRoll value={pets} />
-              </span>
-              <span className="totals__label">{t.pets(pets)}</span>
-            </p>
-          </section>
+          </motion.ul>
+          <p className="sbook__rule">{t.rule}</p>
         </div>
       )}
     </div>

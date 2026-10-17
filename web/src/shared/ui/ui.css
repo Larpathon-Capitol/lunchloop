@@ -23,11 +23,91 @@
   opacity: 0.55;
 }
 .btn--primary {
-  background: var(--shu);
-  color: var(--on-shu);
+  background: var(--pink-5, var(--shu));
+  color: var(--ink, var(--on-shu));
 }
 .btn--primary:hover {
-  background: var(--shu-deep);
+  background: var(--pink-4, var(--shu-deep));
+}
+
+/* The chunky press button: the one primary button style in the game. It rests on a hard pink
+   ledge (the only hard shadow we allow) and sinks onto it when pressed. */
+.btn-press {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s2);
+  min-height: 54px;
+  padding: 0 var(--s6);
+  border: 0;
+  border-radius: var(--radius-pill, 999px);
+  background: var(--pink-5, #fb6f92);
+  color: var(--ink, #3a1626);
+  font-family: var(--font-ui);
+  font-weight: 800;
+  font-size: var(--text-md);
+  letter-spacing: -0.005em;
+  cursor: pointer;
+  overflow: hidden;
+  box-shadow: var(--press-shadow, 0 5px 0 #c4466c);
+  margin-bottom: 5px;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition: translate 140ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 140ms cubic-bezier(0.22, 1, 0.36, 1), background-color 140ms ease;
+}
+/* A diagonal shine that sweeps across once when the button appears. */
+.btn-press::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(105deg, transparent 35%, rgba(255, 255, 255, 0.55) 50%, transparent 65%);
+  transform: translateX(-120%);
+  animation: btn-shine 0.8s 0.25s cubic-bezier(0.22, 1, 0.36, 1) 1 forwards;
+  pointer-events: none;
+}
+@keyframes btn-shine {
+  to {
+    transform: translateX(120%);
+  }
+}
+@media (hover: hover) and (pointer: fine) {
+  .btn-press:hover:not(:disabled) {
+    translate: 0 -1px;
+    box-shadow: 0 6px 0 var(--pink-5-deep, #c4466c);
+  }
+}
+.btn-press:active:not(:disabled) {
+  translate: 0 4px;
+  box-shadow: var(--press-shadow-down, 0 1px 0 #c4466c);
+}
+.btn-press:focus-visible {
+  outline: none;
+  box-shadow: var(--press-shadow, 0 5px 0 #c4466c), 0 0 0 3px var(--surface, #fff4f7), 0 0 0 5px var(--ink, #3a1626);
+}
+.btn-press:disabled {
+  cursor: not-allowed;
+  background: var(--pink-2, #ffc2d1);
+  color: var(--ink-soft, #6b4556);
+  box-shadow: 0 5px 0 var(--pink-3, #ffb3c6);
+}
+.btn-press:disabled::after {
+  display: none;
+}
+.btn-press[data-busy] {
+  cursor: progress;
+}
+.btn-press--big {
+  width: 100%;
+}
+@media (prefers-reduced-motion: reduce) {
+  .btn-press {
+    transition: none;
+  }
+  .btn-press::after {
+    animation: none;
+    display: none;
+  }
 }
 .btn--quiet {
   background: transparent;
@@ -102,14 +182,14 @@ a.btn {
   flex: none;
 }
 
-/* Home: no bar at all, just the mark and the mute floating on the indigo. */
+/* Home: no bar at all, just the mark and the mute on small paper chips, so they read over any world's backdrop. */
 .shell__bar--home {
   position: absolute;
   top: 0;
   left: 0;
   right: 0;
   z-index: 3;
-  color: var(--on-ai);
+  color: var(--ink);
 }
 .shell__bar--home .shell__inner {
   max-width: none;
@@ -117,46 +197,54 @@ a.btn {
 }
 .shell__bar--home .shell__brand,
 .shell__bar--home .shell__mute {
-  color: var(--on-ai);
+  color: var(--ink);
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  border-radius: var(--radius-pill);
+  box-shadow: var(--shadow-contact, none);
+}
+.shell__bar--home .shell__brand {
+  padding: var(--s1) var(--s3) var(--s1) var(--s2);
 }
 .shell__bar--home .shell__mute:hover {
-  color: var(--on-ai);
-  background: transparent;
+  color: var(--ink);
+  background: var(--surface);
 }
 
-/* Game: a slim band of indigo noren cloth with a split hem, the same cloth as the hero. */
+/* Game: a slim bar in the world's deep field color, with the world's own band drawn inside it. */
 .shell__bar--game {
-  background: var(--ai);
-  color: var(--on-ai);
+  background: var(--field, var(--ai));
+  color: var(--on-field, var(--on-ai));
+}
+.shell__band {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: visible;
 }
 .shell__bar--game .shell__inner {
   position: relative;
   height: 52px;
 }
-.shell__hem {
-  position: absolute;
-  left: 0;
-  top: 100%;
-  width: 100%;
-  height: 10px;
-  display: block;
-  fill: var(--ai);
-  pointer-events: none;
-}
 .shell__bar--game .shell__brand,
 .shell__bar--game .shell__mute {
-  color: var(--on-ai);
+  color: var(--on-field, var(--on-ai));
 }
 .shell__bar--game .shell__live {
-  color: var(--on-ai-soft);
+  color: color-mix(in srgb, var(--on-field, var(--on-ai)) 78%, transparent);
 }
 .shell__bar--game .shell__mute:hover {
-  color: var(--on-ai);
-  background: color-mix(in srgb, var(--on-ai) 12%, transparent);
+  color: var(--on-field, var(--on-ai));
+  background: color-mix(in srgb, var(--on-field, var(--on-ai)) 12%, transparent);
 }
-.shell__bar--game :focus-visible,
+.shell__bar--game :focus-visible {
+  box-shadow: 0 0 0 3px var(--field, var(--ai)), 0 0 0 5px var(--on-field, var(--on-ai));
+}
 .shell__bar--home :focus-visible {
-  box-shadow: 0 0 0 3px var(--ai), 0 0 0 5px var(--on-ai);
+  box-shadow: 0 0 0 3px var(--surface), 0 0 0 5px var(--ink);
+}
+.shell__switch {
+  display: inline-flex;
+  align-items: center;
 }
 
 /* Staff pages: paper bar with the nav. */

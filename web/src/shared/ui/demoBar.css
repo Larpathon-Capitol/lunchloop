@@ -1,0 +1,154 @@
+/* Presenter controls: one calm strip on raised paper. Tokens only. */
+.demo-bar {
+  container-type: inline-size;
+  display: grid;
+  gap: var(--s3);
+  padding: var(--s4);
+  background: var(--surface);
+  border: var(--hairline);
+  border-radius: var(--radius-lg);
+  min-width: 0;
+}
+
+.demo-bar__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--s1) var(--s3);
+}
+.demo-bar__label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s2);
+  font-weight: 800;
+  font-size: var(--text-base);
+  color: var(--leaf-deep);
+}
+.demo-bar__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--leaf);
+}
+.demo-bar__note {
+  font-size: var(--text-sm);
+  color: var(--ink-soft);
+}
+
+.demo-bar__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s3);
+}
+
+/* Day stepper: arrow, label, arrow, all in one pill */
+.demo-bar__day {
+  display: flex;
+  align-items: center;
+  gap: var(--s1);
+  padding: 2px;
+  border: var(--hairline);
+  border-radius: var(--radius-pill);
+  background: var(--pink-1);
+  min-width: 0;
+}
+.demo-bar__step {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: var(--touch);
+  height: var(--touch);
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--ink);
+  cursor: pointer;
+  transition: background-color var(--t-fast) var(--ease), transform var(--t-fast) var(--ease);
+}
+.demo-bar__step:hover:not(:disabled) {
+  background: var(--pink-2);
+}
+.demo-bar__step:active:not(:disabled) {
+  transform: scale(var(--press-scale));
+}
+.demo-bar__step:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+.demo-bar__step--next svg {
+  transform: scaleX(-1);
+}
+.demo-bar__date {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s1);
+  min-width: 0;
+  padding: 0 var(--s1);
+  white-space: nowrap;
+}
+.demo-bar__date-label {
+  color: var(--ink-soft);
+  font-size: var(--text-sm);
+}
+.demo-bar__date-value {
+  display: inline-block;
+  min-width: 9ch;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.demo-bar__today {
+  font-size: var(--text-sm);
+  font-weight: 700;
+  color: var(--leaf-deep);
+}
+
+.demo-bar__crowd {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2);
+  margin-left: auto;
+}
+.demo-bar__add {
+  padding: 0 var(--s4);
+}
+
+.demo-bar__status {
+  min-height: 1.5em;
+  font-size: var(--text-sm);
+  color: var(--leaf-deep);
+  font-weight: 600;
+}
+.demo-bar__status--error {
+  color: var(--ink);
+}
+
+.demo-bar button:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+/* Phone: the stepper takes the full width, the add buttons share the next row */
+@media (max-width: 560px) {
+  .demo-bar__day {
+    flex: 1 1 100%;
+    justify-content: space-between;
+  }
+  .demo-bar__today-btn {
+    flex: 1 1 auto;
+  }
+  .demo-bar__crowd {
+    margin-left: 0;
+    flex: 1 1 100%;
+  }
+  .demo-bar__add--main {
+    flex: 1 1 auto;
+  }
+}
+
+/* In a narrow column (the dashboard) the add buttons drop under the stepper, flush left */
+@container (max-width: 860px) {
+  .demo-bar__crowd {
+    margin-left: 0;
+  }
+}

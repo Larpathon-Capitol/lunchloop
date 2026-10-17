@@ -15,8 +15,9 @@ interface Former {
   rotation?: [number, number, number]
 }
 
-// The room the steel reflects: a dim, slightly cool gray, so the softboxes read as crisp streaks.
-const BASE = '#40454e'
+// The room the steel reflects: a dim rose gray, so the softboxes read as crisp streaks and the
+// steel picks up the pink of the page without turning copper.
+const BASE = '#5c4d55'
 
 const FORMERS: Former[] = [
   // Big, dim overhead softbox plus two long bright strips: the long specular streaks across the
@@ -32,10 +33,14 @@ const FORMERS: Former[] = [
   { intensity: 1.7, color: '#ffffff', position: [0, 6.6, -4.5], scale: [14, 3.4] },
   // Long side strips give the rim and walls crisp edge highlights.
   { intensity: 3.2, color: '#ffffff', position: [-7, 1.5, 0], rotation: [0, Math.PI / 2, 0], scale: [12, 0.7] },
-  { intensity: 2.2, color: '#fff1de', position: [7, 1.2, 0], rotation: [0, -Math.PI / 2, 0], scale: [12, 0.9] },
-  // Warm fill from the front, like lamplight over a wooden counter. Ties the steel to the room.
-  { intensity: 1.5, color: '#ffe2bf', position: [0, 0.6, 7], rotation: [0, Math.PI, 0], scale: [14, 2.2] },
-  { intensity: 1.1, color: '#ffd9ad', position: [5, 2.5, 5], scale: [3, 3] },
+  { intensity: 2.2, color: '#ffe5ec', position: [7, 1.2, 0], rotation: [0, -Math.PI / 2, 0], scale: [12, 0.9] },
+  // Pink fill from the front: the page itself, bouncing back into the steel.
+  { intensity: 1.6, color: '#ffc2d1', position: [0, 0.6, 7], rotation: [0, Math.PI, 0], scale: [14, 2.2] },
+  { intensity: 1.2, color: '#ff8fab', position: [5, 2.5, 5], scale: [3, 3] },
+  // A leaf green card off to the left: one fresh green streak along the near rim.
+  { intensity: 1.4, color: '#5fb77a', position: [-5.5, 1.4, 4.5], scale: [2.6, 1.2] },
+  // A soft pink wash low behind, so the far wall of the tray glows instead of going gray.
+  { intensity: 0.9, color: '#ffb3c6', position: [0, 0.8, -7], scale: [14, 1.6] },
   // Low front fill and a pale floor, so walls facing down or forward are not black.
   { intensity: 1.3, color: '#ffffff', position: [0, -3, 5], scale: [16, 4] },
   { intensity: 0.45, color: '#f4f6f8', position: [0, -6, 0], rotation: [-Math.PI / 2, 0, 0], scale: [16, 16] },

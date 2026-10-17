@@ -1,4 +1,4 @@
-// A paper sheet with an indigo noren edge. A bottom sheet on phones (drag down to close),
+// A paper sheet with a soft top edge (a noren hem in East Asia). A bottom sheet on phones (drag down to close),
 // a side panel on laptops. Modal: the rest of the page goes inert while it is open.
 import { AnimatePresence, motion, useReducedMotion, type PanInfo } from 'framer-motion'
 import { useRef, type ReactNode, type RefObject } from 'react'

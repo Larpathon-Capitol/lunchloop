@@ -6,7 +6,7 @@ import './celebrate.css'
 export interface BrushProgressProps {
   /** 0 to 1 */
   value: number
-  /** Any CSS color. Default vermilion. */
+  /** Any CSS color. Defaults to the world's brush color. */
   color?: string
   /** Stroke height in px. Default 20. */
   height?: number
@@ -44,8 +44,8 @@ function strokePath(L: number, H: number, thick: number, yShift = 0, wobbleSeed 
   return `M${top.join('L')}L${bot.reverse().join('L')}Z`
 }
 
-/** A sumi brush stroke progress bar. It paints forward with the brush ease when value goes up. */
-export function BrushProgress({ value, color = 'var(--shu)', height = 20, label = celebrateCopy.progressLabel, className }: BrushProgressProps) {
+/** A painted brush stroke progress bar, in the world's brush color. It paints forward with the brush ease when value goes up. */
+export function BrushProgress({ value, color = 'var(--brush, var(--pink-5, var(--shu)))', height = 20, label = celebrateCopy.progressLabel, className }: BrushProgressProps) {
   const reduce = useReducedMotion()
   const wrap = useRef<HTMLDivElement>(null)
   const [width, setWidth] = useState(300)
@@ -100,7 +100,7 @@ export function BrushProgress({ value, color = 'var(--shu)', height = 20, label 
           </filter>
         </defs>
         {/* The empty track: a faint, thinner stroke along the whole length. */}
-        <path d={strokePath(usable, height, 0.5, 0, 3)} filter={`url(#${filterId})`} style={{ fill: 'var(--line)' }} />
+        <path d={strokePath(usable, height, 0.5, 0, 3)} filter={`url(#${filterId})`} style={{ fill: 'var(--brush-track, var(--line))' }} />
         {L > 0.5 && (
           <g filter={`url(#${filterId})`} style={{ fill: color }}>
             <path d={strokePath(L, height, 0.92)} />

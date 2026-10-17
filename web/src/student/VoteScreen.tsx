@@ -1,4 +1,4 @@
-// Vote: spin the reel for three entrees on a future menu day, then vote for one.
+// Vote: spin the reel through every entree, land on four for a future menu day, then vote for one.
 import { motion, useReducedMotion } from 'framer-motion'
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
@@ -6,6 +6,7 @@ import { BrushProgress, XpToast, burstPetals } from '../celebrate'
 import { UmeInline, lines, pickLine, ume } from '../mascot'
 import { api, ApiError, type Spin, type SpinOption, type VoteResult } from '../shared/api'
 import { copy } from '../shared/copy'
+import { sortByNeeds, useNeeds } from '../shared/needs'
 import { fmtDay } from '../shared/format'
 import { Check } from '../shared/icons'
 import { press } from '../shared/motion'
@@ -15,6 +16,7 @@ import { ErrorNotice } from '../shared/ui/Notice'
 import { useApi } from '../shared/useApi'
 import { FoodGlyph } from './FoodGlyph'
 import { Reel } from './Reel'
+import { NeedsButton } from './NeedsSheet'
 import { fade, popSpring } from './springs'
 import { readStoredVote, useStudent, type StoredVote } from './state'
 
@@ -53,6 +55,7 @@ export function VoteScreen() {
     <div className="tabscreen">
       <header className="tabscreen__head">
         <h1 className="tabscreen__title">{t.tabs.vote}</h1>
+        <NeedsButton className="tabscreen__needs" />
         <UmeInline size={48} />
       </header>
 
@@ -82,6 +85,16 @@ export function VoteScreen() {
       </p>
     </div>
   )
+}
+
+/** A shuffled copy (Fisher-Yates). */
+function shuffle<T>(list: T[]): T[] {
+  const out = list.slice()
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[out[i], out[j]] = [out[j], out[i]]
+  }
+  return out
 }
 
 export function PanelSkeleton() {
@@ -131,7 +144,8 @@ function SpinPanel({ spin, device, catalog, addToCatalog, showFood, stored, next
   const [result, setResult] = useState<VoteResult | null>(stored?.result ?? null)
   const [fresh, setFresh] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [frozenPool, setFrozenPool] = useState<{ item_id: string; name: string }[] | null>(null)
+  const [frozenPool, setFrozenPool] = useState<Spin['pool'] | null>(null)
+  const needs = useNeeds()
   const voteRef = useRef<HTMLButtonElement>(null)
   const panelRef = useRef<HTMLElement>(null)
   const alive = useRef(true)
@@ -155,17 +169,15 @@ function SpinPanel({ spin, device, catalog, addToCatalog, showFood, stored, next
       .catch(() => {})
   }, [spin, addToCatalog])
 
-  // Reel filler comes from real entrees on the menu.
-  const livePool = useMemo(() => {
-    const entrees = Object.values(catalog).filter((i) => i.component === 'meat_alternate')
-    return entrees.length > 2 ? entrees : spin.options
-  }, [catalog, spin.options])
-  const pool = frozenPool ?? livePool
+  // The reel shows every entree (spin.pool), shuffled fresh for each spin.
+  const pool = frozenPool ?? spin.pool
+  // Ballot options that fit the student's needs come first.
+  const options = useMemo(() => sortByNeeds(spin.options, needs), [spin.options, needs])
 
   const startSpin = () => {
     if (phase !== 'idle') return
     sound.tap()
-    setFrozenPool(livePool)
+    setFrozenPool(shuffle(spin.pool.length > 1 ? spin.pool : spin.options))
     setSelected(null)
     setError(null)
     setPhase('spinning')
@@ -241,7 +253,7 @@ function SpinPanel({ spin, device, catalog, addToCatalog, showFood, stored, next
 
       <div className="lacquer">
         <Reel
-          options={spin.options}
+          options={options}
           pool={pool}
           phase={landed ? 'landed' : phase === 'spinning' ? 'spinning' : 'idle'}
           selected={selected}
@@ -252,7 +264,7 @@ function SpinPanel({ spin, device, catalog, addToCatalog, showFood, stored, next
         />
       </div>
       <p className="visually-hidden" aria-live="polite">
-        {phase === 'spinning' ? t.spin.spinning : landed ? t.spin.landed(spin.options.map((o) => o.name)) : ''}
+        {phase === 'spinning' ? t.spin.spinning : landed ? t.spin.landed(options.map((o) => o.name)) : ''}
       </p>
 
       {error && (
@@ -272,7 +284,7 @@ function SpinPanel({ spin, device, catalog, addToCatalog, showFood, stored, next
           <motion.button
             ref={voteRef}
             type="button"
-            className="btn-shu btn-shu--big"
+            className="btn-press btn-press--big"
             disabled={!chosen || phase === 'voting'}
             onClick={vote}
             whileTap={press}
@@ -284,7 +296,7 @@ function SpinPanel({ spin, device, catalog, addToCatalog, showFood, stored, next
         <motion.button
           key="spin"
           type="button"
-          className="btn-shu btn-shu--big"
+          className="btn-press btn-press--big"
           onClick={startSpin}
           aria-disabled={phase === 'spinning' || undefined}
           data-busy={phase === 'spinning' || undefined}

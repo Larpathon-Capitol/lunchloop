@@ -6,8 +6,10 @@ import { SoundOff, SoundOn } from '../icons'
 import { copy } from '../copy'
 import { useReducedMotion } from '../motion'
 import { setMuted, useMuted } from '../sound'
+import { useKit } from '../../theme/registry'
+import { ThemeSwitcher } from '../../theme/ThemeSwitcher'
 import { Logo } from './Logo'
-import { Cloth, NorenCurtain } from './Noren'
+import { NorenCurtain } from './Noren'
 import { useNoren } from './norenStore'
 import { Loading } from './Notice'
 
@@ -53,18 +55,13 @@ function MuteButton() {
   )
 }
 
-/**
- * The game header's cloth: indigo weave, and a hem along the bottom split into three panels like
- * a noren hanging in a doorway. Decorative; the bar's own background carries the color.
- */
-function NorenBand() {
+/** The game header's decoration: the current world's band (garland, noren hem, tile border). */
+function HeaderBand() {
+  const { HeaderBand: Band } = useKit()
   return (
-    <>
-      <Cloth />
-      <svg className="shell__hem" viewBox="0 0 300 10" preserveAspectRatio="none" aria-hidden="true" focusable="false">
-        <path d="M0 0H300V6Q251 10.5 202.6 6.8L200 0.6L197.4 6.8Q150 10.5 102.6 6.8L100 0.6L97.4 6.8Q49 10.5 0 6Z" />
-      </svg>
-    </>
+    <span className="shell__band" aria-hidden="true">
+      <Band />
+    </span>
   )
 }
 
@@ -82,6 +79,13 @@ export function Shell() {
   const liveGame = inGame && view === 'live'
   // Staff pages keep the nav. Everything else that isn't the game shows the home hero (index and unknown paths).
   const staff = liveAdmin || STAFF_VIEWS.has(view)
+  // Behind the scenes opens on the feed that matches where you are: live from the live panel,
+  // simulated from the simulated school's panel, the chooser from everywhere else.
+  const backstageTo = liveAdmin
+    ? '/behind-the-scenes/live'
+    : view === 'school' || view === 'kitchen'
+      ? '/behind-the-scenes/simulated'
+      : '/behind-the-scenes'
   const home = !inGame && !staff
   // /student and /live get separate keys, so switching between them starts the game fresh in the other school.
   const viewKey = liveAdmin ? 'live-admin' : liveGame ? 'game-live' : inGame ? 'game' : view
@@ -89,6 +93,11 @@ export function Shell() {
   const mainRef = useRef<HTMLElement>(null)
   // Only staff pages fade in. Home and the game hand over through the tray and the noren instead.
   const fadeIn = !reduce && mode === 'staff'
+
+  // tokens.css scopes staff styles (calm headings, no world display face) on this.
+  useEffect(() => {
+    document.documentElement.dataset.mode = mode
+  }, [mode])
 
   useEffect(() => {
     const titles: Record<string, string> = {
@@ -127,17 +136,18 @@ export function Shell() {
         {copy.app.skipToMain}
       </a>
       <header className={`shell__bar shell__bar--${mode}`}>
-        {inGame && <NorenBand />}
+        {inGame && <HeaderBand />}
         <div className="shell__inner">
           {brand}
           {liveGame && <p className="shell__live">{copy.app.liveLabel}</p>}
           {staff && (
             <nav className="shell__nav" aria-label={copy.app.navLabel}>
-              <NavItem to="/student" label={copy.app.navStudent} reduce={reduce} />
-              <NavItem to="/school" label={copy.app.navSchool} reduce={reduce} />
-              <NavItem to="/behind-the-scenes" label={copy.app.navBackstage} reduce={reduce} />
+              <NavItem to="/hub" label={copy.hub.nav} reduce={reduce} />
+              <NavItem to={liveAdmin ? '/live/admin' : '/school'} label={copy.app.navSchool} reduce={reduce} />
+              <NavItem to={backstageTo} label={copy.app.navBackstage} reduce={reduce} />
             </nav>
           )}
+          {inGame && <ThemeSwitcher compact className="shell__switch" />}
           <MuteButton />
         </div>
       </header>

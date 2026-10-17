@@ -300,13 +300,15 @@
   border-radius: 50%;
   border: 0;
   background: var(--shu);
+  box-shadow: inset 0 0 0 2px var(--ink); /* pink alone is too faint on the pink ground */
   transition: transform var(--t-fast) var(--ease);
 }
 .k-slider__input::-moz-range-thumb {
   width: var(--s6);
   height: var(--s6);
   border-radius: 50%;
-  border: 0;
+  border: 2px solid var(--ink);
+  box-sizing: border-box;
   background: var(--shu);
 }
 .k-slider__input:active::-webkit-slider-thumb {

@@ -9,6 +9,39 @@ export const backstage = {
   simulatedNote: 'The menu and lunch history are a simulated school. Votes from the live demo are real taps.',
   docTitle: 'Behind the scenes | LunchLoop',
 
+  chooser: {
+    lead: 'Two feeds, kept apart so a demo never mixes with real students. Pick one.',
+    listLabel: 'Event feeds',
+    held: (n: number) => (n === 0 ? 'Nothing yet' : `${n} ${plural(n, 'event', 'events')} on the server`),
+    connecting: 'Checking…',
+    offline: 'Can’t reach the server',
+    open: 'Open',
+    simulated: {
+      name: 'Simulated school',
+      line: 'The demo school. Add simulated students and step through the days.',
+    },
+    live: {
+      name: 'Live, real students',
+      line: 'Real taps from people on the live game. No simulated activity.',
+    },
+  },
+
+  simulated: {
+    title: 'Behind the scenes: simulated school',
+    lead: 'The demo school, live. Add students or change the day with the presenter controls and watch it happen.',
+    docTitle: 'Simulated school, behind the scenes | LunchLoop',
+  },
+
+  live: {
+    title: 'Behind the scenes: live students',
+    lead: 'Real taps from the live game, as they reach the server. Simulated activity never shows up here.',
+    docTitle: 'Live students, behind the scenes | LunchLoop',
+    empty: 'No live activity yet. Open the live game from the dashboard to try it.',
+    dashboard: 'Go to the dashboard',
+  },
+
+  back: 'All feeds',
+
   log: {
     heading: 'Live server log',
     watching: 'Watching the server',

@@ -1,6 +1,7 @@
 import { AnimatePresence, motion } from 'framer-motion'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ServerEvent } from '../shared/api'
+import type { ReactNode } from 'react'
 import { backstage as t } from '../shared/copy/backstage'
 import { fmtInt } from '../shared/format'
 import { useReducedMotion } from '../shared/motion'
@@ -110,10 +111,13 @@ export function LiveLog({
   rows,
   status,
   fresh,
+  empty,
 }: {
   rows: ServerEvent[]
   status: FeedStatus
   fresh: { seq: number; events: ServerEvent[] }
+  /** What to show before anything has happened. Defaults to the general hint. */
+  empty?: ReactNode
 }) {
   const reduce = useReducedMotion()
   const line = useAnnouncer(fresh)
@@ -137,7 +141,7 @@ export function LiveLog({
       </p>
 
       {rows.length === 0 && status !== 'connecting' ? (
-        <p className="b-log__empty">{t.log.empty}</p>
+        <div className="b-log__empty">{empty ?? t.log.empty}</div>
       ) : (
         <ol className="b-log__list" aria-label={t.log.listLabel}>
           <AnimatePresence initial={false}>

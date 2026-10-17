@@ -182,7 +182,7 @@ function Rig({ wrap, reduced }: RigProps) {
   const tray = useRef<THREE.Group>(null)
   const shadow = useRef<THREE.Mesh>(null)
   const floorShade = useRef(0)
-  const shadowTexture = useMemo(() => buildShadowTexture('#141b2e'), [])
+  const shadowTexture = useMemo(() => buildShadowTexture('#3a1626'), [])
   useEffect(() => () => shadowTexture.dispose(), [shadowTexture])
   const colors = useMemo(() => readTokenColors(), [])
   const coarse = useMemo(() => window.matchMedia('(pointer: coarse)').matches, [])
@@ -301,6 +301,7 @@ function Rig({ wrap, reduced }: RigProps) {
         return project(c)
       },
     })
+    stageBus.registerPresence(() => a.current.presence.x)
     stageBus.registerRim((u, v) => {
       const g = tray.current
       if (!g || a.current.presence.x < 0.05) return null
@@ -312,6 +313,7 @@ function Rig({ wrap, reduced }: RigProps) {
     return () => {
       trayProjector.register(null)
       stageBus.registerRim(null)
+      stageBus.registerPresence(null)
     }
   }, [camera])
 
@@ -352,6 +354,20 @@ function Rig({ wrap, reduced }: RigProps) {
     }
     moving = step(st.presence, want, PRESENCE, dt, 1e-3, reduced) || moving
     moving = step(st.pose, poseTarget(store.phase, st.pose.x), POSE, dt, 1e-4, reduced) || moving
+    // Landed: visible and sitting in the slot it was asked for. Loose thresholds on purpose, so
+    // screens get the signal as the tray settles, not after the last sub-pixel of overshoot.
+    const near = (s: Spring, to: number) => Math.abs(to - s.x) < 2 && Math.abs(s.v) < 40
+    const landed =
+      want === 1 &&
+      !!store.slot &&
+      !!target &&
+      st.presence.x > 0.9 &&
+      near(st.slot.x, target.x) &&
+      near(st.slot.y, target.y) &&
+      near(st.slot.w, Math.max(target.width, 1)) &&
+      near(st.slot.h, Math.max(target.height, 1)) &&
+      Math.abs(poseTarget(store.phase, st.pose.x) - st.pose.x) < 0.02
+    if (landed !== store.landed) queueMicrotask(() => trayStore.set({ landed }))
     const p = THREE.MathUtils.clamp(st.pose.x, -0.1, 1.1)
     floorShade.current = p
     const pres = Math.max(0, Math.min(1, st.presence.x))
@@ -582,7 +598,7 @@ export default function TrayStage() {
       >
         <Studio />
         <directionalLight position={[2, 5, 3]} intensity={1.3} />
-        <directionalLight position={[-3, 2, 4]} intensity={0.35} color="#ffe6c7" />
+        <directionalLight position={[-3, 2, 4]} intensity={0.35} color="#ffd6e0" />
         <ambientLight intensity={0.22} />
         <Rig wrap={wrap} reduced={reduced} />
       </Canvas>

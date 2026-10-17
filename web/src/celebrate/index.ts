@@ -1,5 +1,5 @@
 export { HankoStamp, type HankoStampProps } from './HankoStamp'
-export { burstPetals, type BurstOptions, type PetalHandle } from './burst'
+export { burstPetals, sparkBurst, type BurstOptions, type PetalHandle, type SparkOptions } from './burst'
 export { driftPetals, type DriftOptions } from './drift'
 export { NumberRoll, type NumberRollProps } from './NumberRoll'
 export { BrushProgress, type BrushProgressProps } from './BrushProgress'

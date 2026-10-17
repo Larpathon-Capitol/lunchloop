@@ -1,11 +1,12 @@
 // The game's heads-up strip: streak, XP, and this school week (Monday to Friday) as small circles.
-// Played days this week get a vermilion blossom; today is ringed and pulses gently until it's
+// Played days this week get a pink blossom; today is ringed and pulses gently until it's
 // played; days still ahead stay quiet. Nothing is ever red or "missed".
 import { motion, useReducedMotion } from 'framer-motion'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { NumberRoll } from '../celebrate'
 import { copy } from '../shared/copy'
 import { fmtDay, previousSchoolDay, schoolWeek } from '../shared/format'
-import { Blossom, Coin } from '../shared/icons'
+import { Coin, Flame } from '../shared/icons'
 import { popSpring } from './springs'
 
 const t = copy.student.hud
@@ -32,6 +33,27 @@ function BlossomMark() {
   )
 }
 
+/** A counter that gives a small scale pulse each time its number goes up. */
+function Pulse({ value, reduce, children }: { value: number | null; reduce: boolean; children: ReactNode }) {
+  const prev = useRef(value)
+  const [beat, setBeat] = useState(0)
+  useEffect(() => {
+    if (value !== null && prev.current !== null && value > prev.current) setBeat((b) => b + 1)
+    prev.current = value
+  }, [value])
+  return (
+    <motion.span
+      key={beat}
+      className="hud__value"
+      initial={false}
+      animate={reduce || !beat ? { scale: 1 } : { scale: [1, 1.15, 1] }}
+      transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+    >
+      {children}
+    </motion.span>
+  )
+}
+
 interface Props {
   today: string | null
   streak: number | null
@@ -51,20 +73,33 @@ export function Hud({ today, streak, xp, doneToday, bump }: Props) {
         <motion.span
           key={bump}
           className="hud__icon hud__icon--streak"
-          initial={reduce || !bump ? false : { scale: 0.4, rotate: -40 }}
-          animate={{ scale: 1, rotate: 0 }}
-          transition={popSpring}
+          initial={reduce || !bump ? false : { scale: 1 }}
+          animate={reduce || !bump ? { scale: 1 } : { scale: [1, 0.6, 1.35, 1] }}
+          transition={{ duration: 0.55, times: [0, 0.2, 0.6, 1], ease: [0.22, 1, 0.36, 1] }}
         >
-          <Blossom />
+          <Flame />
+          {!reduce && bump > 0 && (
+            <motion.span
+              className="hud__ring"
+              aria-hidden="true"
+              initial={{ scale: 0.5, opacity: 0.6 }}
+              animate={{ scale: 2.2, opacity: 0 }}
+              transition={{ duration: 0.6, delay: 0.12, ease: [0.22, 1, 0.36, 1] }}
+            />
+          )}
         </motion.span>
-        <span className="hud__value">{streak === null ? <span className="hud__blank" /> : <NumberRoll value={streak} />}</span>
+        <Pulse value={streak} reduce={!!reduce}>
+          {streak === null ? <span className="hud__blank" /> : <NumberRoll value={streak} />}
+        </Pulse>
         <span className="hud__label">{t.streak}</span>
       </div>
       <div className="hud__stat">
         <span className="hud__icon hud__icon--xp">
           <Coin />
         </span>
-        <span className="hud__value">{xp === null ? <span className="hud__blank" /> : <NumberRoll value={xp} />}</span>
+        <Pulse value={xp} reduce={!!reduce}>
+          {xp === null ? <span className="hud__blank" /> : <NumberRoll value={xp} />}
+        </Pulse>
         <span className="hud__label">{t.xp}</span>
       </div>
       <ol className="week" aria-label={t.week}>

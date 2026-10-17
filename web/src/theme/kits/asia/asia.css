@@ -1,0 +1,457 @@
+/* East and Southeast Asia kit. Every class is prefixed ka- so nothing leaks into other worlds.
+   Colors come from the shared tokens, with the themes.md hex as a fallback. */
+
+.ka {
+  --ka-pink-1: var(--pink-1, #ffe5ec);
+  --ka-pink-2: var(--pink-2, #ffc2d1);
+  --ka-pink-3: var(--pink-3, #ffb3c6);
+  --ka-pink-4: var(--pink-4, #ff8fab);
+  --ka-surface: var(--surface, #fff4f7);
+  --ka-ink: var(--ink, #3a1626);
+  --ka-indigo: var(--accent-1, #232a5c);
+  --ka-indigo-deep: #161b40;
+  --ka-vermilion: var(--accent-2, #be2b1a);
+}
+
+.ka-fill {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  pointer-events: none;
+}
+
+/* Loops pause while the tab is hidden, and stop for reduced motion. */
+.ka[data-paused] .ka-loop {
+  animation-play-state: paused;
+}
+@media (prefers-reduced-motion: reduce) {
+  .ka .ka-loop {
+    animation: none;
+  }
+}
+
+/* ---------- Hero backdrop ---------- */
+.ka-hero {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  background: var(--ka-pink-1);
+  --moon: min(64vw, 50vh, 440px);
+  --moon-x: 62%;
+  --moon-y: 13%;
+  --waves: clamp(76px, 15%, 150px);
+}
+.ka-hero__sky {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, var(--ka-pink-1) 0%, var(--ka-pink-1) 40%, var(--ka-pink-2) 100%);
+}
+.ka-hero__layer {
+  position: absolute;
+  inset: -24px;
+}
+.ka-hero__moon {
+  position: absolute;
+  left: calc(var(--moon-x) - var(--moon) / 2);
+  top: calc(24px + var(--moon-y));
+  width: var(--moon);
+  height: var(--moon);
+}
+.ka-hero__moon svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.ka-hero__mist {
+  position: absolute;
+  animation: ka-drift 18s ease-in-out infinite alternate;
+}
+.ka-hero__mist--a {
+  width: calc(var(--moon) * 1.35);
+  height: calc(var(--moon) * 0.11);
+  left: calc(var(--moon-x) - var(--moon) * 0.95);
+  top: calc(24px + var(--moon-y) + var(--moon) * 0.66);
+}
+.ka-hero__mist--b {
+  width: calc(var(--moon) * 0.95);
+  height: calc(var(--moon) * 0.085);
+  left: calc(var(--moon-x) - var(--moon) * 0.05);
+  top: calc(24px + var(--moon-y) + var(--moon) * 0.34);
+  animation-duration: 24s;
+  animation-direction: alternate-reverse;
+}
+@keyframes ka-drift {
+  from { transform: translateX(-18px); }
+  to { transform: translateX(22px); }
+}
+
+/* Shelf and waves along the bottom */
+.ka-hero__glow {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: calc(24px + var(--waves));
+  height: 34%;
+  background: radial-gradient(60% 100% at 50% 100%, rgba(255, 250, 251, 0.95), rgba(255, 244, 247, 0) 70%);
+}
+.ka-hero__shelf {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: calc(24px + var(--waves));
+  height: 0;
+}
+.ka-hero__board {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 13px;
+  background: var(--ka-indigo);
+  border-top: 3px solid #3a4480;
+  box-shadow: 0 10px 16px -8px rgba(22, 27, 64, 0.45);
+}
+.ka-hero__goods {
+  position: absolute;
+  bottom: 0;
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+}
+.ka-hero__goods--left {
+  left: calc(24px + 3%);
+}
+.ka-hero__goods--right {
+  right: calc(24px + 3%);
+}
+.ka-good {
+  width: clamp(44px, 6.4vw, 84px);
+  height: auto;
+  display: block;
+  filter: drop-shadow(0 3px 0 rgba(58, 22, 38, 0.08));
+}
+.ka-good--b {
+  transform: rotate(-7deg) translateY(2px);
+  margin-left: -6px;
+}
+.ka-good--milk {
+  width: clamp(22px, 3vw, 40px);
+}
+.ka-hero__waves {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: calc(24px + var(--waves));
+  overflow: hidden;
+  background: var(--ka-pink-2);
+}
+.ka-hero__wave-tile {
+  position: absolute;
+  inset: 0 -60px 0 0;
+  background-size: 60px 30px;
+  background-position: 0 6px;
+  animation: ka-tide 9s linear infinite;
+}
+@keyframes ka-tide {
+  from { transform: translateX(0); }
+  to { transform: translateX(-60px); }
+}
+
+/* Noren across the top */
+.ka-noren {
+  inset: -10px -24px auto -24px;
+}
+.ka-noren__rod {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 14px;
+  height: 9px;
+  border-radius: 5px;
+  background: var(--ka-indigo-deep);
+}
+.ka-noren__row {
+  position: relative;
+  display: flex;
+  gap: 5px;
+  padding: 18px 24px 0;
+}
+.ka-noren__panel {
+  flex: 1;
+  height: clamp(100px, 19vh, 190px);
+  transform-origin: 50% 0;
+}
+@media (max-width: 699px) {
+  .ka-noren__panel:first-child,
+  .ka-noren__panel:last-child {
+    display: none;
+  }
+}
+.ka-noren__cloth {
+  position: relative;
+  height: 100%;
+  overflow: hidden;
+  background: var(--ka-pink-2);
+  border-top: 16px solid var(--ka-indigo);
+  border-radius: 0 0 3px 3px;
+  transform-origin: 50% 0;
+  animation: ka-sway 5.5s ease-in-out infinite alternate;
+  box-shadow: inset 0 -26px 22px -24px rgba(58, 22, 38, 0.18);
+}
+.ka-noren__hem {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 14px;
+  background: var(--ka-indigo);
+}
+.ka-noren__hem::before {
+  content: '';
+  position: absolute;
+  left: 6px;
+  right: 6px;
+  top: 4px;
+  border-top: 1.5px dashed var(--ka-pink-3);
+  opacity: 0.8;
+}
+.ka-noren__crest {
+  position: absolute;
+  left: 50%;
+  top: 46%;
+  width: clamp(40px, 7vw, 76px);
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%);
+}
+.ka-noren__crest svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+@keyframes ka-sway {
+  from { transform: rotate(-1.4deg); }
+  to { transform: rotate(1.4deg); }
+}
+
+/* Branch in the top right */
+.ka-hero__branch {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: clamp(230px, 46vw, 620px);
+  transform-origin: 100% 0;
+  animation: ka-bough 8s ease-in-out infinite alternate;
+}
+.ka-hero__branch svg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+@keyframes ka-bough {
+  from { transform: rotate(-1.6deg); }
+  to { transform: rotate(1.2deg); }
+}
+
+/* ---------- Header band ---------- */
+.ka-band {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+.ka-band__tide {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: 0;
+  width: 46%;
+  background-size: 40px 20px;
+  background-position: right 0 bottom 0;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 70%);
+  mask-image: linear-gradient(90deg, transparent, #000 70%);
+  opacity: 0.9;
+}
+.ka-band__hem {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 5px;
+  background: var(--ka-pink-4);
+}
+.ka-band__hem::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -5px;
+  border-top: 1.5px dashed var(--ka-pink-3);
+  opacity: 0.55;
+}
+.ka-band__sprig {
+  position: absolute;
+  top: -4px;
+  right: -6px;
+  width: 72px;
+  height: auto;
+}
+
+/* ---------- Corner ---------- */
+.ka-corner {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 128px;
+  pointer-events: none;
+}
+.ka-corner__sway {
+  transform-origin: 100% 0;
+  animation: ka-bough 7s ease-in-out infinite alternate;
+}
+.ka-corner__sway svg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+/* ---------- Milestone ---------- */
+.ka-mile {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+.ka-mile__petal {
+  opacity: 0;
+  transform-box: fill-box;
+  animation: ka-letgo 6s ease-in infinite;
+}
+@keyframes ka-letgo {
+  0% { opacity: 0; transform: translate(0, 0) rotate(0deg); }
+  10% { opacity: 1; }
+  80% { opacity: 1; }
+  100% { opacity: 0; transform: translate(46px, 190px) rotate(260deg); }
+}
+
+/* ---------- Seal ---------- */
+.ka-seal {
+  position: relative;
+  display: inline-block;
+  flex: none;
+  vertical-align: middle;
+}
+.ka-seal__body {
+  position: absolute;
+  inset: 0;
+  display: block;
+  transform-origin: 50% 70%;
+}
+.ka-seal__svg {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: block;
+  overflow: visible;
+}
+.ka-seal__bleed {
+  position: absolute;
+  inset: 3%;
+  border-radius: 14%;
+  background: var(--ka-vermilion);
+}
+
+/* ---------- Curtain ---------- */
+.ka-curtain {
+  position: fixed;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+  overflow: hidden;
+}
+.ka-curtain__panel {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 50.5%;
+  overflow: hidden;
+  background: var(--ka-pink-1);
+  transform-origin: 50% 0;
+}
+.ka-curtain__panel--left {
+  left: 0;
+  box-shadow: inset -16px 0 22px -18px rgba(58, 22, 38, 0.35);
+}
+.ka-curtain__panel--right {
+  right: 0;
+  box-shadow: inset 16px 0 22px -18px rgba(58, 22, 38, 0.35);
+}
+.ka-curtain__sky {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, var(--ka-pink-1) 0%, var(--ka-pink-1) 40%, var(--ka-pink-2) 100%);
+}
+.ka-curtain__sleeve {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 30px;
+  background: var(--ka-indigo);
+}
+.ka-curtain__crest,
+.ka-curtain__moon {
+  position: absolute;
+  top: 42%;
+  width: clamp(104px, 28vw, 168px);
+  aspect-ratio: 1;
+}
+.ka-curtain__moon {
+  width: min(78vw, 56vh, 480px);
+}
+.ka-curtain__crest svg,
+.ka-curtain__moon svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.ka-curtain__panel--left .ka-curtain__crest,
+.ka-curtain__panel--left .ka-curtain__moon {
+  right: 0;
+  transform: translate(50%, -50%);
+}
+.ka-curtain__panel--right .ka-curtain__crest,
+.ka-curtain__panel--right .ka-curtain__moon {
+  left: 0;
+  transform: translate(-50%, -50%);
+}
+.ka-curtain__waves {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 18px;
+  height: clamp(76px, 15%, 150px);
+  background-color: var(--ka-pink-2);
+  background-size: 60px 30px;
+  /* the shelf board, as in the hero */
+  border-top: 3px solid #3a4480;
+  box-shadow: inset 0 13px 0 var(--ka-indigo);
+}
+.ka-curtain__panel--left .ka-curtain__waves {
+  background-position: -24px 6px;
+}
+/* Keep the wave phase continuous across the seam. */
+.ka-curtain__panel--right .ka-curtain__waves {
+  background-position: calc(-24px - 49.5vw) 6px;
+}
+.ka-curtain__hem {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 18px;
+  background: var(--ka-indigo);
+}

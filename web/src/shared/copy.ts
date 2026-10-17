@@ -25,7 +25,7 @@ export const copy = {
     titleStudent: 'Student | LunchLoop',
     titleLive: 'Live demo | LunchLoop',
     titleLiveAdmin: 'Live demo panel | LunchLoop',
-    titleHub: 'Hub | LunchLoop',
+    titleHub: 'Dashboard | LunchLoop',
     titleBackstage: 'Behind the scenes | LunchLoop',
   },
   home: {

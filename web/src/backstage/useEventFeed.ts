@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 import { api } from '../shared/api'
-import type { EventKind, ServerEvent } from '../shared/api'
+import type { EventKind, EventScope, ServerEvent } from '../shared/api'
 
 const POLL_MS = 1500
 const PAGE = 100
 /** Rows kept on screen. */
 export const MAX_ROWS = 40
+/** The server keeps this many events per scope. */
+export const BUFFER = 300
 
 export type FeedStatus = 'connecting' | 'live' | 'paused' | 'offline'
 
@@ -34,14 +36,16 @@ function tally(counts: Counts, events: ServerEvent[]): Counts {
 const ZERO: Counts = { votes: 0, guesses: 0, trays: 0, signIns: 0, forecasts: 0 }
 
 /**
- * Polls GET /api/events while the tab is visible. Opens with the newest rows the server
- * still has (not counted), then pages forward from the last id seen. Rows are newest first.
- * `fresh` is the batch that just arrived, for the diagram and the screen reader line.
+ * Polls GET /api/events for one scope (live or simulated) while the tab is visible. Opens with
+ * the newest rows the server still has (not counted), then pages forward from the last id seen.
+ * Rows are newest first. `fresh` is the batch that just arrived, for the diagram and the screen
+ * reader line. `held` is how many events of this scope the server is holding right now.
  */
-export function useEventFeed() {
+export function useEventFeed(scope: EventScope) {
   const [rows, setRows] = useState<ServerEvent[]>([])
   const [counts, setCounts] = useState<Counts>(ZERO)
   const [status, setStatus] = useState<FeedStatus>('connecting')
+  const [held, setHeld] = useState(0)
   const [fresh, setFresh] = useState<{ seq: number; events: ServerEvent[] }>({ seq: 0, events: [] })
   const last = useRef<number | null>(null)
 
@@ -53,25 +57,36 @@ export function useEventFeed() {
     let delay = POLL_MS
 
     async function open() {
-      // One tiny call to learn the newest id, then the newest rows behind it.
-      const head = await api.events(0, 1)
-      const latest = head.latest_id
-      const start = Math.max(0, latest - MAX_ROWS)
-      const backlog = latest > 0 ? await api.events(start, MAX_ROWS) : head
-      const events = backlog.events.filter((e) => e.id > start)
-      last.current = Math.max(latest, ...events.map((e) => e.id), 0)
-      if (live) setRows(events.slice().reverse())
+      // Ids are shared by both scopes, so this scope's newest rows can sit anywhere below the
+      // newest id. The buffer is small (300), so read it all: at most a few pages.
+      const events: ServerEvent[] = []
+      let after = 0
+      let latest = 0
+      for (;;) {
+        const page = await api.events(after, PAGE, scope)
+        latest = page.latest_id
+        events.push(...page.events)
+        if (page.events.length) after = page.events[page.events.length - 1].id
+        if (page.events.length < PAGE) break
+      }
+      last.current = Math.max(latest, after)
+      if (!live) return
+      setRows(events.slice(-MAX_ROWS).reverse())
+      setHeld(Math.min(events.length, BUFFER))
     }
 
     async function pull() {
       const arrived: ServerEvent[] = []
       // Page forward until caught up, so a burst never falls behind.
       for (;;) {
-        const page = await api.events(last.current ?? 0, PAGE)
+        const page = await api.events(last.current ?? 0, PAGE, scope)
         if (page.latest_id < (last.current ?? 0)) {
           // The server restarted and its ids began again.
           last.current = null
-          if (live) setRows([])
+          if (live) {
+            setRows([])
+            setHeld(0)
+          }
           return
         }
         arrived.push(...page.events)
@@ -81,6 +96,7 @@ export function useEventFeed() {
       if (!live || arrived.length === 0) return
       setRows((prev) => [...arrived.slice(-MAX_ROWS).reverse(), ...prev].slice(0, MAX_ROWS))
       setCounts((c) => tally(c, arrived))
+      setHeld((h) => Math.min(h + arrived.length, BUFFER))
       setFresh((f) => ({ seq: f.seq + 1, events: arrived }))
     }
 
@@ -118,7 +134,7 @@ export function useEventFeed() {
       clearTimeout(timer)
       document.removeEventListener('visibilitychange', onVisibility)
     }
-  }, [])
+  }, [scope])
 
-  return { rows, counts, status, fresh }
+  return { rows, counts, status, fresh, held }
 }

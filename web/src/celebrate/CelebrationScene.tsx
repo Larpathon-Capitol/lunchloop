@@ -1,6 +1,7 @@
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import { celebrateCopy } from './copy'
-import { HankoStamp } from './HankoStamp'
+import { Flame } from '../shared/icons'
+import { useKit } from '../theme/registry'
 import { NumberRoll } from './NumberRoll'
 import { StreakMilestone } from './StreakMilestone'
 import { XpToast } from './XpToast'
@@ -22,26 +23,16 @@ interface SceneProps {
   onMilestoneClose: () => void
 }
 
-function BlossomMark() {
-  return (
-    <svg width="16" height="16" viewBox="-10 -10 20 20" aria-hidden="true">
-      {[0, 72, 144, 216, 288].map((a) => (
-        <ellipse key={a} cx="0" cy="-4.6" rx="3.6" ry="4.6" transform={`rotate(${a})`} style={{ fill: 'var(--ume)' }} />
-      ))}
-      <circle r="1.9" style={{ fill: 'var(--kin-light)' }} />
-    </svg>
-  )
-}
-
 /** What celebratePacked draws: the seal, the XP token and the streak chip at a point, then the milestone overlay. */
 export function CelebrationScene({ x, y, size, state, onMilestoneClose }: SceneProps) {
   const reduce = useReducedMotion()
+  const { Seal } = useKit()
   return (
     <>
       <div className="celebrate-layer">
         <div className="celebrate-spot" style={{ left: x, top: y }}>
           <div style={{ position: 'absolute', left: -size / 2, top: -size / 2 }}>
-            <HankoStamp visible={state.stamp} size={size} />
+            <Seal visible={state.stamp} size={size} />
           </div>
           {state.xp !== null && (
             <div style={{ position: 'absolute', left: size * 0.12, top: -size / 2 - 26 }}>
@@ -61,7 +52,7 @@ export function CelebrationScene({ x, y, size, state, onMilestoneClose }: SceneP
                   role="status"
                   aria-label={celebrateCopy.streakNow(state.streak)}
                 >
-                  <BlossomMark />
+                  <Flame width={16} height={16} className="celebrate-streak__flame" />
                   <NumberRoll value={state.streak} />
                   <span aria-hidden="true">{celebrateCopy.streakLabel}</span>
                 </motion.span>

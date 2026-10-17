@@ -14,6 +14,16 @@ export function Blossom(props: IconProps) {
   )
 }
 
+/* Flame: the streak, a rounded flame with an inner lick. */
+export function Flame(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M12 21c-3.9 0-6.5-2.6-6.5-6.2 0-3.1 2.2-5 3.6-7.4.5 1.7 1.4 2.7 2.4 3.1C11.2 7 12.6 4.6 15 3c-.3 2.6.8 4.5 2 6.2 1 1.4 1.5 3 1.5 4.8 0 4.1-2.7 7-6.5 7z" />
+      <path d="M12 18.4c-1.5 0-2.5-1-2.5-2.4 0-1.3.9-2.1 1.6-3.1.4.8.9 1.1 1.5 1.3.2-.9.6-1.7 1.3-2.3.4 1.2 1.1 2.2 1.1 3.6 0 1.6-1.3 2.9-3 2.9z" />
+    </Icon>
+  )
+}
+
 /* Seal: a square hanko stamp face with an open loop and a short stroke. */
 export function Seal(props: IconProps) {
   return (

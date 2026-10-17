@@ -23,9 +23,10 @@ function useSteel() {
       }),
       // Underside: same steel, never seen up close.
       base: new THREE.MeshPhysicalMaterial({ color: '#b9bec6', metalness: 1, roughness: 0.34 }),
-      // Compartment floors: darker brushed steel, which reads as depth.
+      // Compartment floors: brushed steel a step darker than the rim, which reads as depth
+      // without going gray-black against the pink page.
       floor: new THREE.MeshPhysicalMaterial({
-        color: '#a9afb7',
+        color: '#c9c3c9',
         metalness: 1,
         roughness: 0.4,
         roughnessMap: brushed,

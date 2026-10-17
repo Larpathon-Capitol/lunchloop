@@ -177,6 +177,7 @@ export function CallItScreen() {
                   key={c.item_id}
                   item_id={c.item_id}
                   name={c.name}
+                  facts={c}
                   on={selected === c.item_id}
                   disabled={busy}
                   onPick={() => {
@@ -194,7 +195,7 @@ export function CallItScreen() {
               {error}
             </p>
           )}
-          <motion.button type="button" className="btn-shu btn-shu--big" disabled={!chosen || busy} onClick={lock} whileTap={press}>
+          <motion.button type="button" className="btn-press btn-press--big" disabled={!chosen || busy} onClick={lock} whileTap={press}>
             {busy ? t.locking : chosen ? t.lock : t.pickFirst}
           </motion.button>
         </section>

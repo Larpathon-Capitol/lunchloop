@@ -1,55 +1,132 @@
 /* Design tokens. Every color, size and duration in the app comes from here.
-   The world: a lunch counter in a small Japanese restaurant. Indigo noren cloth, pale paper,
-   sumi ink, a vermilion seal, plum blossoms, and one stainless steel cafeteria tray. */
+   One pink ground for every world (Soft Pink Delight plus fresh leaf green). A world only
+   swaps the accents, the deep field color, the reward color, the display face and the
+   pattern tile, set below under html[data-theme]. Staff pages stay on the calm base. */
+
+/* World colors are registered so a theme change can tween them when view transitions
+   are not available. */
+@property --accent-1 {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: #ffc72c;
+}
+@property --accent-2 {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: #1d3fae;
+}
+@property --on-accent-1 {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: #3a1626;
+}
+@property --on-accent-2 {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: #ffffff;
+}
+@property --field {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: #1d3fae;
+}
+@property --field-deep {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: #152f86;
+}
+@property --on-field {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: #ffe5ec;
+}
+@property --on-field-soft {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: #f7c7d4;
+}
+@property --xp {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: #ffc72c;
+}
+@property --xp-ink {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: #8a5a00;
+}
+
 :root {
-  /* Ground and ink */
-  --washi: #f1f3ee; /* page ground, pale paper with a hint of celadon */
-  --shoji: #fbfcf9; /* raised paper: sheets, panels */
-  --sumi: #1b1f2a; /* main text, 14.7:1 on washi */
-  --nezumi: #5a6070; /* secondary text, 5.6:1 on washi */
-  --line: #d9ddd4; /* hairlines only, never text */
+  /* Ground: Soft Pink Delight. Ratios are against --pink-1 unless noted. */
+  --pink-1: #ffe5ec; /* page ground everywhere */
+  --pink-2: #ffc2d1; /* secondary panels, banners */
+  --pink-3: #ffb3c6; /* borders, chips, pattern lines */
+  --pink-4: #ff8fab; /* hover states, mid-tone shapes */
+  --pink-5: #fb6f92; /* primary CTA fill, streak flame. Text on it is --ink (5.9:1), never white */
+  --pink-5-deep: #d94f75; /* pressed CTA and its chunky press shadow */
+  --surface: #fff4f7; /* raised paper: sheets, panels */
 
-  /* The noren field: hero and headers */
-  --ai: #1f2d4d; /* indigo cloth */
-  --ai-deep: #16203a; /* indigo in shadow */
-  --on-ai: #ede8dc; /* text on indigo, 11.2:1 */
-  --on-ai-soft: #b9bfcc; /* secondary text on indigo */
+  --ink: #3a1626; /* plum-black text, 13.4:1 (14.8:1 on surface, 10.5:1 on pink-2) */
+  --ink-soft: #7a3f58; /* secondary text, 6.6:1 (7.3:1 on surface, 5.2:1 on pink-2) */
+  --hairline-color: #f4a3b9; /* dividers and quiet borders, never text */
 
-  /* Action and reward */
-  --shu: #c2362b; /* vermilion: buttons, the hanko seal, selection. White on it 5.5:1 */
-  --shu-deep: #a82c23; /* pressed vermilion */
-  --on-shu: #ffffff;
-  --kin: #b07812; /* gold: XP, milestones (fills and large text only) */
-  --kin-light: #e3b24f; /* gold on indigo, 7.0:1 */
+  --leaf: #5fb77a; /* green fills, leaves, done state (fills only, 2.1:1) */
+  --leaf-deep: #1f5a3a; /* green text and icons, 6.8:1 */
 
-  /* Blossom (decoration only, never text on light ground) */
-  --ume: #e8879a; /* plum blossom */
-  --sakura: #f7dde0; /* blossom tint */
+  /* Per world (defaults are the Americas, the default world) */
+  --accent-1: #ffc72c;
+  --accent-2: #1d3fae;
+  --on-accent-1: #3a1626;
+  --on-accent-2: #ffffff;
+  --field: #1d3fae;
+  --field-deep: #152f86;
+  --on-field: #ffe5ec;
+  --on-field-soft: #f7c7d4;
+  --xp: #ffc72c; /* reward fill */
+  --xp-ink: #8a5a00; /* reward color for text on light grounds */
+  --pattern: none; /* each kit's tile, written at runtime by theme/switch.ts */
+  --pattern-size: 48px 48px;
 
-  /* Food groups: fills, icons and tray rims. White text passes on all but grain */
-  --g-entree: #b5523b; /* soy glaze */
-  --g-grain: #93680f; /* toasted rice */
-  --g-vegetable: #4f7f35; /* matcha leaf */
-  --g-fruit: #c94562; /* ume plum */
-  --g-milk: #3f729e; /* sky glaze */
+  /* Food groups: fills, icons and tray rims, the same in every world. White text passes on all */
+  --g-entree: #b5402f; /* tomato, 4.7:1, white on it 5.6:1 */
+  --g-grain: #9a6a0c; /* honey, 4.0:1, white on it 4.7:1 */
+  --g-vegetable: #3c7f45; /* leaf, 4.1:1, white on it 4.9:1 */
+  --g-fruit: #b02e62; /* raspberry, 5.2:1, white on it 6.2:1 */
+  --g-milk: #2f6fa8; /* sky, 4.5:1, white on it 5.3:1 */
 
   /* Status (always paired with an icon or word) */
-  --ok: #3f7a2e;
-  --warn: #9a5b00;
-  --bad: #b42318;
+  --ok: #2f6b3a; /* 5.4:1 */
+  --warn: #8a5200; /* 5.4:1 */
+  --bad: #b42318; /* 5.5:1 */
 
-  /* Older names, kept so every screen picks up the new world */
-  --paper: var(--washi);
-  --surface: var(--shoji);
-  --ink: var(--sumi);
-  --slate: var(--nezumi);
-  --accent: var(--shu);
-  --accent-ink: var(--on-shu);
-  --accent-mark: var(--shu);
+  /* v1 names, kept as aliases so untouched CSS picks up the new world. New code uses the names above */
+  --washi: var(--pink-1);
+  --paper: var(--pink-1);
+  --shoji: var(--surface);
+  --sumi: var(--ink);
+  --nezumi: var(--ink-soft);
+  --slate: var(--ink-soft);
+  --line: var(--hairline-color);
+  --ai: var(--field);
+  --ai-deep: var(--field-deep);
+  --on-ai: var(--on-field);
+  --on-ai-soft: var(--on-field-soft);
+  --shu: var(--pink-5);
+  --shu-deep: var(--pink-5-deep);
+  --on-shu: var(--ink);
+  --accent: var(--pink-5);
+  --accent-ink: var(--ink);
+  --accent-mark: var(--pink-5);
+  --kin: var(--xp-ink);
+  --kin-light: var(--xp);
+  --ume: var(--pink-4);
+  --sakura: var(--pink-2);
 
-  /* Type */
-  --font-display: 'Shippori Mincho B1', 'Hiragino Mincho ProN', serif; /* rare, large moments only */
-  --font-ui: 'Zen Maru Gothic', 'Hiragino Maru Gothic ProN', system-ui, sans-serif;
+  /* Type. Display is for headlines, the mascot name, big numbers and celebrations only */
+  --font-ui: 'Gabarito', ui-rounded, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-display: 'Londrina Solid', 'Gabarito', system-ui, sans-serif;
+  --display-weight: 900;
+  --display-synthesis: weight style;
   --text-sm: 14px;
   --text-base: 16px;
   --text-md: 18px;
@@ -57,8 +134,8 @@
   --text-xl: 28px;
   --text-2xl: 36px;
   --text-hero: clamp(44px, 9vw, 96px);
-  --leading: 1.55;
-  --leading-tight: 1.1;
+  --leading: 1.5;
+  --leading-tight: 1.05;
 
   /* Spacing, 4px scale */
   --s1: 4px;
@@ -72,22 +149,124 @@
   --s12: 48px;
   --s16: 64px;
 
-  /* Layout and shape */
+  /* Layout and shape: chunky, toy-like, sticker corners */
   --max-width: 1100px;
-  --radius: 14px; /* lacquer-box corners */
-  --radius-sm: 8px;
+  --radius: 18px;
+  --radius-sm: 10px;
+  --radius-lg: 28px;
   --radius-pill: 999px;
-  --hairline: 1px solid var(--line);
+  --hairline: 1px solid var(--hairline-color);
   --touch: 44px;
-  --focus-ring: 0 0 0 3px var(--washi), 0 0 0 5px var(--shu);
-  --lift: 0 1px 0 rgba(27, 31, 42, 0.06), 0 8px 24px -12px rgba(27, 31, 42, 0.22); /* paper resting on paper */
+  --focus-ring: 0 0 0 3px var(--pink-1), 0 0 0 5.5px var(--ink);
+  /* Soft plum contact shadow: something resting on the pink, not floating */
+  --lift: 0 1px 0 rgba(58, 22, 38, 0.06), 0 10px 22px -14px rgba(58, 22, 38, 0.38);
+  --shadow-contact: 0 6px 14px -8px rgba(58, 22, 38, 0.32);
+  --shadow-float: 0 2px 0 rgba(58, 22, 38, 0.05), 0 18px 36px -20px rgba(58, 22, 38, 0.45);
+  /* The one allowed hard shadow: the chunky primary button. Pressed, it drops to --press-shadow-down */
+  --press-shadow: 0 5px 0 var(--pink-5-deep);
+  --press-shadow-down: 0 1px 0 var(--pink-5-deep);
+  --sticker-edge: 0 0 0 3px #ffffff;
 
   /* Motion */
   --t-fast: 120ms;
   --t-med: 220ms;
   --t-slow: 320ms;
+  --t-theme: 420ms;
   --ease: cubic-bezier(0.2, 0, 0, 1);
   --ease-brush: cubic-bezier(0.7, 0, 0.2, 1); /* slow start, fast sweep, soft stop */
-  --ease-out: cubic-bezier(0.2, 0.72, 0.16, 1);
-  --press-scale: 0.94;
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-wipe: cubic-bezier(0.65, 0, 0.35, 1);
+  --press-scale: 0.97;
+}
+
+/* A. Americas and Latin America: block party on a pink painted street */
+html[data-theme='americas'] {
+  --accent-1: #ffc72c; /* sun yellow, fills only. Ink on it 10.2:1 */
+  --accent-2: #1d3fae; /* sign cobalt, 7.4:1 */
+  --on-accent-1: #3a1626;
+  --on-accent-2: #ffffff;
+  --field: #1d3fae;
+  --field-deep: #152f86;
+  --on-field: #ffe5ec; /* 7.4:1 on cobalt */
+  --on-field-soft: #f7c7d4; /* 5.9:1 on cobalt */
+  --xp: #ffc72c; /* 5.7:1 on cobalt */
+  --xp-ink: #8a5a00; /* 5.0:1 */
+  --font-display: 'Londrina Solid', 'Gabarito', system-ui, sans-serif;
+  --display-weight: 900;
+  --display-synthesis: weight style;
+  --pattern-size: 48px 48px;
+}
+
+/* B. East and Southeast Asia: konbini window at blossom dusk */
+html[data-theme='asia'] {
+  --accent-1: #232a5c; /* indigo, 11.4:1 */
+  --accent-2: #be2b1a; /* hanko vermilion, 5.0:1, text only on pink-1 or surface */
+  --on-accent-1: #ffe5ec;
+  --on-accent-2: #ffffff; /* 5.9:1 */
+  --field: #232a5c;
+  --field-deep: #191e45;
+  --on-field: #ffe5ec; /* 11.4:1 on indigo */
+  --on-field-soft: #f7c7d4; /* 9.0:1 */
+  --xp: #e3b24f; /* 6.9:1 on indigo */
+  --xp-ink: #8a5a00;
+  --font-display: 'Dela Gothic One', 'Gabarito', system-ui, sans-serif;
+  --display-weight: 400;
+  --display-synthesis: none;
+  --pattern-size: 40px 24px;
+}
+
+/* C. South Asia, West Asia and the Mediterranean: tiled courtyard at pink hour */
+html[data-theme='medi'] {
+  --accent-1: #0a6c70; /* tile turquoise, 5.2:1, white on it 6.2:1 */
+  --accent-2: #6b2145; /* aubergine, 9.2:1 */
+  --on-accent-1: #ffffff;
+  --on-accent-2: #ffe5ec;
+  --field: #6b2145;
+  --field-deep: #521833;
+  --on-field: #ffe5ec; /* 9.2:1 on aubergine */
+  --on-field-soft: #f7c7d4; /* 7.3:1 */
+  --xp: #f4a51c; /* marigold, 5.3:1 on aubergine */
+  --xp-ink: #8a5200;
+  --font-display: 'Rakkas', 'Gabarito', system-ui, serif;
+  --display-weight: 400;
+  --display-synthesis: none;
+  --pattern-size: 56px 56px;
+}
+
+/* Staff pages (school, kitchen): the calm base. Pinks, plum field, UI font for headings too */
+html[data-mode='staff'],
+html[data-mode='staff'][data-theme] {
+  --accent-1: #ff8fab;
+  --accent-2: #1f5a3a;
+  --on-accent-1: #3a1626;
+  --on-accent-2: #ffffff;
+  --field: #3a1626;
+  --field-deep: #2a0f1b;
+  --on-field: #ffe5ec;
+  --on-field-soft: #f7c7d4;
+  --xp: #ffc72c;
+  --xp-ink: #8a5a00;
+  --font-display: var(--font-ui);
+  --display-weight: 800;
+  --display-synthesis: none;
+  --pattern: none;
+}
+
+/* Color tween for theme changes outside a view transition. switch.ts adds theme-vt while a
+   view transition runs, so the live new snapshot is not caught mid-tween. */
+html {
+  transition:
+    --accent-1 var(--t-theme) var(--ease-out),
+    --accent-2 var(--t-theme) var(--ease-out),
+    --on-accent-1 var(--t-theme) var(--ease-out),
+    --on-accent-2 var(--t-theme) var(--ease-out),
+    --field var(--t-theme) var(--ease-out),
+    --field-deep var(--t-theme) var(--ease-out),
+    --on-field var(--t-theme) var(--ease-out),
+    --on-field-soft var(--t-theme) var(--ease-out),
+    --xp var(--t-theme) var(--ease-out),
+    --xp-ink var(--t-theme) var(--ease-out);
+}
+html.theme-vt {
+  transition: none;
 }

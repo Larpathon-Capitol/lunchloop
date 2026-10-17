@@ -5,7 +5,7 @@ import { sound } from '../shared/sound'
 import { burstPetals } from './burst'
 import { celebrateCopy } from './copy'
 import { driftPetals } from './drift'
-import { PlumSprig } from '../shared/art/PlumSprig'
+import { useKit } from '../theme/registry'
 import { NumberRoll } from './NumberRoll'
 import './celebrate.css'
 
@@ -60,11 +60,12 @@ function useFocusTrap(ref: React.RefObject<HTMLElement | null>) {
 }
 
 /**
- * Full-screen streak milestone. A plum branch grows in, blossoms open, the number rolls up in gold.
+ * Full-screen streak milestone. The world's milestone art draws itself in, the number rolls up.
  * Tap anywhere or press Escape to skip. Focus stays inside and returns to where it was.
  */
 export function StreakMilestone({ streak, onClose, silent = false }: StreakMilestoneProps) {
   const reduce = useReducedMotion() ?? false
+  const { Milestone } = useKit()
   const root = useRef<HTMLDivElement>(null)
   const numberRef = useRef<HTMLDivElement>(null)
   const [closing, setClosing] = useState(false)
@@ -154,7 +155,7 @@ export function StreakMilestone({ streak, onClose, silent = false }: StreakMiles
         if (performance.now() - openedAt.current > 500) close(true)
       }}
     >
-      <PlumSprig variant="branch" ground="ai" grow className="milestone-branch" />
+      <Milestone grow={!reduce} className="milestone-branch" />
 
       <div className="milestone-body">
         <div ref={numberRef} className="milestone-number">

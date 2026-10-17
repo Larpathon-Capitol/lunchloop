@@ -2,12 +2,13 @@
 // stats, tomorrow's tray (and the picks made so far), a small catalog of menu items,
 // and the food info sheet. Tabs share it, so nothing resets on a tab switch.
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { api, ApiError, type Allergen, type Component, type Me, type PrepList, type SpinOption, type Tray, type TrayPicks, type VoteResult } from '../shared/api'
+import { api, ApiError, type Allergen, type Component, type DietInfo, type Me, type PrepList, type SpinOption, type Tray, type TrayPicks, type VoteResult } from '../shared/api'
 import { addDays } from '../shared/format'
 import { deviceId } from '../shared/device'
 import { activeStudentSchool } from '../shared/studentSchool'
 
-export interface FoodInfo {
+/** A food as the info sheet shows it. Diet facts are there when the API sent them. */
+export interface FoodInfo extends Partial<DietInfo> {
   item_id: string
   name: string
   allergens: Allergen[]

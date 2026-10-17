@@ -15,6 +15,7 @@ import { FoodSheet } from './FoodSheet'
 import { Hud } from './Hud'
 import { fade, screenSpring, tabSpring } from './springs'
 import { StampsScreen } from './StampsScreen'
+import { useDemoDate } from '../shared/demo'
 import { StudentProvider, useStudent } from './state'
 import { TrayScreen } from './TrayScreen'
 import { VoteScreen } from './VoteScreen'
@@ -121,7 +122,7 @@ function StageSync() {
   return null
 }
 
-/** Ume says hello once per browser session. */
+/** The mascot says hello once per browser session. */
 function useGreeting() {
   useEffect(() => {
     let seen = false
@@ -169,12 +170,15 @@ function Game() {
  */
 export function StudentView() {
   const school = activeStudentSchool()
+  // A presenter stepping the simulated calendar starts the game fresh on the new day.
+  const demoDay = useDemoDate()
+  const day = school === 'live' ? '' : (demoDay ?? '')
   useEffect(() => {
     // The 3D tray is shared with the page shell: clear the old school's picks and menu too.
     trayStore.set({ picks: {}, available: COMPONENTS, focus: null })
-  }, [school])
+  }, [school, day])
   return (
-    <StudentProvider key={school}>
+    <StudentProvider key={`${school}:${day}`}>
       <Game />
     </StudentProvider>
   )

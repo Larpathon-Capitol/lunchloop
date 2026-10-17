@@ -8,6 +8,7 @@ const NAMES = [
   'Entree', 'Grain', 'Vegetable', 'Fruit', 'Milk',
   'Blossom', 'Seal', 'Coin', 'Tray', 'Ballot', 'Crystal', 'Calendar', 'Lantern', 'Badge',
   'SoundOn', 'SoundOff', 'Close', 'Back', 'Check', 'Skip', 'Info', 'Allergen', 'Lock', 'Share', 'Kitchen', 'Menu', 'Hand',
+  'Leaf', 'Sprout', 'Chili', 'Meat', 'NoWheat', 'NoMilk', 'HeadsUp', 'Needs',
 ] as const
 
 const SIZES = [20, 24, 40]

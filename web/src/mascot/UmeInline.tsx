@@ -1,5 +1,5 @@
-// Ume inside the page layout, used wherever the floating dock would cover content. A small Ume
-// with its speech bubble beside it, in space the layout reserves, so nothing ever sits under it.
+// The mascot inside the page layout, used wherever the floating dock would cover content. A small
+// mascot with its speech bubble beside it, in space the layout reserves, so nothing ever sits under it.
 // Driven by the same store as the dock, so ume.react() and ume.say() work the same everywhere.
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
@@ -48,7 +48,7 @@ export function UmeInline({ size = 56, children, className }: UmeInlineProps) {
   return (
     <div className={`ume-inline${className ? ` ${className}` : ''}`} style={{ ['--ume-inline-size' as string]: `${size}px` }}>
       <span className="ume-inline__ume">
-        <Ume size={size} mood={state.mood} hopKey={state.hopId} />
+        <Ume size={size} mood={state.mood} hopKey={state.hopId} talking={!!bubble} />
       </span>
       <div className="ume-inline__col">
         <div className="ume-inline__say">
