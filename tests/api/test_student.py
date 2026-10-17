@@ -231,14 +231,16 @@ def test_guess_scoring_xp_badge_and_clock_rewind(client):
     assert_success(before_response.json())
     before = before_response.json()
     assert before["last_guess"]["correct"] is None and before["xp"] == 0
+    assert before["correct_calls"] == 0
     scored_response = client.get(f"/api/me?device={device}", headers=demo_headers("2026-10-21"))
     assert_success(scored_response.json())
     scored = scored_response.json()
     assert set(scored) == {
-        "device", "streak", "xp", "badges", "last_guess", "voted_today", "packed_today", "simulated"
+        "device", "streak", "xp", "badges", "last_guess", "voted_today", "packed_today", "correct_calls", "simulated"
     }
     assert set(scored["last_guess"]) == {"target_date", "item_id", "correct"}
     assert scored["last_guess"]["correct"] is True and scored["xp"] == 25
+    assert scored["correct_calls"] == 1
     assert (
         client.get(
             f"/api/me?device={device}", headers=demo_headers("2026-10-21")
@@ -251,6 +253,7 @@ def test_guess_scoring_xp_badge_and_clock_rewind(client):
     assert client.post("/api/guess", json={"device": wrong, "item_id": loser}).status_code == 200
     wrong_result = client.get(f"/api/me?device={wrong}", headers=demo_headers("2026-10-21")).json()
     assert wrong_result["last_guess"]["correct"] is False and wrong_result["xp"] == 0
+    assert wrong_result["correct_calls"] == 0
 
 
 def test_called_it_badge_after_five_csv_winners(client):
@@ -268,6 +271,9 @@ def test_called_it_badge_after_five_csv_winners(client):
     result = client.get(f"/api/me?device={device}", headers=demo_headers("2026-10-27"))
     assert result.status_code == 200
     assert "called_it_5" in result.json()["badges"]
+    assert result.json()["correct_calls"] == 5
+    early = client.get(f"/api/me?device={device}", headers=demo_headers("2026-10-22")).json()
+    assert early["correct_calls"] == 2
 
 
 def test_unknown_route_and_method_are_error_objects(client):

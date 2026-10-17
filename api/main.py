@@ -23,6 +23,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from .db import connect, init_db, load_taken
 from .auth import configured_passwords, make_token, read_token, verify_password
 from .game import (
+    correct_guess_count,
     device,
     ensure_player,
     next_day,
@@ -565,6 +566,7 @@ def create_app(max_requests=3000, max_actions=300, body_limit=16 * 1024, request
             connection.commit()
             voted_today = bool(connection.execute("SELECT 1 FROM votes WHERE school_id=? AND device=? AND date=?", (selected_school, player_device, current_date)).fetchone())
             packed_today = bool(connection.execute("SELECT 1 FROM trays WHERE school_id=? AND device=? AND date=?", (selected_school, player_device, current_date)).fetchone())
+            correct_calls = correct_guess_count(connection, player_device, current_date, request.app.state.taken, selected_school)
         response = {
             "device": player_device,
             "streak": streak,
@@ -573,6 +575,7 @@ def create_app(max_requests=3000, max_actions=300, body_limit=16 * 1024, request
             "last_guess": last_guess,
             "voted_today": voted_today,
             "packed_today": packed_today,
+            "correct_calls": correct_calls,
             "simulated": True,
         }
         return response

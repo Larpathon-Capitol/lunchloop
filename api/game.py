@@ -79,6 +79,16 @@ def score_guess(guess, current_date, taken):
     return guessed is not None and guessed["servings_taken"] == highest
 
 
+def correct_guess_count(connection, player_device, current_date, taken, school_id="demo"):
+    """Count this player's guesses that have been scored as correct by the current date."""
+    guess_rows = rows(
+        connection,
+        "SELECT * FROM guesses WHERE school_id=? AND device=? AND date<=?",
+        (school_id, player_device, current_date),
+    )
+    return sum(score_guess(guess, current_date, taken) is True for guess in guess_rows)
+
+
 def stats(connection, player_device, current_date, taken, school_id="demo"):
     """Return streak, XP, badges, and latest vote date through the current date.
 
@@ -111,14 +121,7 @@ def stats(connection, player_device, current_date, taken, school_id="demo"):
         streak += 1
         index -= 1
 
-    guess_rows = rows(
-        connection,
-        "SELECT * FROM guesses WHERE school_id=? AND device=? AND date<=?",
-        (school_id, player_device, current_date),
-    )
-    correct_guesses = sum(
-        score_guess(guess, current_date, taken) is True for guess in guess_rows
-    )
+    correct_guesses = correct_guess_count(connection, player_device, current_date, taken, school_id)
     tray_count = connection.execute(
         "SELECT COUNT(DISTINCT date) FROM trays WHERE school_id=? AND device=? AND date<=?",
         (school_id, player_device, current_date),

@@ -119,7 +119,7 @@ Errors are `{"error": "<plain message>"}` with status 400 (bad input), 404 (unkn
 | GET /api/spin?device= | | `{"date", "target_date", "target_slot", "options": [{"item_id", "name", "allergens": [str]}], "already_voted": bool, "simulated": true}` |
 | POST /api/vote | `{"device", "item_id"}` | `{"ok": true, "streak", "xp", "tally": {item_id: count}, "simulated": true}` |
 | POST /api/guess | `{"device", "item_id"}` (most popular item next school day) | `{"ok": true, "target_date", "simulated": true}` |
-| GET /api/me?device= | | `{"device", "streak", "xp", "badges": [str], "last_guess": {"target_date", "item_id", "correct": bool or null} or null, "voted_today", "packed_today", "simulated": true}` |
+| GET /api/me?device= | | `{"device", "streak", "xp", "badges": [str], "last_guess": {"target_date", "item_id", "correct": bool or null} or null, "voted_today", "packed_today", "correct_calls": int (guesses scored correct so far), "simulated": true}` |
 | GET /api/meter | | engine `meter()` |
 
 ## Tray
