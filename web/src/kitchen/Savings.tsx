@@ -59,15 +59,17 @@ function ChartTooltip({ active, payload, label }: { active?: boolean; payload?: 
 
 /**
  * The money bridge: what less waste saved, minus what running short cost (at the shortage ratio),
- * leaves the net. Same formula as the backtest; the short part is taken from the rounded figures
- * so the three numbers on screen always add up.
+ * leaves the net. Each row is built from the whole-dollar figures shown elsewhere on the panel
+ * ($5,775 - $2,673, and 3 x $584), so a reader can check them. The total is the exact figure,
+ * which can differ from the rounded rows by a dollar or two; a note says so when it does.
  */
 function Bridge({ data }: { data: SavingsData }) {
-  const lessWaste = Math.round(data.usual.dollars_wasted - data.lunchloop.dollars_wasted)
+  const lessWaste = Math.round(data.usual.dollars_wasted) - Math.round(data.lunchloop.dollars_wasted)
+  const penalty = data.shortage_ratio * (Math.round(data.lunchloop.dollars_short) - Math.round(data.usual.dollars_short))
   const net = Math.round(data.net_dollars_saved)
-  const penalty = lessWaste - net
   if (lessWaste <= 0 || net <= 0 || penalty < 0) return null
-  const netPct = (net / lessWaste) * 100
+  const netPct = Math.min(100, (net / lessWaste) * 100)
+  const rounded = lessWaste - penalty !== net
   return (
     <div className="k-bridge">
       <p className="k-bridge__title">{t.net.bridgeTitle}</p>
@@ -89,7 +91,39 @@ function Bridge({ data }: { data: SavingsData }) {
           <dd className="num">{fmtMoney(net)}</dd>
         </div>
       </dl>
+      {rounded && <p className="k-bridge__note">{t.net.rounded}</p>}
     </div>
+  )
+}
+
+/** Y-axis label. The lowest one gets a small break mark when the axis does not start at zero. */
+function YTick({ x, y, payload, floor, fmt, size }: {
+  x?: number
+  y?: number
+  payload?: { value: number }
+  floor: number
+  fmt: (n: number) => string
+  size: number
+}) {
+  if (x === undefined || y === undefined || !payload) return null
+  const isBreak = floor > 0 && payload.value === floor
+  return (
+    <g>
+      <text x={x - 4} y={y} dy={4} textAnchor="end" fill="var(--nezumi)" fontSize={size} className="num">
+        {fmt(payload.value)}
+      </text>
+      {isBreak && (
+        <path
+          d={`M ${x + 2} ${y} l 3 -4 l 4 8 l 4 -8 l 4 8 l 3 -4`}
+          fill="none"
+          stroke="var(--nezumi)"
+          strokeWidth={1.5}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+        />
+      )}
+    </g>
   )
 }
 
@@ -97,7 +131,8 @@ function DailyChart({ days, closer }: { days: Day[]; closer: boolean }) {
   const phone = useMedia(PHONE_QUERY)
   const lo = Math.min(...days.map((d) => Math.min(d.taken, d.lunchloop, d.usual)))
   const hi = Math.max(...days.map((d) => Math.max(d.taken, d.lunchloop, d.usual)))
-  // A line chart can start above zero; it keeps the gap between the lines readable.
+  // A line chart can start above zero to keep the gap between the lines readable. When it does,
+  // the subtitle says where the axis starts and the lowest label carries a break mark.
   const floor = Math.max(0, Math.floor((lo - 250) / 500) * 500)
   const ceil = Math.ceil((hi + 100) / 500) * 500
   const step = (ceil - floor) / 500 > 6 ? 1000 : 500
@@ -107,7 +142,10 @@ function DailyChart({ days, closer }: { days: Day[]; closer: boolean }) {
   return (
     <figure className="k-chart" aria-labelledby="k-chart-title">
       <h3 id="k-chart-title" className="k-chart__title">{closer ? tc.headingCloser : tc.headingNeutral}</h3>
-      <p className="k-chart__sub">{tc.summary(days.length)}</p>
+      <p className="k-chart__sub">
+        {tc.summary(days.length)}
+        {floor > 0 && <> {tc.axisFrom(fmtInt(floor))}</>}
+      </p>
       <ul className="k-legend">
         <li><Swatch kind="taken" />{tc.taken}</li>
         <li><Swatch kind="lunchloop" />{tc.lunchloop}</li>
@@ -128,12 +166,12 @@ function DailyChart({ days, closer }: { days: Day[]; closer: boolean }) {
               tickMargin={8}
             />
             <YAxis
-              tick={{ fill: 'var(--nezumi)', fontSize: phone ? 12 : 13 }}
+              tick={<YTick floor={floor} fmt={phone ? kilo : fmtInt} size={phone ? 12 : 13} />}
               tickLine={false}
               axisLine={false}
-              tickFormatter={phone ? kilo : fmtInt}
               domain={[floor, ceil]}
               ticks={ticks}
+              interval={0}
               width={phone ? 36 : 56}
             />
             <Tooltip content={<ChartTooltip />} cursor={{ stroke: 'var(--line)' }} />
@@ -188,7 +226,7 @@ export function Savings({ data }: { data: SavingsData }) {
 
   const from = short(days[0].date)
   const to = short(days[days.length - 1].date)
-  const wastedCut = cut(ll.dollars_wasted, us.dollars_wasted)
+  const wastedCut = cut(Math.round(ll.dollars_wasted), Math.round(us.dollars_wasted))
   const fewer = us.leftover_servings - ll.leftover_servings
 
   return (
@@ -245,7 +283,7 @@ export function Savings({ data }: { data: SavingsData }) {
                 </span>
                 <span className="k-hero__unit">{net === 'saved' ? t.net.saved : t.net.cost}</span>
               </p>
-              <p className="k-hero__sub">{net === 'saved' ? t.net.sub : t.net.costSub}</p>
+              <p className={`k-hero__sub ${net === 'saved' ? 'k-hero__sub--bridged' : ''}`}>{net === 'saved' ? t.net.sub : t.net.costSub}</p>
             </>
           )}
           {net === 'saved' && <Bridge data={data} />}

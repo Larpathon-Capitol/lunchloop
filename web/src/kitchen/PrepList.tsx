@@ -52,9 +52,12 @@ function Row({ item, max, why }: { item: PrepItem; max: number; why: boolean }) 
 }
 
 export function PrepList({ items }: { items: PrepItem[] }) {
-  const [closed, setClosed] = useState<Set<string>>(() => new Set())
+  // Groups the user has flipped from their starting state. Phones start with every group folded
+  // (the header already shows its total servings); wider screens start with every group open.
+  const [flipped, setFlipped] = useState<Set<string>>(() => new Set())
+  const [wide] = useState(() => typeof window === 'undefined' || !window.matchMedia(PHONE_QUERY).matches)
   // Phones start with the short rows (name, bar, servings, allergens); the reasons are one tap away.
-  const [why, setWhy] = useState(() => typeof window === 'undefined' || !window.matchMedia(PHONE_QUERY).matches)
+  const [why, setWhy] = useState(wide)
 
   if (items.length === 0) {
     return (
@@ -80,7 +83,7 @@ export function PrepList({ items }: { items: PrepItem[] }) {
   const allergens = [...byAllergen.entries()].sort((a, b) => b[1].length - a[1].length)
 
   const toggle = (c: string) =>
-    setClosed((s) => {
+    setFlipped((s) => {
       const n = new Set(s)
       if (n.has(c)) n.delete(c)
       else n.add(c)
@@ -107,7 +110,7 @@ export function PrepList({ items }: { items: PrepItem[] }) {
 
       <div className="k-groups">
         {groups.map(({ c, rows }) => {
-          const open = !closed.has(c)
+          const open = wide !== flipped.has(c)
           const total = rows.reduce((s, r) => s + r.prep, 0)
           const name = componentName(c)
           return (

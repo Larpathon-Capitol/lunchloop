@@ -79,7 +79,7 @@ export const school = {
       votes: 'Votes today',
       votesSpark: (days: number) => `Votes on the last ${days} vote days, then today`,
       votesFoot: (days: number) =>
-        days > 1 ? `vs the last ${days} vote days` : days === 1 ? 'vs the last vote day' : 'First vote day here',
+        days > 1 ? `vs the last ${days} vote days` : days === 1 ? 'vs the last vote day' : 'No earlier days to compare',
       active: 'Active this week',
       activeFoot: (n: string, players: string) => `${n} of ${players} players voted`,
       leader: 'Leading entree',

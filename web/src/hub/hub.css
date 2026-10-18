@@ -204,10 +204,17 @@
   padding-top: var(--s5);
 }
 
-/* The live group's beacon: a dot with a slow ring, so "real time" reads at a glance */
+/* The presenter card keeps no empty status line at its foot; a message still shows when there is one */
+.hub .demo-bar__status:empty {
+  display: none;
+}
+
+/* The live group's beacon: a dot with a slow ring, so "real time" reads at a glance. It sits after
+   the words, so the heading lines up with the column and the ring has room to grow. */
 .hub-group__pulse {
   position: relative;
   flex: none;
+  margin-left: var(--s1);
   width: 10px;
   height: 10px;
   border-radius: 50%;

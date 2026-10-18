@@ -134,6 +134,34 @@
   color: var(--ink-soft);
   font-size: 13px;
 }
+/* Foods that ran out: information only, one wrapping line */
+.s-svc__ranout {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px var(--s2);
+  margin: 0 0 var(--s2);
+  font-size: 13px;
+  color: var(--ink-soft);
+}
+.s-svc__ranout-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--bad);
+  font-weight: 700;
+}
+.s-svc__ranout-label::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--seg);
+}
+.s-svc__ranout-item b {
+  color: var(--bad);
+  font-weight: 700;
+}
 .s-svc__rows {
   list-style: none;
   margin: 0;

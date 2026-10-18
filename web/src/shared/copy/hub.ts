@@ -5,6 +5,8 @@ export const hub = {
   lead: 'Every page in one place. Open one here, or copy its link.',
   nav: 'Dashboard',
   open: 'Open',
+  /** Each Open link names its page, and which school, since two pages share a name. */
+  openLabel: (name: string, live: boolean) => `Open ${name}, ${live ? 'live school' : 'simulated school'}`,
   copy: 'Copy link',
   copied: 'Copied',
   copyFailed: 'Couldn’t copy',

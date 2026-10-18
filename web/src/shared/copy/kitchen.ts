@@ -75,6 +75,7 @@ export const kitchen = {
       lessWaste: 'Less food thrown away',
       shortPenalty: (ratio: number) => `Running short, counted at ${ratio}× food cost`,
       netLabel: 'Saved overall',
+      rounded: 'Figures rounded to the nearest dollar.',
       how: (ratio: number) =>
         `A serving short is counted as ${ratio} times its food cost, so this number already pays for running short.`,
       howToggle: 'How we count this',
@@ -86,6 +87,7 @@ export const kitchen = {
     headingNeutral: 'Eaten, and what each plan would have cooked, by school day',
     summary: (n: number) =>
       `Servings per day, all items, ${n} school days. Plan lines show what each plan would have cooked.`,
+    axisFrom: (n: string) => `The axis starts at ${n}, not zero.`,
     yLabel: 'Servings per day',
     xLabel: 'School day',
     taken: 'Eaten by students',
@@ -127,6 +129,7 @@ export const kitchen = {
     summary: (att: number, price: number, ratio: number) =>
       `Attendance ${att}% · Prices ${price}% · Running out ${ratio}×`,
     open: 'Adjust',
+    quickOpen: 'Move the sliders',
     close: 'Done',
     readout: (servings: string, leftovers: string, waste: string) =>
       `${servings} servings · ${leftovers} left · ${waste} waste`,

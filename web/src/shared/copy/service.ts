@@ -20,8 +20,11 @@ export const service = {
   barAlt: (packed: number, checkedIn: number, got: number, missed: number) =>
     `${checkedIn} of ${n(packed, 'student', 'students')} checked in: ${got} got their picks, ${missed} said something ran out, ${packed - checkedIn} not checked in yet.`,
 
-  listLabel: 'Foods on today’s menu, most ran out first',
-  listCaption: 'Most ran out first. Numbers show how many packed each.',
+  listLabel: 'Foods most likely to have leftovers',
+  listCaption: 'Likely leftovers: did not run out, most still waiting first. Numbers show how many packed each.',
+  listEmpty: 'Every food ran out for someone today, so there is little left to give away.',
+  ranOutLabel: 'Ran out:',
+  ranOutCount: (n: number) => (n === 1 ? '(1 student missed it)' : `(${n} students missed it)`),
   nobody: 'Nobody packed this',
 
   makeFree: 'Make free',

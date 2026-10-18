@@ -11,7 +11,10 @@ const t = copy.school.wants
 const k = t.kpi
 const SPARK_DAYS = 5
 
-/** Four summary tiles, each a number with a tiny chart. Only numbers the summary returns. */
+/**
+ * Four summary tiles, each a number with a tiny chart. Only numbers the summary returns.
+ * Phones show only the first two: participation and the leading entree are the first cards below.
+ */
 export function Kpis({ data }: { data: AdminSummary }) {
   const { vote, players } = data
   const playersText = fmtInt(players.total)
@@ -58,7 +61,7 @@ export function Kpis({ data }: { data: AdminSummary }) {
         <p className="s-kpi__foot">{k.votesFoot(earlier.length)}</p>
       </li>
 
-      <li className="s-kpi">
+      <li className="s-kpi s-kpi--wide-only">
         <p className="s-kpi__label">{k.active}</p>
         <div className="s-kpi__main">
           <span className="s-kpi__big">
@@ -71,7 +74,7 @@ export function Kpis({ data }: { data: AdminSummary }) {
         <p className="s-kpi__foot">{k.activeFoot(fmtInt(players.voted_last_5_days), playersText)}</p>
       </li>
 
-      <li className="s-kpi s-kpi--leader">
+      <li className="s-kpi s-kpi--leader s-kpi--wide-only">
         <p className="s-kpi__label">{k.leader}</p>
         <div className="s-kpi__main">
           <span className="s-kpi__name">{top.length ? top.map((o) => o.name).join(' / ') : k.leaderNone}</span>

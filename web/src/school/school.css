@@ -435,6 +435,10 @@
 /* Presenter controls, tighter on small tablets: no note, no disabled button, no empty status
    line. Phones get the bar's own one-row layout (shared/ui/demoBar.css). */
 @media (max-width: 699px) {
+  /* These two repeat the Participation and vote cards right below them on phones */
+  .s-kpi--wide-only {
+    display: none;
+  }
   .s-demobar {
     padding: var(--s3);
     gap: var(--s2);

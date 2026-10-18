@@ -142,7 +142,7 @@ function PageRow({ p, onFullScreen }: { p: Page; onFullScreen: () => void }) {
         )}
       </div>
       <div className="hub-row__actions">
-        <Link to={`/${p.path}`} className="btn btn--quiet hub-row__btn">
+        <Link to={`/${p.path}`} className="btn btn--quiet hub-row__btn" aria-label={t.openLabel(page.name, LIVE.includes(p))}>
           {t.open}
         </Link>
         <CopyButton url={url} />
@@ -194,8 +194,8 @@ export function Hub() {
       <section className="hub-group hub-group--live" aria-labelledby="hub-live-h">
         <div className="hub-group__head">
           <h2 id="hub-live-h" className="hub-group__title">
-            <span className="hub-group__pulse" aria-hidden="true" />
             {t.groups.live.heading}
+            <span className="hub-group__pulse" aria-hidden="true" />
           </h2>
           <p className="hub-group__line">{t.groups.live.line}</p>
         </div>

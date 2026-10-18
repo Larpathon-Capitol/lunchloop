@@ -82,6 +82,7 @@ export function KitchenView() {
   const reduce = useReducedMotion()
   const [drawerOpen, setDrawerOpen] = useState(false)
   const tilesRef = useRef<HTMLDivElement>(null)
+  const simRef = useRef<HTMLDivElement>(null)
   const openDrawer = useCallback(
     (open: boolean) => {
       setDrawerOpen(open)
@@ -112,6 +113,14 @@ export function KitchenView() {
     )
   }
 
+  const goToSliders = () => {
+    const el = simRef.current
+    if (!el) return
+    el.scrollIntoView({ block: 'center', behavior: reduce ? 'auto' : 'smooth' })
+    el.querySelector<HTMLInputElement>('input[type="range"]')?.focus({ preventScroll: true })
+  }
+  const pct = (m: number) => Math.round(m * 100)
+
   const day = fmtDay(sim.date, { weekday: 'long', month: 'short', day: 'numeric' })
 
   return (
@@ -120,6 +129,19 @@ export function KitchenView() {
         <h1 className="kitchen__title">{t.pageTitle}</h1>
         <SimulatedTag />
         <p className="kitchen__sub num">{t.pageSub(day, fmtInt(sim.attendance))}</p>
+        {!phone && (
+          <div className="k-quick">
+            <span className="k-quick__title">{t.sim.heading}</span>
+            <ul className="k-quick__vals num">
+              <li>{t.sim.attendance} <b>{pct(controls.attendance)}%</b></li>
+              <li>{t.sim.price} <b>{pct(controls.price)}%</b></li>
+              <li>{t.sim.ratio} <b>{controls.ratio}×</b></li>
+            </ul>
+            <button type="button" className="btn btn--quiet k-quick__btn" onClick={goToSliders}>
+              {t.sim.quickOpen}
+            </button>
+          </div>
+        )}
       </header>
 
       <div className="kitchen__savings">
@@ -140,7 +162,7 @@ export function KitchenView() {
             </div>
             <PrepList items={sim.items} />
           </div>
-          <div className="kitchen__sim">
+          <div ref={simRef} className="kitchen__sim">
             <Simulator
               controls={controls}
               onChange={setControls}

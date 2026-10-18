@@ -1,6 +1,8 @@
 // Lunch service for staff: who checked in after eating today's packed tray, which foods ran out,
-// and a compact button per food to make its leftovers free. Foods students packed come first,
-// most ran out first; the rest fold behind one "show more" toggle.
+// and a compact button per food to make its leftovers free. Foods that ran out are listed in one
+// line (there is nothing left of them to give away). The give-away list shows the foods most
+// likely to have leftovers first: packed foods that did not run out, most still waiting first,
+// then foods nobody packed. Everything past the first few folds behind one "show more" toggle.
 import { useEffect, useId, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { motion } from 'framer-motion'
 import { api, ApiError } from '../shared/api'
@@ -192,9 +194,12 @@ export function ServicePanel({ service, freeList, token, onChanged, onExpired }:
 
 const groupRank = (c: Item['component']) => TRAY_ORDER.indexOf(c)
 
-/** Most ran out first, then most still waiting, then most wanted; ties keep tray order. */
+/**
+ * Most likely to have leftovers first: most students still waiting (some will not come back),
+ * then the biggest batch; ties keep tray order.
+ */
 function rank(a: Item, b: Item) {
-  return b.missed - a.missed || b.waiting - a.waiting || b.wanted - a.wanted || groupRank(a.component) - groupRank(b.component)
+  return b.waiting - a.waiting || b.wanted - a.wanted || groupRank(a.component) - groupRank(b.component)
 }
 
 interface FoodListProps {
@@ -211,28 +216,40 @@ function FoodList({ items, isFree, overrides, sinceOf, reduce, onMakeFree, onUnd
   const [open, setOpen] = useState(false)
   const listId = useId()
   const first = useSyncExternalStore(subscribePhone, isPhone, () => false) ? FIRST_PHONE : FIRST
-  const sorted = useMemo(() => {
-    const packed = items.filter((i) => i.wanted > 0).sort(rank)
+  const { ranOut, sorted } = useMemo(() => {
+    const ranOut = items.filter((i) => i.missed > 0).sort((a, b) => b.missed - a.missed || groupRank(a.component) - groupRank(b.component))
+    const packed = items.filter((i) => i.wanted > 0 && i.missed === 0).sort(rank)
     const nobody = items.filter((i) => i.wanted === 0).sort((a, b) => groupRank(a.component) - groupRank(b.component))
-    return [...packed, ...nobody]
+    return { ranOut, sorted: [...packed, ...nobody] }
   }, [items])
   const scale = Math.max(1, ...items.map((i) => i.wanted))
 
-  // Folded: the first few packed foods, plus any food that is free or was just changed here,
-  // so a button never vanishes from under the person who pressed it.
+  // Folded: the first few likely-leftover foods, plus any food that is free or was just changed
+  // here (even one that ran out), so a button never vanishes from under the person who pressed it.
   const shown = new Set<string>()
-  sorted.filter((i) => i.wanted > 0).slice(0, first).forEach((i) => shown.add(i.item_id))
+  sorted.slice(0, first).forEach((i) => shown.add(i.item_id))
+  const pinned = ranOut.filter((i) => isFree(i) || overrides[i.item_id])
   sorted.forEach((i) => {
     if (isFree(i) || overrides[i.item_id]) shown.add(i.item_id)
   })
   const hidden = sorted.filter((i) => !shown.has(i.item_id))
-  const visible = open ? sorted : sorted.filter((i) => shown.has(i.item_id))
+  const visible = [...(open ? sorted : sorted.filter((i) => shown.has(i.item_id))), ...pinned]
 
   return (
     <div className="s-svc__foods">
-      <p className="s-svc__caption" aria-hidden="true">
-        {sc.listCaption}
-      </p>
+      {ranOut.length > 0 && (
+        <p className="s-svc__ranout">
+          <span className="s-svc__ranout-label" data-k="missed">{sc.ranOutLabel}</span>
+          {ranOut.map((i, n) => (
+            <span key={i.item_id} className="s-svc__ranout-item">
+              {i.name} <b>{i.missed}</b>
+              {n < ranOut.length - 1 && <span aria-hidden="true">,</span>}
+              <span className="visually-hidden"> {sc.ranOutCount(i.missed)}</span>
+            </span>
+          ))}
+        </p>
+      )}
+      <p className="s-svc__caption">{visible.length ? sc.listCaption : sc.listEmpty}</p>
       <ul id={listId} className="s-svc__rows" aria-label={sc.listLabel}>
         {visible.map((item) => {
           const o = overrides[item.item_id]

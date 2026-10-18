@@ -42,7 +42,7 @@ export function Totals({ totals, start, busy }: { totals: TotalsData; start: Tot
           const d = base === undefined ? null : delta(now, base)
           const max = Math.max(now, base ?? 0)
           const w = (n: number) => `${max > 0 ? (n / max) * 100 : 0}%`
-          const tone = d === null || d === 0 ? '' : d > 0 ? 'up' : 'down'
+          const tone = d === null || d === 0 ? 'same' : d > 0 ? 'up' : 'down'
           return (
             <div key={key} className="k-tile">
               <dt className="k-tile__label">{label}</dt>
@@ -53,7 +53,7 @@ export function Totals({ totals, start, busy }: { totals: TotalsData; start: Tot
                     <span className="k-tile__bar k-tile__bar--now" style={{ width: w(now) }} />
                     <span className="k-tile__bar k-tile__bar--start" style={{ width: w(base) }} />
                   </span>
-                  <span className={`k-tile__delta ${tone ? `k-tile__delta--${tone}` : ''}`}>
+                  <span className={`k-tile__delta k-tile__delta--${tone}`}>
                     {d === null || d === 0 ? t.same : t.delta(d > 0 ? '+' : '−', Math.abs(d))}
                   </span>
                 </dd>
