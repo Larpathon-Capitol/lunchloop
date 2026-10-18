@@ -23,18 +23,18 @@ const NARROW: Placement[] = [
   { id: 'apple', left: 10, top: 16, size: 58, depth: 14, tilt: -8, float: 3.6 },
   { id: 'milk', left: 88, top: 13, size: 54, depth: 28, tilt: 7, float: 4.2 },
   { id: 'taco', left: 87, top: 44, size: 66, depth: 48, tilt: -6, float: 3.2 },
-  { id: 'broccoli', left: 9, top: 45, size: 56, depth: 6, tilt: 6, float: 4.6 },
+  { id: 'broccoli', left: 8, top: 40, size: 52, depth: 6, tilt: 6, float: 4.6 },
 ]
 
-// Wide screens: a loose ring around the tray on the right, with two far ones near the copy.
+// Wide screens: a loose ring around the tray on the right, with a far one near the copy. The
+// top center is the clock's, and the bottom band belongs to the tray canvas's foods.
 const WIDE: Placement[] = [
-  { id: 'apple', left: 49, top: 16, size: 92, depth: 14, tilt: -8, float: 3.8 },
+  { id: 'apple', left: 62, top: 19, size: 92, depth: 14, tilt: -8, float: 3.8 },
   { id: 'milk', left: 92, top: 15, size: 84, depth: 28, tilt: 7, float: 4.2 },
   { id: 'taco', left: 93, top: 66, size: 112, depth: 48, tilt: -6, float: 3.3 },
   { id: 'broccoli', left: 52, top: 72, size: 86, depth: 28, tilt: 6, float: 4.6 },
   { id: 'rice', left: 72, top: 8, size: 70, depth: 6, tilt: 4, float: 4.0 },
-  { id: 'orange', left: 74, top: 86, size: 64, depth: 6, tilt: -5, float: 3.6 },
-  { id: 'carrot', left: 39, top: 9, size: 58, depth: 6, tilt: 12, float: 4.4 },
+  { id: 'carrot', left: 30, top: 10, size: 58, depth: 6, tilt: 12, float: 4.4 },
 ]
 
 const WIDE_QUERY = '(min-width: 900px)'

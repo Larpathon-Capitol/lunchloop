@@ -1,6 +1,7 @@
 /* The hero: one full screen on the pink ground. The world's backdrop behind, the tray floating
-   above it, the words low on phones and on the left on wide screens. Layers: backdrop and far
-   stickers (0, on body), tray stage (1), this page (2). */
+   above it, the lock-in clock hanging at the top center, the words low on phones and on the left
+   on wide screens. The bottom fifth stays clear of words: the tray canvas draws foods there.
+   Layers: backdrop and far stickers (0, on body), tray stage (1), this page (2). */
 
 .home-field {
   position: fixed;
@@ -17,29 +18,14 @@
   color: var(--ink);
 }
 
-/* Phones: the tray sits under the switcher, the words below it. */
+/* Phones: the clock under the bar, the tray under the clock, the words below it. */
 .home__slot {
   position: absolute;
   left: 4vw;
   width: 92vw;
-  top: calc(var(--bar-h) + 76px);
-  height: 34svh;
+  top: 168px;
+  height: 28svh;
   pointer-events: none;
-}
-
-.home__switch {
-  position: absolute;
-  z-index: 3;
-  top: calc(var(--bar-h) + 2px);
-  left: 0;
-  right: 0;
-  display: flex;
-  justify-content: center;
-  padding: 0 var(--s4);
-  pointer-events: none;
-}
-.home__switch > * {
-  pointer-events: auto;
 }
 
 .home__mascot {
@@ -90,40 +76,34 @@
   }
 }
 
-/* Words. On phones they sit on a paper sheet rising from the bottom edge, so they read over
-   any world's backdrop; the menu tape is wrapped across its top edge. */
+/* Words. On phones they sit low, ending above the foods band; a soft pool of page pink behind
+   them keeps them readable over any world's backdrop while its art still shows at the edges. */
 .home__copy {
   position: absolute;
   z-index: 2;
   left: 0;
   right: 0;
-  bottom: 0;
-  padding: var(--s8) var(--s5) var(--s2);
-  background: var(--surface);
-  border-top: 2px solid var(--ink);
-  border-radius: 28px 28px 0 0;
+  bottom: 20svh;
+  padding: 0 var(--s5);
 }
-.home__copy .home__tape {
+/* The live door has no demo links: hold the button where it sits on the demo door. */
+.home__copy--live {
+  padding-bottom: 48px;
+}
+.home__copy::before {
+  content: '';
   position: absolute;
-  left: 0;
-  right: 0;
-  top: -20px;
-  bottom: auto;
-}
-
-.home__meta {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--s2) var(--s3);
-  margin-bottom: var(--s3);
+  inset: -14% -8% -12%;
+  z-index: -1;
+  background: radial-gradient(closest-side, var(--pink-1) 58%, color-mix(in srgb, var(--pink-1) 72%, transparent) 78%, transparent);
+  pointer-events: none;
 }
 
 .hl {
   font-family: var(--font-display);
   font-weight: 900;
   font-synthesis: none;
-  font-size: clamp(44px, 12vw, 104px);
+  font-size: clamp(40px, 11.2vw, 104px);
   line-height: 0.98;
   letter-spacing: -0.005em;
   color: var(--ink);
@@ -140,12 +120,24 @@
   line-height: 1.04;
   color: var(--accent-2);
 }
-/* Americas: hand-painted sign letters, one cobalt drop under the ink. */
+/* Each world's letters carry a shade in the page's own pinks, so the headline belongs to the
+   pink ground instead of sitting on top of it. Americas: sign painter's letters, ink with a thin
+   cream gap and a rose drop. East Asia: indigo with a misregistered rose print, like a riso
+   poster. Mediterranean: aubergine with a soft blush under it. */
 :root[data-theme='americas'] .hl__word {
-  text-shadow: 3px 3px 0 var(--accent-2);
+  text-shadow:
+    0.028em 0.028em 0 var(--pink-1),
+    0.065em 0.065em 0 var(--pink-5);
 }
-:root[data-theme='americas'] .hl__word--spin,
-:root[data-theme='americas'] .hl__word--spin .hl__word-in {
+:root[data-theme='asia'] .hl__word {
+  text-shadow: 0.05em 0.04em 0 var(--pink-4);
+}
+:root[data-theme='medi'] .hl__word {
+  text-shadow: 0.04em 0.04em 0 var(--pink-3);
+}
+/* The word on the swash stays clean ink: the swash is its color. */
+:root[data-theme] .hl__word--spin,
+:root[data-theme] .hl__word--spin .hl__word-in {
   text-shadow: none;
 }
 
@@ -194,8 +186,10 @@
   inset: 0;
   padding: 0 0.12em;
   margin: 0;
-  /* Clip only top and bottom, so a word never gets cut while the swash catches up. */
-  overflow: visible clip;
+  /* The rolling words show only through the swash's own band (a little taller, for the tall
+     letters), so a word coming or going never shows above or below it. Never clipped sideways,
+     so a word is never cut while the swash catches up. */
+  clip-path: inset(0.1em -1em -0.02em -1em);
 }
 .hl__word--spin {
   display: block;
@@ -296,33 +290,77 @@
   }
 }
 
-/* Streak chip */
-.streak {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  min-height: 34px;
-  padding: 0 var(--s3) 0 10px;
-  border: 1.5px solid var(--pink-4);
-  border-radius: var(--radius-pill);
-  background: var(--pink-2);
-  color: var(--ink);
-  font-size: var(--text-sm);
-  font-weight: 700;
-}
-.streak__flame {
-  display: inline-flex;
-  transform-origin: 50% 90%;
+/* The lock-in clock: a little flip board hanging from two cords at the top center, like the menu
+   board over a lunch line. Plate, tiles and digits take each world's colors and display face. */
+.home__clock {
+  position: absolute;
+  z-index: 3;
+  /* Phones: below the logo, which owns the top 84px. */
+  top: 88px;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+  /* Swings from where the cords meet the plate. */
+  transform-origin: 50% 0;
 }
 
-/* Flip board countdown */
 .flip {
+  --plate: var(--accent-1);
+  --plate-ink: var(--ink);
+  --tile: var(--ink);
+  --tile-ink: var(--pink-1);
+  --fold: rgb(255 255 255 / 0.16);
+  position: relative;
   display: inline-flex;
+  flex-direction: column;
   align-items: center;
-  gap: var(--s2);
-  font-size: var(--text-sm);
-  font-weight: 600;
-  color: var(--ink-soft);
+  gap: 6px;
+  padding: 9px 16px 11px;
+  border: 2px solid var(--ink);
+  border-radius: 15px;
+  background: var(--plate);
+  color: var(--plate-ink);
+  box-shadow: 0 10px 22px -12px rgb(58 22 38 / 0.45);
+}
+:root[data-theme='asia'] .flip {
+  --plate-ink: var(--pink-1);
+  --tile: var(--pink-1);
+  --tile-ink: var(--accent-1);
+  --fold: rgb(35 42 92 / 0.14);
+}
+:root[data-theme='medi'] .flip {
+  --plate-ink: var(--pink-1);
+  --tile: var(--pink-1);
+  --tile-ink: var(--accent-2);
+  --fold: rgb(107 33 69 / 0.14);
+}
+/* The two cords, running up off the top of the screen, each tied through an eyelet. */
+.flip::before,
+.flip::after {
+  content: '';
+  position: absolute;
+  bottom: calc(100% - 9px);
+  width: 9px;
+  height: 100vh;
+  background:
+    radial-gradient(circle at 50% calc(100% - 4.5px), var(--plate) 1.6px, var(--ink) 2.1px 3.6px, transparent 4.1px),
+    linear-gradient(var(--ink), var(--ink)) 50% 0 / 2px calc(100% - 7px) no-repeat;
+}
+.flip::before {
+  left: 18%;
+}
+.flip::after {
+  right: 18%;
+}
+.flip__label {
+  font-family: var(--font-ui);
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
 }
 .flip__board {
   display: inline-flex;
@@ -332,24 +370,24 @@
 .flip__group {
   display: inline-flex;
   align-items: center;
-  gap: 2px;
+  gap: 3px;
 }
 .flip__colon {
-  width: 9px;
-  height: 12px;
+  width: 10px;
+  height: 14px;
   background:
-    radial-gradient(circle, var(--ink) 1.6px, transparent 2px) 50% 2px / 4px 4px no-repeat,
-    radial-gradient(circle, var(--ink) 1.6px, transparent 2px) 50% 8px / 4px 4px no-repeat;
+    radial-gradient(circle, var(--plate-ink) 1.8px, transparent 2.3px) 50% 0 / 5px 5px no-repeat,
+    radial-gradient(circle, var(--plate-ink) 1.8px, transparent 2.3px) 50% 100% / 5px 5px no-repeat;
 }
 .flip__tile {
   position: relative;
   display: inline-flex;
   justify-content: center;
-  width: 19px;
-  height: 26px;
+  width: 23px;
+  height: 32px;
   overflow: hidden;
-  border-radius: 5px;
-  background: var(--ink);
+  border-radius: 6px;
+  background: var(--tile);
   perspective: 120px;
 }
 /* The fold line across the middle of each tile. */
@@ -360,14 +398,24 @@
   right: 0;
   top: 50%;
   height: 1px;
-  background: rgb(255 255 255 / 0.14);
+  background: var(--fold);
 }
 .flip__digit {
   display: block;
-  line-height: 26px;
-  font-weight: 800;
-  font-size: 16px;
-  color: var(--pink-1);
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-synthesis: none;
+  line-height: 32px;
+  font-size: 22px;
+  color: var(--tile-ink);
+}
+/* Dela Gothic's figures run wide: a size down so they sit inside their tiles. */
+:root[data-theme='asia'] .flip__digit {
+  font-size: 18px;
+}
+:root[data-theme='asia'] .flip__digit,
+:root[data-theme='medi'] .flip__digit {
+  font-weight: 400;
 }
 
 /* Quiet links */
@@ -404,72 +452,7 @@
   outline-offset: 2px;
 }
 
-/* Menu tape */
-.home__tape {
-  position: absolute;
-  z-index: 2;
-  left: 0;
-  right: 0;
-  bottom: 3svh;
-  pointer-events: none;
-}
-.tapes {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 0;
-}
-.tape {
-  overflow: hidden;
-  border-block: 2px solid var(--ink);
-  mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
-}
-.tape--a {
-  background: var(--pink-5);
-  color: var(--ink);
-  rotate: -2.5deg;
-  margin-inline: -4vw;
-}
-.tape--b {
-  background: var(--field);
-  color: var(--on-field);
-  rotate: 1.6deg;
-  margin: -6px -4vw 0;
-}
-.tape__run {
-  display: flex;
-  width: max-content;
-  animation: tape-run 48s linear infinite;
-}
-.tape--b .tape__run {
-  animation-direction: reverse;
-  animation-duration: 56s;
-}
-.tape__run.is-still {
-  animation: none;
-}
-@keyframes tape-run {
-  to {
-    transform: translateX(-50%);
-  }
-}
-.tape__item {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--s3);
-  padding: 7px var(--s3) 7px 0;
-  font-size: var(--text-sm);
-  font-weight: 700;
-  white-space: nowrap;
-}
-.tape__dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: currentColor;
-  opacity: 0.8;
-}
-
-/* Fixed label that answers the hover, away from the cursor. */
+/* Fixed label that answers the hover, away from the cursor and clear of the clock. */
 .home__hint {
   position: fixed;
   right: max(var(--s6), 4vw);
@@ -505,8 +488,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   .sticker__float.is-floating,
-  .cta__shine,
-  .tape__run {
+  .cta__shine {
     animation: none;
   }
 }
@@ -514,7 +496,7 @@
 /* Short phones: tighten everything so it still fits in one screen. */
 @media (max-height: 760px) and (max-width: 899px) {
   .home__slot {
-    height: 30svh;
+    height: 24svh;
   }
   .home__lead {
     display: none;
@@ -522,12 +504,29 @@
 }
 
 @media (max-width: 899px) {
-  /* The bar already shows the brand up here; the group keeps its name for screen readers. */
-  .home__switch .ll-switcher__heading {
+  /* No cords on phones: they would run through the logo above. */
+  .flip::before,
+  .flip::after {
     display: none;
   }
   .home__quiet {
+    width: fit-content;
+    margin-left: calc(-1 * var(--s3));
+    padding: 0 var(--s3);
+    gap: 0 var(--s3);
+    border-radius: 16px;
+    background: var(--pink-1);
     font-size: 13px;
+  }
+  .home__sim {
+    padding-bottom: 2px;
+  }
+}
+/* Narrow phones: the two quiet links no longer fit on one line; the dashboard link already
+   says demo, so the extra note steps aside instead of wrapping onto the band below. */
+@media (max-width: 380px) {
+  .home__sim {
+    display: none;
   }
   .home__staff {
     min-height: 40px;
@@ -538,22 +537,26 @@
   .home__slot {
     left: 46vw;
     width: 50vw;
-    top: 13svh;
+    top: 14svh;
     height: 62svh;
   }
-  .home__switch {
-    top: 14px;
+  .home__clock {
+    top: 18px;
+  }
+  /* Too narrow to center it beside the logo: hang it over the tray instead. */
+  @media (max-width: 1099px) {
+    .home__clock {
+      left: 46vw;
+      right: 4vw;
+    }
   }
   .home__copy {
     left: max(var(--s12), 6vw);
     right: auto;
-    top: 15svh;
+    top: 19svh;
     bottom: auto;
     max-width: 44vw;
     padding: 0;
-    background: none;
-    border: 0;
-    border-radius: 0;
   }
   .hl {
     font-size: clamp(64px, 6.6vw, 116px);
@@ -564,16 +567,13 @@
   :root[data-theme='medi'] .hl {
     font-size: clamp(60px, 6.3vw, 108px);
   }
-  .home__meta {
-    margin-bottom: var(--s5);
-  }
   .home__lead {
     margin-top: var(--s5);
     font-size: var(--text-lg);
-    max-width: 36ch;
+    max-width: 34ch;
   }
   .home__actions {
-    margin-top: var(--s8);
+    margin-top: var(--s6);
   }
   .cta {
     min-height: 64px;
@@ -589,22 +589,31 @@
     border-radius: var(--radius-pill);
     background: var(--pink-1);
   }
-  /* A soft pool of page pink behind the words, so they stay readable over any world's
-     backdrop while its decoration still shows at the edges. */
   .home__copy::before {
-    content: '';
-    position: absolute;
     inset: -18% -22% -16% -30%;
-    z-index: -1;
     background: radial-gradient(closest-side, var(--pink-1) 62%, color-mix(in srgb, var(--pink-1) 70%, transparent) 80%, transparent);
-    pointer-events: none;
   }
-  .tape__item {
-    font-size: var(--text-base);
-    padding-block: 9px;
+  .flip {
+    gap: 8px;
+    padding: 12px 20px 14px;
+    border-radius: 18px;
   }
-  .home__hint {
-    top: auto;
-    bottom: calc(3svh + 110px);
+  .flip__label {
+    font-size: 13px;
+  }
+  .flip__tile {
+    width: 30px;
+    height: 42px;
+  }
+  .flip__digit {
+    line-height: 42px;
+    font-size: 30px;
+  }
+  :root[data-theme='asia'] .flip__digit {
+    font-size: 24px;
+  }
+  .flip__colon {
+    width: 12px;
+    height: 18px;
   }
 }

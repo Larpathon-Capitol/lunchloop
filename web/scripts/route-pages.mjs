@@ -3,7 +3,7 @@
 import { copyFileSync, mkdirSync } from 'node:fs'
 
 const routes = [
-  'hub', 'student', 'student/called-it', 'student/badges',
+  'hub', 'join', 'student', 'student/called-it', 'student/badges',
   'school', 'school/kitchen', 'kitchen',
   'live', 'live/called-it', 'live/badges', 'live/admin',
   'behind-the-scenes', 'behind-the-scenes/simulated', 'behind-the-scenes/live',

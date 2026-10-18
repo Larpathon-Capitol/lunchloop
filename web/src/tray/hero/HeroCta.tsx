@@ -1,8 +1,7 @@
 // The hero's main button: chunky pink press button with a shine sweep, and a gentle magnetic
-// pull toward the pointer on desktop. Also the small streak chip that sits beside it.
+// pull toward the pointer on desktop.
 import { motion, useMotionValue, useSpring } from 'framer-motion'
 import { useEffect, useMemo, useRef, type ReactNode } from 'react'
-import { heroCopy } from './copy'
 
 const tap = { type: 'spring', stiffness: 600, damping: 18, mass: 0.6 } as const
 const pop = { type: 'spring', stiffness: 380, damping: 22, mass: 0.8 } as const
@@ -74,49 +73,5 @@ export function HeroCta({ children, onClick, onIntent, reduce, delay = 0 }: Hero
         <span className="cta__shine" aria-hidden="true" />
       </motion.button>
     </motion.div>
-  )
-}
-
-/** A small flame drawn for the streak chip. */
-function Flame() {
-  return (
-    <svg viewBox="0 0 20 24" width="16" height="19" aria-hidden="true" focusable="false">
-      <path
-        d="M10 1.5c1 3.6 5.6 6.2 6.9 10.4 1.4 4.6-1.6 10.1-6.9 10.1S1.7 18 3.2 13.6c.8-2.3 2.6-3.3 3.1-5.8.9 1.4 1.1 2.7 1 3.9C9.4 9.5 10.6 5.6 10 1.5Z"
-        fill="var(--pink-5, #fb6f92)"
-        stroke="var(--ink, #3a1626)"
-        strokeWidth="1.6"
-        strokeLinejoin="round"
-      />
-      <path d="M10 13.5c1.6 1.6 2.8 3.3 2.2 5.2-.4 1.4-1.4 2-2.2 2s-2.4-.8-2.4-2.6c0-1.6 1.6-2.6 2.4-4.6Z" fill="var(--accent-1, #ffc72c)" />
-    </svg>
-  )
-}
-
-/** Props for the streak chip. */
-export interface StreakChipProps {
-  streak: number
-  reduce: boolean
-  delay?: number
-}
-
-export function StreakChip({ streak, reduce, delay = 0 }: StreakChipProps) {
-  return (
-    <motion.p
-      className="streak"
-      initial={reduce ? false : { opacity: 0, x: -14, scale: 0.9 }}
-      animate={{ opacity: 1, x: 0, scale: 1 }}
-      transition={{ ...pop, delay }}
-    >
-      <motion.span
-        className="streak__flame"
-        initial={reduce ? false : { scale: 1 }}
-        animate={reduce ? undefined : { scale: [1, 0.6, 1.35, 1] }}
-        transition={{ duration: 0.55, times: [0, 0.2, 0.6, 1], delay: delay + 0.25 }}
-      >
-        <Flame />
-      </motion.span>
-      {heroCopy.streak(streak)}
-    </motion.p>
   )
 }
