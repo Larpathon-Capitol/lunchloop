@@ -1,24 +1,15 @@
 // The stamp book's catalog: every stamp, the group it sits in, its shape, and how far a player
 // has got toward it. Earned comes from the server's badge list; progress comes from the newer
 // `stamp_counts` block on /api/me when the server sends it, else from fields /api/me already had.
-import type { Me } from '../../shared/api'
+import type { Me, StampCounts } from '../../shared/api'
 import { stamps as t } from '../../shared/copy/stamps'
 import type { ShapeId } from './shapes'
+
+export type { StampCounts }
 
 export type StampId = keyof typeof t.list
 export type GroupId = keyof typeof t.groups
 type Unit = keyof typeof t.units
-
-/** Optional block from /api/me (see api/game.py player_counts). Missing on older servers. */
-export interface StampCounts {
-  trays: number
-  entrees: number
-  checkins: number
-  votes: number
-  calls: number
-  correct_calls: number
-  longest_streak: number
-}
 
 interface StampDef {
   id: StampId
@@ -58,8 +49,7 @@ export interface StampView extends StampDef {
 }
 
 function countsOf(me: Me): StampCounts | null {
-  const raw = (me as Me & { stamp_counts?: unknown }).stamp_counts
-  return raw && typeof raw === 'object' ? (raw as StampCounts) : null
+  return me.stamp_counts ?? null
 }
 
 /**

@@ -14,8 +14,6 @@ export interface CardWords {
   seal: string
   /** The line the mascot keeps beside a locked call. */
   guard: string[]
-  /** Said once, the moment the call locks. */
-  hype: string[]
   /** Beside a scored call. */
   right: string[]
   wrong: string[]
@@ -82,7 +80,6 @@ export const callit = {
         'Bold call. I’d bet my crispy skin on it.',
         'Locked and loaded. Now we wait for lunch.',
       ],
-      hype: ['Locked in! Great call.', 'Ooh, bold. I like it.', 'That card is ours now.'],
       right: ['Called it! I knew you had it.', 'Winner! Victory spin for you.'],
       wrong: ['Close one. We get it back next time.', 'Not this round. Shake it off, call again.'],
       waiting: ['Still waiting on lunch. I’m watching it.'],
@@ -97,7 +94,6 @@ export const callit = {
         'A good call. Now we wait, quietly.',
         'I tied it to the branch for luck. Not that you need it.',
       ],
-      hype: ['Fortune drawn. Nice.', 'Sealed. Very calm of you.', 'Good call. I felt it too.'],
       right: ['You read the room. Well done.', 'Great luck, as promised.'],
       wrong: ['Not this time. Tomorrow is a new slip.', 'Small luck today. That’s still luck.'],
       waiting: ['Still waiting on lunch. Patience.'],
@@ -112,7 +108,6 @@ export const callit = {
         'Ooh, I have a good feeling about this one.',
         'I won’t peek. Okay, I might peek a little.',
       ],
-      hype: ['Sealed! Lovely call.', 'Ooh, good taste, my friend.', 'Into the envelope it goes.'],
       right: ['You were right! I’m so proud of you.', 'Look at you. A true caller.'],
       wrong: ['Ah, not this time. Come back tomorrow, okay?', 'Close! The next one is yours.'],
       waiting: ['Still waiting on lunch. I’m keeping it warm.'],

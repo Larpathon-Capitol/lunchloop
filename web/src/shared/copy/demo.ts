@@ -11,6 +11,7 @@ export const demo = {
   add: (n: number) => `Add ${n} ${n === 1 ? 'student' : 'students'}`,
   addShort: (n: number) => `Add ${n}`,
   addLabel: 'Add simulated students',
+  menu: 'Add students',
   adding: 'Adding students…',
   added: (added: number, trays: number) =>
     `Added ${added} ${added === 1 ? 'student' : 'students'}: ${trays} ${trays === 1 ? 'tray' : 'trays'} packed so far.`,

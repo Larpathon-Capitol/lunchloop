@@ -408,10 +408,11 @@ html[data-theme='medi'] .reel__slot--landed::before {
   }
 }
 
-/* Short screens (a phone on its side): a full-width pinned button would cover half the reel,
-   so it shrinks to fit its words and sits at the right. */
+/* Short screens (a phone on its side): no room to pin a button over the reel, so it stays in the
+   flow, sized to its words at the right. Tapping the reel spins too. */
 @media (max-width: 959px) and (max-height: 520px) {
   .vote-cta {
+    position: relative;
     justify-self: end;
   }
   .paper__action.vote-cta {

@@ -2,7 +2,7 @@
 import { StrictMode, useEffect, useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import '../shared/base.css'
-import { setMuted, sound, useMuted } from '../shared/sound'
+import { sound } from '../shared/sound'
 import { BrushProgress, HankoStamp, NumberRoll, StreakMilestone, XpToast, burstPetals, celebratePacked, driftPetals, isStreakMilestone } from './index'
 import './lab.css'
 
@@ -16,7 +16,6 @@ function Btn({ children, onClick, tone }: { children: React.ReactNode; onClick: 
 }
 
 function Lab() {
-  const muted = useMuted()
   const [stamp, setStamp] = useState(false)
   const [stampSize, setStampSize] = useState(104)
   const [num, setNum] = useState(7)
@@ -44,9 +43,6 @@ function Lab() {
     <main className="clab">
       <div className="clab-top">
         <h1>Celebrate lab</h1>
-        <Btn tone="quiet" onClick={() => setMuted(!muted)}>
-          {muted ? 'Sound off' : 'Sound on'}
-        </Btn>
       </div>
 
       <section aria-labelledby="h-orch">

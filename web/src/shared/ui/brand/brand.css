@@ -50,8 +50,25 @@
 }
 
 .ll-logo--hero {
+  position: relative;
+  isolation: isolate;
   gap: 11px;
   --word-size: 32px;
+}
+/* A soft paper glow behind the hero logo, so the garland, noren hem or tile border running
+   behind it reads as background instead of tangling with the letters. Static, no blur filter. */
+.ll-logo--hero::before {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  inset: -18px -30px -18px -22px;
+  border-radius: 50%;
+  background: radial-gradient(
+    closest-side,
+    color-mix(in srgb, var(--word-halo, #ffe5ec) 92%, transparent) 60%,
+    color-mix(in srgb, var(--word-halo, #ffe5ec) 0%, transparent) 100%
+  );
+  pointer-events: none;
 }
 /* On the hero the logo sits straight on the art, no card: a thin die-cut edge in the page pink
    keeps it legible over garlands, rays and tiles. */

@@ -5,7 +5,7 @@
 import { AnimatePresence, LayoutGroup, motion, useReducedMotion } from 'framer-motion'
 import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react'
 import { burstPetals } from '../celebrate/burst'
-import { UmeInline, mascotName, pickLine, ume } from '../mascot'
+import { UmeInline, mascotName, ume } from '../mascot'
 import { api, ApiError, type PrepItem } from '../shared/api'
 import { copy } from '../shared/copy'
 import { callit, stableLine } from '../shared/copy/callit'
@@ -200,8 +200,9 @@ export function CallItScreen() {
       const r = await api.guess(device, selected)
       void refreshMe()
       if (!alive.current) return
-      // The seal plays the world's stamp sound as it lands.
-      ume.react('excited', pickLine(words.hype), 2600)
+      // The seal plays the world's stamp sound as it lands. The mascot cheers without a bubble:
+      // its line is the one printed beside the locked card, so only one voice speaks at a time.
+      ume.react('excited', undefined, 2600)
       setLocked({ item_id: selected, target_date: r.target_date })
     } catch (e) {
       const status = e instanceof ApiError ? e.status : 0

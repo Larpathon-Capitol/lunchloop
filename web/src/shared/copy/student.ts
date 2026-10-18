@@ -122,58 +122,6 @@ export const student = {
     body: (day: string) => `Your vote for lunch on ${day} is in. A new vote opens on the next school day.`,
   },
 
-  meter: {
-    heading: 'Leftovers avoided',
-    week: (day: string) => `Week of ${day}`,
-    lead: 'Our simulated school cooked',
-    servings: (n: number) => (n === 1 ? 'fewer leftover serving than usual' : 'fewer leftover servings than usual'),
-    /** Wraps the dollar amount: ", and saved $63, even after counting the times it ran short." */
-    dollarsLead: ', and saved ',
-    dollarsTail: ', even after counting the times it ran short.',
-    end: '.',
-    none: 'Our simulated school didn’t avoid any leftovers that week.',
-  },
-
-  calledIt: {
-    title: 'Call it',
-    /** "Call tomorrow's top entree: Tuesday, Oct 20". */
-    heading: (day: string, tomorrow: boolean) => (tomorrow ? `Call tomorrow’s top entree: ${day}` : `Call the next school day’s top entree: ${day}`),
-    question: (day: string) => `Which entree will students pick most on ${day}?`,
-    choices: 'Entrees on the menu',
-    lead: 'A right call earns 25 XP. One call per day.',
-    lock: 'Lock in my call',
-    locking: 'Locking in',
-    pickFirst: 'Pick one to call',
-    lockedHeading: 'Call locked in',
-    lockedBody: (name: string, day: string) => `You called ${name}. We score it after lunch on ${day}.`,
-    already: 'This device already made today’s call.',
-    lastHeading: 'Your last call',
-    sealRight: 'Called it',
-    sealWrong: 'Not this time',
-    sealPending: 'Waiting for lunch',
-    lastRight: (name: string, day: string) => `${name} was the top entree on ${day}.`,
-    lastWrong: (name: string, day: string) => `${name} wasn’t the top pick on ${day}. Tomorrow is a fresh call.`,
-    lastPending: (name: string, day: string) => `${name} for ${day}. We score it after lunch.`,
-    rightXp: '+25 XP',
-    noDay: 'No school day coming up to call. Check back soon.',
-    empty: 'No entrees are on the menu for that day yet.',
-  },
-
-  stamps: {
-    title: 'Stamps',
-    earned: 'Earned',
-    notYet: 'Not yet',
-    list: {
-      streak_3: { name: 'Three day streak', seal: '3 days', days: 3 },
-      streak_7: { name: 'Seven day streak', seal: '7 days', days: 7 },
-      called_it_5: { name: 'Called it five times', seal: 'Caller', calls: 5 },
-    } as Record<'streak_3' | 'streak_7' | 'called_it_5', { name: string; seal: string; days?: number; calls?: number }>,
-    daysOf: (n: number, of: number) => `${n} of ${of} days`,
-    callsOf: (n: number, of: number) => `${n} of ${of} calls`,
-    callsProgress: 'Right calls so far',
-    rule: 'A day counts when you pack a tray or vote.',
-  },
-
   food: {
     group: 'Food group',
     allergens: 'Allergens',

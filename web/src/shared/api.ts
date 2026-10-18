@@ -137,6 +137,17 @@ export interface TodayLunch {
   checked_in: boolean | null
 }
 
+/** Per-stamp progress counts on /api/me (api/game.py player_counts). Missing on older servers. */
+export interface StampCounts {
+  trays: number
+  entrees: number
+  checkins: number
+  votes: number
+  calls: number
+  correct_calls: number
+  longest_streak: number
+}
+
 export interface Me {
   device: string
   streak: number
@@ -151,6 +162,8 @@ export interface Me {
   packed_today: boolean
   today_lunch: TodayLunch | null
   free_today: FreeItem[]
+  /** Progress toward each stamp. */
+  stamp_counts?: StampCounts
   simulated: true
 }
 

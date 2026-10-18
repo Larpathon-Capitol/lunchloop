@@ -260,9 +260,17 @@ a.btn {
   height: 60px;
 }
 
+/* The nav may shrink and, as a last resort on the narrowest phones, scroll inside itself:
+   it never widens the page. */
 .shell__nav {
   display: flex;
   gap: var(--s1);
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.shell__nav::-webkit-scrollbar {
+  display: none;
 }
 .shell__link {
   display: inline-flex;
@@ -305,8 +313,11 @@ a.btn {
   }
 }
 
-/* Below ~420px the nav needs the room: the mark stays, the wordmark is read aloud only. */
-@media (max-width: 419px) {
+/* Phones: the nav needs the room. The mark stays, the wordmark is read aloud only. */
+@media (max-width: 559px) {
+  .shell__bar--staff .shell__inner {
+    gap: var(--s2);
+  }
   .shell__link {
     padding: 0 var(--s1);
     font-size: var(--text-sm);

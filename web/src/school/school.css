@@ -432,7 +432,8 @@
   display: none;
 }
 
-/* Presenter controls, tighter on phones: no note, no disabled button, no empty status line */
+/* Presenter controls, tighter on small tablets: no note, no disabled button, no empty status
+   line. Phones get the bar's own one-row layout (shared/ui/demoBar.css). */
 @media (max-width: 699px) {
   .s-demobar {
     padding: var(--s3);
@@ -518,21 +519,5 @@
   }
   .s-tabs__link:last-child .s-tabs__underline {
     right: 0;
-  }
-  .s-demobar .demo-bar__date-label {
-    display: none;
-  }
-  .s-demobar .demo-bar__day {
-    min-width: 0;
-  }
-  .s-demobar .demo-bar__crowd {
-    display: grid;
-    grid-template-columns: auto minmax(0, 1fr) auto;
-    width: 100%;
-    gap: var(--s2);
-  }
-  .s-demobar .demo-bar__add {
-    min-width: 0;
-    padding-inline: var(--s3);
   }
 }

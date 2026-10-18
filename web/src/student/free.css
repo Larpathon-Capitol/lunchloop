@@ -105,15 +105,24 @@ html[data-theme='americas'] .lci__title {
 }
 @container (min-width: 820px) {
   .lci {
-    grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+    grid-template-columns: minmax(0, 1fr) auto;
     grid-template-areas:
       'title answer'
-      'sub answer'
       'foods answer'
       'error error';
-    column-gap: var(--s8);
+    gap: var(--s2) var(--s8);
     align-items: center;
-    padding: var(--s5) var(--s6);
+    padding: var(--s4) var(--s6);
+  }
+  /* Wide screens: one short band, so the tray below still fits the first screen. The chips
+     keep "You packed" as their accessible name. */
+  .lci .lci__sub {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
   }
   .lci__title { grid-area: title; }
   .lci__sub { grid-area: sub; }
@@ -125,16 +134,16 @@ html[data-theme='americas'] .lci__title {
   .lci__ask,
   .lci__done {
     grid-area: answer;
-    grid-row: 1 / span 3;
+    grid-row: 1 / span 2;
     margin-top: 0;
   }
   .lci__ask {
-    flex-direction: column;
-    align-items: stretch;
+    flex-wrap: nowrap;
+    align-items: center;
   }
   .lci .lci__ask .lci__btn {
     flex: none;
-    width: 100%;
+    min-width: 168px;
   }
   .lci .lci__done {
     display: grid;
