@@ -166,23 +166,8 @@ function TodayStrip() {
       document.removeEventListener('visibilitychange', check)
     }
   }, [])
-  // The strip can grow or shrink above the tray without changing the tray slot's size, which
-  // the 3D stage would not notice. A synthetic scroll makes every slot measure itself again.
-  const ref = useRef<HTMLDivElement>(null)
-  useEffect(() => {
-    const el = ref.current
-    if (!el) return
-    let last = el.offsetHeight
-    const ro = new ResizeObserver(() => {
-      if (el.offsetHeight === last) return
-      last = el.offsetHeight
-      window.dispatchEvent(new Event('scroll'))
-    })
-    ro.observe(el)
-    return () => ro.disconnect()
-  }, [])
   return (
-    <div ref={ref} className="game__today">
+    <div className="game__today">
       <FreeBanner free={free ?? me?.free_today ?? []} />
       <LunchCheckIn lunch={me?.today_lunch ?? null} onAnswered={() => void refreshMe()} />
     </div>

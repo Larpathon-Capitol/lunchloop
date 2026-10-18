@@ -8,6 +8,15 @@ let hovered = false
 const listeners = new Set<() => void>()
 let rim: ((u: number, v: number) => Point | null) | null = null
 let presence: (() => number) | null = null
+let idleTimer = 0
+let idleWake: (() => void) | null = null
+
+/**
+ * Frame interval for slow idle motion on the stage (the hero tray's drift, breathing foods).
+ * Moves that slow shift a fraction of a pixel per frame, so 30 fps looks the same as 60 and
+ * costs the GPU half as much. Slightly under 1/30 s so the timer lands on every second vsync.
+ */
+const IDLE_FRAME_MS = 1000 / 30 - 5
 
 export const stageBus = {
   /** The stage calls this when the pointer (or keyboard focus) is on the tray in the hero. */
@@ -38,6 +47,19 @@ export const stageBus = {
   },
   /** How visible the tray is this frame, 0 to 1, so things riding on it can fade with it. */
   presence: () => presence?.() ?? 0,
+  /**
+   * Book the next frame for idle-only motion at about 30 fps. Call it from useFrame instead of
+   * state.invalidate() when nothing but a slow drift is moving; anything quicker should keep
+   * calling state.invalidate() for full rate. Everyone on the stage shares one timer.
+   */
+  idleFrame(invalidate: () => void) {
+    idleWake = invalidate
+    if (idleTimer) return
+    idleTimer = window.setTimeout(() => {
+      idleTimer = 0
+      idleWake?.()
+    }, IDLE_FRAME_MS)
+  },
 }
 
 export function useTrayHovered() {

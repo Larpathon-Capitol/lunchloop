@@ -40,6 +40,29 @@ const PRESENCE: [number, number] = [120, 21]
 const TILT: [number, number] = [52, 8.2] // chases the pointer, overshoots a little, settles
 const LIFT: [number, number] = [240, 15]
 
+/**
+ * Pixel budget for the full-screen canvas. A retina laptop would otherwise draw 2880x1800 with
+ * 4x multisampling every frame for a tray that covers a fraction of it. Phones stay at 2x.
+ */
+const PIXEL_BUDGET = 3.2e6
+const MAX_DPR = 2
+
+function stageDpr() {
+  const native = window.devicePixelRatio || 1
+  const area = Math.max(1, window.innerWidth * window.innerHeight)
+  return Math.max(1, Math.min(native, MAX_DPR, Math.sqrt(PIXEL_BUDGET / area)))
+}
+
+function useStageDpr() {
+  const [dpr, setDpr] = useState(stageDpr)
+  useEffect(() => {
+    const onResize = () => setDpr(stageDpr())
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [])
+  return dpr
+}
+
 type Spring = { x: number; v: number }
 const sp = (x = 0): Spring => ({ x, v: 0 })
 
@@ -199,6 +222,10 @@ function Rig({ wrap, reduced }: RigProps) {
   const a = useRef({
     slot: { x: sp(), y: sp(), w: sp(1), h: sp(1) },
     lastSlot: null as TrayState['slot'],
+    /** The slot rect seen last frame, to tell a page scroll apart from a real move. */
+    prevSlot: null as TrayState['slot'],
+    opacity: '',
+    visibility: '',
     slotGoneAt: 0,
     presence: sp(0),
     pose: sp(poseTarget(trayStore.get().phase, 0)),
@@ -338,6 +365,17 @@ function Rig({ wrap, reduced }: RigProps) {
     const want = slotLive && store.phase !== 'away' ? 1 : 0
     const target = st.lastSlot
 
+    // Scrolling and layout shifts: the same slot moving without changing size is the page
+    // carrying it. Move the framing by the same amount in this same frame instead of springing
+    // after it, so the tray stays glued to the page. A new slot or a new size still glides.
+    const prev = st.prevSlot
+    const s = store.slot
+    if (s && prev && s !== prev && s.key !== undefined && s.key === prev.key && Math.abs(s.width - prev.width) < 0.5 && Math.abs(s.height - prev.height) < 0.5) {
+      st.slot.x.x += s.x - prev.x
+      st.slot.y.x += s.y - prev.y
+    }
+    if (store.slot) st.prevSlot = store.slot
+
     // First appearance (or back from hidden): jump straight to the new framing and pose.
     if (want === 1 && st.presence.x < 0.02 && target) {
       st.slot.x.x = target.x
@@ -376,8 +414,11 @@ function Rig({ wrap, reduced }: RigProps) {
     // Show or hide the whole canvas; nothing to draw means no frames at all.
     const el = wrap.current
     if (el) {
-      el.style.opacity = String(pres)
-      el.style.visibility = pres < 0.003 && want === 0 ? 'hidden' : 'visible'
+      // Only touch the style when it changes, so a still tray costs no style work.
+      const opacity = pres > 0.999 ? '1' : pres.toFixed(3)
+      const visibility = pres < 0.003 && want === 0 ? 'hidden' : 'visible'
+      if (opacity !== st.opacity) el.style.opacity = st.opacity = opacity
+      if (visibility !== st.visibility) el.style.visibility = st.visibility = visibility
     }
     if (pres < 0.003 && want === 0 && !moving) return
 
@@ -435,8 +476,12 @@ function Rig({ wrap, reduced }: RigProps) {
       ;(sh.material as THREE.MeshBasicMaterial).opacity = (lerp(0.55, 0.32, THREE.MathUtils.clamp(p, 0, 1)) / (spread * spread)) * pres
     }
 
-    const live = !document.hidden && (moving || (hero && !reduced))
-    if (live) state.invalidate()
+    // Next frame: right away while anything springs, at a gentle 30 fps for the idle drift alone,
+    // and nothing at all when the tray is still or the tab is hidden.
+    if (document.hidden) return
+    // The drift moves the tray well under a pixel per frame, so 30 fps looks the same as 60.
+    if (moving) state.invalidate()
+    else if (hero && !reduced) stageBus.idleFrame(state.invalidate)
   })
 
   const over = useCallback((id: GroupId, e: ThreeEvent<PointerEvent> | ThreeEvent<MouseEvent>) => {
@@ -574,6 +619,7 @@ function StageControls() {
  */
 export default function TrayStage() {
   const reduced = usePrefersReducedMotion()
+  const dpr = useStageDpr()
   const raised = useNoren() !== 0
   const wrap = useRef<HTMLDivElement>(null)
 
@@ -587,7 +633,7 @@ export default function TrayStage() {
     <div ref={wrap} className={raised ? 'tray-stage is-raised' : 'tray-stage'} style={{ opacity: 0, visibility: 'hidden' }}>
       <Canvas
         frameloop="demand"
-        dpr={[1, 2]}
+        dpr={dpr}
         eventSource={document.body}
         eventPrefix="client"
         camera={{ fov: FOV, near: 0.1, far: 60, position: [0, 2, 9] }}
