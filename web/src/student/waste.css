@@ -181,3 +181,38 @@ html[data-theme='medi'] .plates__spark {
     padding: var(--s3, 12px) var(--s2, 8px);
   }
 }
+/* Phones: a shorter ticket. Smaller figure and copy, a narrower stub. */
+@media (max-width: 599px) {
+  .leftovers {
+    --stub: 92px;
+    --notch: 9px;
+  }
+  .leftovers__main {
+    gap: var(--s1, 4px);
+    padding: var(--s3, 12px) var(--s4, 16px) var(--s4, 16px);
+  }
+  .leftovers__title,
+  .leftovers__week {
+    font-size: 12.5px;
+  }
+  .leftovers__stat {
+    gap: var(--s1, 4px) var(--s4, 16px);
+    margin-top: var(--s1, 4px);
+  }
+  .leftovers__big {
+    font-size: 46px;
+  }
+  .leftovers__figure {
+    padding-bottom: 6px;
+  }
+  .leftovers__unit {
+    font-size: 16px;
+  }
+  .leftovers__note {
+    font-size: 13px;
+    line-height: 1.4;
+  }
+  .plates {
+    max-width: 76px;
+  }
+}

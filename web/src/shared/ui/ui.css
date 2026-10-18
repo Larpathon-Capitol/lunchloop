@@ -394,3 +394,10 @@ a.btn {
   max-width: none;
   padding: 0;
 }
+
+/* Phones: the game sits closer under its bar. */
+@media (max-width: 599px) {
+  .shell__main--game {
+    padding-top: var(--s3);
+  }
+}

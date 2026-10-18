@@ -93,7 +93,7 @@ export function NeedsButton({ className }: { className?: string }) {
         aria-label={n ? t.buttonCount(n) : undefined}
       >
         <NeedsIcon />
-        <span>{t.button}</span>
+        <span className="needs-btn__label">{t.button}</span>
         {n > 0 && (
           <span className="needs-btn__count num" aria-hidden="true">
             {n}

@@ -38,8 +38,8 @@ export const student = {
     chipLabel: (group: string, state: string) => `${group}: ${state}`,
     progress: 'Food groups decided',
     progressText: (done: number, total: number) => `${done} of ${total} decided`,
-    left: (n: number) => (n === 1 ? 'Choose 1 more' : `Choose ${n} more`),
     needOne: 'Pick at least one food to pack',
+    next: (group: string) => `Choose your ${group.toLowerCase()}`,
     pack: 'Pack my tray',
     packing: 'Packing',
     packedAnnounce: (xp: number | null, streak: number) =>

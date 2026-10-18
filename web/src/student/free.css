@@ -310,3 +310,107 @@ html[data-theme='asia'] .lci__title {
 html[data-theme='asia'] .fb__word {
   font-size: 1.3em;
 }
+
+/* Phones: a compact check-in. Smaller title and food tags, both answers on one row, and once
+   answered it folds down to a single line (the answer and "Change"). */
+@container (max-width: 599px) {
+  .lci {
+    gap: var(--s2);
+    padding: var(--s3) var(--s4) var(--s4);
+  }
+  .lci__title,
+  html[data-theme='asia'] .lci__title {
+    font-size: 21px;
+  }
+  .lci__sub {
+    font-size: 13px;
+    margin-bottom: 0;
+  }
+  /* One row of food tags that scrolls sideways instead of stacking three rows deep. */
+  .lci__foods {
+    flex-wrap: nowrap;
+    gap: 6px;
+    margin-inline: calc(var(--s4) * -1);
+    padding-inline: var(--s4);
+    overflow-x: auto;
+    scrollbar-width: none;
+    overscroll-behavior-x: contain;
+    mask-image: linear-gradient(90deg, transparent, #000 var(--s4), #000 calc(100% - var(--s6)), transparent);
+  }
+  .lci__foods::-webkit-scrollbar {
+    display: none;
+  }
+  .lci__food {
+    flex: none;
+    white-space: nowrap;
+    gap: 4px;
+    padding: 3px 9px 3px 6px;
+    font-size: 12.5px;
+  }
+  .lci__icon {
+    width: 15px;
+    height: 15px;
+  }
+  .lci__ask {
+    flex-wrap: nowrap;
+    gap: var(--s2);
+    margin-top: var(--s1);
+  }
+  .lci .lci__btn,
+  .lci .lci__btn--quiet {
+    flex: 1 1 0;
+    min-width: 0;
+    min-height: 46px;
+    padding-inline: var(--s2);
+    font-size: 15px;
+  }
+  .lci .lci__ask .lci__link {
+    flex: none;
+  }
+  .lci:has(.lci__done) {
+    padding: var(--s1) var(--s2) var(--s1) var(--s3);
+  }
+  .lci:has(.lci__done) :is(.lci__title, .lci__sub, .lci__foods) {
+    display: none;
+  }
+  .lci:has(.lci__done) .lci__done {
+    flex-wrap: nowrap;
+    gap: var(--s2);
+    margin-top: 0;
+    min-width: 0;
+  }
+  .lci:has(.lci__done) .lci__mark {
+    width: 28px;
+    height: 28px;
+  }
+  .lci:has(.lci__done) .lci__said {
+    flex: 1 1 auto;
+    min-width: 0;
+    font-size: 14px;
+    line-height: 1.25;
+  }
+  .lci:has(.lci__done) .lci__link {
+    flex: none;
+    padding: 0 var(--s2);
+  }
+
+  /* The free food banner: slimmer badge and text. */
+  .fb {
+    gap: var(--s2);
+    padding: var(--s2) var(--s1) var(--s2) var(--s3);
+  }
+  .fb__badge {
+    width: 38px;
+    height: 38px;
+  }
+  .fb__badge svg {
+    width: 22px;
+    height: 22px;
+  }
+  .fb__main {
+    font-size: 15px;
+  }
+  .fb__hint {
+    font-size: 13px;
+  }
+}

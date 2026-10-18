@@ -163,8 +163,10 @@ function Packing({ data }: { data: Tray }) {
   const left = groups.length - decided
   const ready = !packed && left === 0 && pickedCount > 0
   const openGroup = open ? (groups.find((g) => g.component === open) ?? null) : null
+  // The next group still to decide: the dock's button opens it.
+  const next = packed ? null : (groups.find((g) => picks[g.component] === undefined)?.component ?? null)
   // The soft pill rests on the open group, or on the next one still to decide.
-  const pillOn = packed ? null : (open ?? groups.find((g) => picks[g.component] === undefined)?.component ?? null)
+  const pillOn = packed ? null : (open ?? next)
 
   // The tray's own taps open the picker for that compartment.
   useEffect(
@@ -257,8 +259,10 @@ function Packing({ data }: { data: Tray }) {
   return (
     <div className={packed ? 'pack pack--packed' : 'pack'}>
       <header className="pack__head">
-        <h1 className="pack__title">{packed ? t.headingPacked : t.heading}</h1>
-        <p className="pack__day">{t.forDay(fmtLongDay(data.target_date))}</p>
+        <div className="pack__titles">
+          <h1 className="pack__title">{packed ? t.headingPacked : t.heading}</h1>
+          <p className="pack__day">{t.forDay(fmtLongDay(data.target_date))}</p>
+        </div>
         <NeedsButton className="pack__needs" />
         <Corner className="pack__plum" />
       </header>
@@ -342,15 +346,8 @@ function Packing({ data }: { data: Tray }) {
         </ul>
         </LayoutGroup>
 
-        {/* The mascot sits in the layout here, beside the progress line, with room above it for a line. */}
-        <UmeInline size={56} className="pack__ume">
-          {!packed && (
-            <div className="pack__progress">
-              <BrushProgress value={groups.length ? decided / groups.length : 0} height={16} label={t.progress} />
-              <p className="pack__count num">{t.progressText(decided, groups.length)}</p>
-            </div>
-          )}
-        </UmeInline>
+        {/* Once packed the mascot sits under the food groups; before that it rides in the dock. */}
+        {packed && <UmeInline size={56} className="pack__ume" />}
 
         {error && (
           <p className="pack__error" role="alert">
@@ -358,30 +355,59 @@ function Packing({ data }: { data: Tray }) {
           </p>
         )}
 
+        {/* Progress and the one next step. On phones this dock sticks just above the tab bar. */}
         {!packed && (
-          <div className="pack__action">
-            <AnimatePresence mode="popLayout" initial={false}>
-              {ready ? (
-                <motion.button
-                  key="pack"
-                  type="button"
-                  className="btn-press btn-press--big"
-                  onClick={pack}
-                  disabled={busy}
-                  initial={reduce ? { opacity: 0 } : { scale: 0.7, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  transition={reduce ? { duration: 0.12 } : popSpring}
-                  whileTap={press}
-                >
-                  {busy ? t.packing : t.pack}
-                </motion.button>
-              ) : (
-                <motion.p key="hint" className="pack__hint" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                  {left > 0 ? t.left(left) : t.needOne}
-                </motion.p>
-              )}
-            </AnimatePresence>
+          <div className="pack__dock">
+            {/* The mascot, with its line above and the progress beside it. */}
+            <UmeInline size={56} className="pack__ume">
+              <div className="pack__progress">
+                <BrushProgress value={groups.length ? decided / groups.length : 0} height={12} label={t.progress} />
+                <p className="pack__count num">{t.progressText(decided, groups.length)}</p>
+              </div>
+            </UmeInline>
+            <div className="pack__action">
+              <AnimatePresence mode="popLayout" initial={false}>
+                {ready ? (
+                  <motion.button
+                    key="pack"
+                    type="button"
+                    className="btn-press btn-press--big"
+                    onClick={pack}
+                    disabled={busy}
+                    initial={reduce ? { opacity: 0 } : { scale: 0.7, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={reduce ? { duration: 0.12 } : popSpring}
+                    whileTap={press}
+                  >
+                    {busy ? t.packing : t.pack}
+                  </motion.button>
+                ) : next ? (
+                  <motion.button
+                    key="next"
+                    type="button"
+                    className="btn-press btn-press--big pack__next"
+                    onClick={() => {
+                      sound.tap()
+                      setOpen(next)
+                    }}
+                    aria-haspopup="dialog"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.15 }}
+                    whileTap={press}
+                  >
+                    {t.next(groupName(next))}
+                    <Chevron />
+                  </motion.button>
+                ) : (
+                  <motion.p key="hint" className="pack__hint" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                    {t.needOne}
+                  </motion.p>
+                )}
+              </AnimatePresence>
+            </div>
           </div>
         )}
       </div>

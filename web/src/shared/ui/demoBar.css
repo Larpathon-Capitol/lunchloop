@@ -152,3 +152,46 @@
     margin-left: 0;
   }
 }
+
+/* Small phones (360 to 420px): drop the "Simulated day:" label, let the date shrink, and set the
+   three add buttons on one even row, so nothing runs past the card edge. */
+@media (max-width: 440px) {
+  .demo-bar {
+    padding: var(--s3);
+    gap: var(--s2);
+  }
+  .demo-bar__note {
+    font-size: 13px;
+  }
+  .demo-bar__row {
+    gap: var(--s2);
+  }
+  .demo-bar__date-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+  }
+  .demo-bar__date {
+    flex: 1 1 auto;
+    justify-content: center;
+    overflow: hidden;
+  }
+  .demo-bar__date-value {
+    min-width: 0;
+  }
+  .demo-bar__today-btn {
+    flex: 1 1 100%;
+  }
+  .demo-bar__crowd {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    width: 100%;
+    gap: var(--s2);
+  }
+  .demo-bar__add {
+    min-width: 0;
+    padding-inline: var(--s3);
+  }
+}
