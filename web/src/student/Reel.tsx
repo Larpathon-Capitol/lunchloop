@@ -1,59 +1,92 @@
-// The spin reel: a column of every entree that spins on a spring, ticks as rows pass,
-// and lands with today's four choices filling the window. The last rows of the strip are
-// the ballot itself, so they become tappable the moment the reel reaches them, while the
-// spring finishes its one small overshoot. Once it rests, the window opens to fit the
-// ballot rows, which are taller than the spinning rows (they carry diet info).
-import { animate, motion, useMotionValue, useMotionValueEvent, useReducedMotion } from 'framer-motion'
+// The spin reel: four little slot windows, one per ballot option. Tapping Spin winds every
+// window back a hair, then they all roll down through the entrees. They stop one at a time,
+// top to bottom, each with a thunk: the world's landing sound, a small shake of the frame,
+// a puff of sparks off the food and a reaction from the mascot. Once the last one lands the
+// window opens into the real ballot rows, which are taller (they carry diet info).
+// Tapping the reel (or the Spin button again) skips straight to the end.
+// Reduced motion: nothing rolls or shakes; the four options fade in one by one, quickly.
+import { animate, motion, motionValue, useReducedMotion } from 'framer-motion'
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { sparkBurst } from '../celebrate'
+import { ume } from '../mascot'
 import type { PoolItem, SpinOption } from '../shared/api'
 import { Leaf } from '../shared/icons'
 import { copy } from '../shared/copy'
 import { sound } from '../shared/sound'
+import { themeStore } from '../theme/store'
+import type { ThemeId } from '../theme/types'
 import { FoodGlyph } from './FoodGlyph'
-import { reelSpring } from './springs'
 import { ChoiceRow } from './ChoiceRow'
 
-const FILL = 40
-/** Rows visible in the window while spinning, one per ballot option. */
-const WINDOW = 4
-/** Spinning row height in px. Matches --reel-row in student.css. */
+/** Spinning row height in px. Matches --reel-row in vote.css. */
 const ROW = 60
-const TICK_GAP_MS = 40
-/** Longest wait between reaching the ballot and opening the window. The spring rests in about 0.7s. */
-const OPEN_FALLBACK_MS = 800
+/** Rows each window rolls through before its option: the lower windows roll longer. */
+const ROWS_FIRST = 12
+const ROWS_STEP = 6
+/** When each window stops, from the tap: 1.05s, then one every 0.48s. */
+const FIRST_MS = 1050
+const GAP_MS = 480
+/** The wind-up: how far back the strips pull before they roll, and for how long. */
+const WIND_PX = 16
+const WIND_MS = 140
+/** Fast, then slowing, but still moving when it hits the stop, so the landing reads as a thunk. */
+const LAND_EASE = [0.3, 0.72, 0.55, 0.95] as const
+/** The beat between the last landing and the ballot opening. */
+const HOLD_MS = 380
+/** Reduced motion: the gap between options fading in. */
+const CALM_GAP_MS = 140
+const TICK_GAP_MS = 45
 const t = copy.student.spin
 
 type Phase = 'idle' | 'spinning' | 'landed'
+type PoolRow = Pick<PoolItem, 'item_id' | 'name'> & Partial<PoolItem>
 
 interface Props {
   options: SpinOption[]
-  /** Every entree, in the order the strip shows them. */
-  pool: (Pick<PoolItem, 'item_id' | 'name'> & Partial<PoolItem>)[]
+  /** Every entree, in the order the strips show them. */
+  pool: PoolRow[]
   phase: Phase
   selected: string | null
   disabled?: boolean
+  /** Goes up by one each time the student asks to skip the spin. */
+  skip?: number
   onLanded: () => void
   onSelect: (id: string) => void
   onInfo: (option: SpinOption) => void
 }
 
-/** Filler rows: the pool in order, repeated to fill, never the same item twice in a row. */
-function buildFiller(pool: Props['pool'], options: SpinOption[]) {
-  const source: Props['pool'] = pool.length > 1 ? pool : options
+/** One window's filler: the pool from its own starting point, never the same item twice in a row. */
+function buildStrip(pool: PoolRow[], options: SpinOption[], slot: number, length: number) {
+  const source: PoolRow[] = pool.length > 1 ? pool : options
   if (!source.length) return []
-  const rows: Props['pool'] = []
-  let i = 0
-  while (rows.length < FILL) {
+  const rows: PoolRow[] = []
+  let i = (slot * 5) % source.length
+  let guard = 0
+  while (rows.length < length && guard++ < length * 4) {
     const next = source[i % source.length]
     i++
     const last = rows[rows.length - 1]
     if (last && last.item_id === next.item_id && source.length > 1) continue
     rows.push(next)
   }
-  // Keep the row just above the landing window different from the first choice.
-  const other = source.find((s) => s.item_id !== options[0]?.item_id)
-  if (rows[FILL - 1].item_id === options[0]?.item_id && other) rows[FILL - 1] = other
+  // The row that passes just before the stop should not be the option itself.
+  const other = source.find((s) => s.item_id !== options[slot]?.item_id)
+  if (rows[0]?.item_id === options[slot]?.item_id && other) rows[0] = other
   return rows
+}
+
+/** The frame's little shake on each landing, in the world's own way. `k` scales it. */
+function shakeFrames(world: ThemeId, k: number): Keyframe[] {
+  if (world === 'asia') {
+    // A hanko pressed down: the frame dips and squeezes, then springs back.
+    return [{ transform: 'none' }, { transform: `translateY(${2 * k}px) scale(${1 - 0.008 * k})` }, { transform: `translateY(${-0.6 * k}px)` }, { transform: 'none' }]
+  }
+  if (world === 'medi') {
+    // A tile set down: a quick side to side rattle.
+    return [{ transform: 'none' }, { transform: `translateX(${-2.5 * k}px)` }, { transform: `translateX(${2 * k}px)` }, { transform: `translateX(${-1 * k}px)` }, { transform: 'none' }]
+  }
+  // A loteria card slapped down: the table jumps.
+  return [{ transform: 'none' }, { transform: `translateY(${3 * k}px) rotate(${-0.25 * k}deg)` }, { transform: `translateY(${-1.5 * k}px)` }, { transform: `translateY(${0.5 * k}px)` }, { transform: 'none' }]
 }
 
 function Idle() {
@@ -64,147 +97,228 @@ function Idle() {
   )
 }
 
-export function Reel({ options, pool, phase, selected, disabled, onLanded, onSelect, onInfo }: Props) {
-  const reduce = useReducedMotion()
-  const filler = useMemo(() => buildFiller(pool, options), [pool, options])
-  const y = useMotionValue(0)
-  const rowRef = useRef<HTMLDivElement>(null)
-  const groupRef = useRef<HTMLDivElement>(null)
-  const state = useRef({ row: 0, lastTick: 0, landed: false, target: 0 })
-  const landedRef = useRef(onLanded)
-  useEffect(() => {
-    landedRef.current = onLanded
-  })
-
-  const spinning = phase !== 'idle'
-  const live = phase === 'landed'
-  // True once the spring has come to rest: the filler goes and the window opens up.
-  const [open, setOpen] = useState(false)
-
-  /** Runs once per spin, however many times the spring or StrictMode calls it. */
-  const land = () => {
-    const s = state.current
-    if (s.landed) return
-    s.landed = true
-    sound.land()
-    landedRef.current()
-  }
-
-  // Once the parent knows the reel landed, the window must open, even if the spring never
-  // reports that it came to rest (stopped by a re-render, a remount or a hidden tab).
-  // The normal path opens sooner, from onComplete below.
-  useEffect(() => {
-    if (!live || open) return
-    const id = window.setTimeout(() => setOpen(true), reduce ? 0 : OPEN_FALLBACK_MS)
-    return () => window.clearTimeout(id)
-  }, [live, open, reduce])
-
-  useMotionValueEvent(y, 'change', (v) => {
-    const s = state.current
-    const h = rowRef.current?.offsetHeight ?? 1
-    const row = Math.round(-v / h)
-    if (row !== s.row) {
-      s.row = row
-      const now = performance.now()
-      if (now - s.lastTick > TICK_GAP_MS && !s.landed) {
-        s.lastTick = now
-        sound.tick()
-      }
-    }
-    if (s.target && v <= s.target) land()
-  })
-
-  useEffect(() => {
-    if (!spinning || state.current.landed || !options.length) return
-    const h = rowRef.current?.offsetHeight ?? 0
-    const target = -filler.length * h
-    state.current = { row: 0, lastTick: 0, landed: false, target }
-    y.set(0)
-    if (reduce || !h) {
-      y.set(target)
-      land()
-      setOpen(true)
-      return
-    }
-    const controls = animate(y, target, {
-      ...reelSpring,
-      onComplete: () => {
-        land()
-        setOpen(true)
-      },
-    })
-    return () => {
-      controls.stop()
-      // Stopped after the strip reached the ballot: open now rather than wait for the fallback.
-      if (state.current.landed) setOpen(true)
-    }
-    // `land` reads refs only; options and filler are frozen for the spin.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [spinning, reduce, y])
-
-  // Hand keyboard and screen reader focus to the first choice once the reel lands and opens.
-  useEffect(() => {
-    if (live && open) groupRef.current?.querySelector<HTMLButtonElement>('.choice__main')?.focus({ preventScroll: true })
-  }, [live, open])
-
-  if (!spinning || !options.length) return <Idle />
-
-  const ghost = (o: Props['pool'][number]) => (
+function Ghost({ item, disc }: { item: PoolRow; disc?: boolean }) {
+  return (
     <span className="reel__ghost">
-      <FoodGlyph id={o.item_id} />
-      <span className="reel__name">{o.name}</span>
-      {o.diet?.includes('vegetarian') && (
+      {disc ? (
+        <span className="glyph-disc glyph-disc--entree reel__disc">
+          <FoodGlyph id={item.item_id} />
+        </span>
+      ) : (
+        <FoodGlyph id={item.item_id} />
+      )}
+      <span className="reel__name">{item.name}</span>
+      {item.diet?.includes('vegetarian') && (
         <span className="reel__veg">
           <Leaf />
         </span>
       )}
     </span>
   )
+}
 
+export function Reel({ options, pool, phase, selected, disabled, skip = 0, onLanded, onSelect, onInfo }: Props) {
+  const reduce = useReducedMotion()
+  const strips = useMemo(() => options.map((_, i) => buildStrip(pool, options, i, ROWS_FIRST + i * ROWS_STEP)), [pool, options])
+  // One strip offset per window. A strip starts rolled up its full length and rolls down to 0,
+  // where its option (the first row) fills the window.
+  const ys = useMemo(() => strips.map((s) => motionValue(-s.length * ROW)), [strips])
+  const rootRef = useRef<HTMLDivElement>(null)
+  const slotRefs = useRef<(HTMLDivElement | null)[]>([])
+  const groupRef = useRef<HTMLDivElement>(null)
+  const run = useRef({ started: false, landed: 0, finished: false, lastTick: 0, rows: [] as number[] })
+  const stops = useRef<(() => void)[]>([])
+  const landedRef = useRef(onLanded)
+  useEffect(() => {
+    landedRef.current = onLanded
+  })
+
+  const spinning = phase !== 'idle'
+  const count = options.length
+  // How many windows have stopped, and whether the ballot has opened.
+  const [landed, setLanded] = useState(0)
+  const [open, setOpen] = useState(false)
+
+  const stopAll = () => {
+    stops.current.forEach((s) => s())
+    stops.current = []
+  }
+
+  const impact = (i: number, last: boolean) => {
+    sound.reveal(i, last)
+    if (!reduce) {
+      const frame = rootRef.current?.closest<HTMLElement>('.lacquer') ?? rootRef.current
+      frame?.animate(shakeFrames(themeStore.get(), last ? 1.5 : 1), { duration: last ? 340 : 260, easing: 'cubic-bezier(0.3, 0.7, 0.4, 1)' })
+      const disc = slotRefs.current[i]?.querySelector<HTMLElement>('.reel__disc')
+      if (disc) sparkBurst(disc)
+    }
+    if (last) ume.react('excited')
+    else if (i === 0) ume.react('surprised')
+    else ume.hop()
+  }
+
+  /** The end of the reveal: a short beat, then the ballot opens and the parent hears about it. */
+  const finish = () => {
+    const r = run.current
+    if (r.finished) return
+    r.finished = true
+    const id = window.setTimeout(() => {
+      setOpen(true)
+      landedRef.current()
+    }, reduce ? CALM_GAP_MS : HOLD_MS)
+    stops.current.push(() => window.clearTimeout(id))
+  }
+
+  /** Window `i` stops. Windows stop in order, so this only ever moves forward. */
+  const landSlot = (i: number) => {
+    const r = run.current
+    if (r.finished || i < r.landed) return
+    r.landed = i + 1
+    setLanded(i + 1)
+    const last = i + 1 >= count
+    impact(i, last)
+    if (last) finish()
+  }
+
+  /** Skip: every window stops where it will end up, with one landing for all of them. */
+  const skipNow = () => {
+    const r = run.current
+    if (!r.started || r.finished) return
+    stopAll()
+    ys.forEach((mv) => mv.set(0))
+    r.landed = count
+    setLanded(count)
+    impact(count - 1, true)
+    finish()
+  }
+  const skipRef = useRef(skipNow)
+  useEffect(() => {
+    skipRef.current = skipNow
+  })
+
+  useEffect(() => {
+    if (!spinning || run.current.started || !count) return
+    run.current = { started: true, landed: 0, finished: false, lastTick: 0, rows: strips.map((s) => s.length) }
+    if (reduce) {
+      ys.forEach((mv) => mv.set(0))
+      for (let i = 0; i < count; i++) {
+        const id = window.setTimeout(() => landSlot(i), CALM_GAP_MS * (i + 1))
+        stops.current.push(() => window.clearTimeout(id))
+      }
+    } else {
+      sound.spinUp()
+      ys.forEach((mv, i) => {
+        const from = -strips[i].length * ROW
+        const ms = FIRST_MS + i * GAP_MS
+        mv.set(from)
+        // Tick as rows pass, but only for the next window due to stop: the ticks slow as it does.
+        const off = mv.on('change', (v) => {
+          const r = run.current
+          if (r.landed !== i) return
+          const row = Math.round(-v / ROW)
+          if (row === r.rows[i]) return
+          r.rows[i] = row
+          const now = performance.now()
+          if (now - r.lastTick > TICK_GAP_MS) {
+            r.lastTick = now
+            sound.tick()
+          }
+        })
+        const controls = animate(mv, [from, from - WIND_PX, 0], {
+          duration: ms / 1000,
+          times: [0, WIND_MS / ms, 1],
+          ease: ['easeOut', LAND_EASE],
+          onComplete: () => landSlot(i),
+        })
+        stops.current.push(() => {
+          controls.stop()
+          off()
+        })
+      })
+    }
+    // If the tab is hidden mid-spin the animations pause; this makes sure the ballot still opens.
+    const safety = window.setTimeout(() => skipRef.current(), FIRST_MS + count * GAP_MS + 1500)
+    stops.current.push(() => window.clearTimeout(safety))
+    // landSlot and friends read refs only; the strips are frozen for the spin.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [spinning, count])
+
+  // Stop timers and animations if the reel goes away mid-spin.
+  useEffect(
+    () => () => {
+      stops.current.forEach((s) => s())
+      stops.current = []
+    },
+    [],
+  )
+
+  // A skip request from the parent (the Spin button tapped again).
+  useEffect(() => {
+    if (skip > 0) skipRef.current()
+  }, [skip])
+
+  // If the parent already counts the reel as landed (say it remounted), open it right away.
+  useEffect(() => {
+    if (phase === 'landed' && !open && !run.current.started) setOpen(true)
+  }, [phase, open])
+
+  // Hand keyboard and screen reader focus to the first choice once the ballot opens.
+  useEffect(() => {
+    if (open) groupRef.current?.querySelector<HTMLButtonElement>('.choice__main')?.focus({ preventScroll: true })
+  }, [open])
+
+  if (!spinning || !count) return <Idle />
+
+  // Windows still rolling: a tap anywhere on the reel skips to the end.
+  const rolling = landed < count
   return (
     <motion.div
-      className={`reel${live ? ' reel--live' : ''}${open ? ' reel--open' : ''}`}
+      ref={rootRef}
+      className={`reel reel--slots${open ? ' reel--open' : ''}${reduce ? ' reel--calm' : ''}`}
       initial={false}
-      animate={{ height: open ? 'auto' : ROW * WINDOW }}
+      animate={{ height: open ? 'auto' : ROW * count }}
       transition={reduce ? { duration: 0 } : { type: 'spring', stiffness: 260, damping: 30 }}
+      onClick={rolling ? () => skipRef.current() : undefined}
     >
-      {/* Dropping the filler and zeroing y in the same render keeps the ballot exactly where it is. */}
-      <motion.div className="reel__strip" style={{ y: open ? 0 : y }}>
-        {!open && (
-          <div aria-hidden="true">
-            {filler.map((o, i) => (
-              <div className="reel__row" key={i} ref={i === 0 ? rowRef : undefined}>
-                {ghost(o)}
-              </div>
-            ))}
-          </div>
-        )}
-        {live ? (
-          <div className="reel__choices" role="group" aria-label={t.choices} ref={groupRef}>
-            {options.map((o) => (
-              <ChoiceRow
-                key={o.item_id}
-                item_id={o.item_id}
-                name={o.name}
-                facts={o}
-                on={selected === o.item_id}
-                disabled={disabled}
-                popIn={!reduce}
-                onPick={() => onSelect(o.item_id)}
-                onInfo={() => onInfo(o)}
-              />
-            ))}
-          </div>
-        ) : (
-          <div aria-hidden="true">
-            {options.map((o) => (
-              <div className="reel__row" key={o.item_id}>
-                {ghost(o)}
-              </div>
-            ))}
-          </div>
-        )}
-      </motion.div>
+      {open ? (
+        <div className="reel__choices" role="group" aria-label={t.choices} ref={groupRef}>
+          {options.map((o) => (
+            <ChoiceRow
+              key={o.item_id}
+              item_id={o.item_id}
+              name={o.name}
+              facts={o}
+              on={selected === o.item_id}
+              disabled={disabled}
+              onPick={() => onSelect(o.item_id)}
+              onInfo={() => onInfo(o)}
+            />
+          ))}
+        </div>
+      ) : (
+        <div className="reel__slots" aria-hidden="true">
+          {options.map((o, i) => (
+            <div
+              className={`reel__slot${i < landed ? ' reel__slot--landed' : ''}`}
+              key={o.item_id}
+              ref={(el) => {
+                slotRefs.current[i] = el
+              }}
+            >
+              <motion.div className="reel__strip" style={{ y: ys[i] }}>
+                <div className="reel__row reel__row--final">
+                  <Ghost item={o} disc />
+                </div>
+                {strips[i].map((p, k) => (
+                  <div className="reel__row" key={k}>
+                    <Ghost item={p} />
+                  </div>
+                ))}
+              </motion.div>
+            </div>
+          ))}
+        </div>
+      )}
     </motion.div>
   )
 }

@@ -6,6 +6,7 @@ import { BrushProgress, XpToast, burstPetals } from '../celebrate'
 import { UmeInline, lines, pickLine, ume } from '../mascot'
 import { api, ApiError, type Spin, type SpinOption, type VoteResult } from '../shared/api'
 import { copy } from '../shared/copy'
+import { voteCopy } from '../shared/copy/vote'
 import { sortByNeeds, useNeeds } from '../shared/needs'
 import { fmtDay } from '../shared/format'
 import { Check } from '../shared/icons'
@@ -147,6 +148,8 @@ function SpinPanel({ spin, device, catalog, addToCatalog, showFood, stored, next
   const [fresh, setFresh] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [frozenPool, setFrozenPool] = useState<Spin['pool'] | null>(null)
+  // Goes up each time the Spin button is tapped mid-spin: the reel jumps to the end.
+  const [skip, setSkip] = useState(0)
   const needs = useNeeds()
   const voteRef = useRef<HTMLButtonElement>(null)
   const panelRef = useRef<HTMLElement>(null)
@@ -178,6 +181,10 @@ function SpinPanel({ spin, device, catalog, addToCatalog, showFood, stored, next
   const options = useMemo(() => sortByNeeds(spin.options, needs), [spin.options, needs])
 
   const startSpin = () => {
+    if (phase === 'spinning') {
+      setSkip((n) => n + 1)
+      return
+    }
     if (phase !== 'idle') return
     sound.tap()
     setFrozenPool(shuffle(spin.pool.length > 1 ? spin.pool : spin.options))
@@ -248,28 +255,33 @@ function SpinPanel({ spin, device, catalog, addToCatalog, showFood, stored, next
 
   const landed = phase === 'landed' || phase === 'voting'
   return (
-    <section className="paper" aria-labelledby="spin-title" ref={panelRef}>
-      <div className="vote-day">
-        <h2 id="spin-title" className="section-title">
-          {t.spin.heading(day)}
-        </h2>
-        <span className="vote-day__when">{when}</span>
+    <section className="paper vote-panel" aria-labelledby="spin-title" ref={panelRef}>
+      <div className="vote-intro">
+        <div className="vote-day">
+          <h2 id="spin-title" className="section-title">
+            {t.spin.heading(day)}
+          </h2>
+          <span className="vote-day__when">{when}</span>
+        </div>
+        <p className="paper__lead">{t.spin.lead}</p>
       </div>
-      <p className="paper__lead">{t.spin.lead}</p>
 
-      <div className="lacquer">
-        <Reel
-          options={options}
-          pool={pool}
-          phase={landed ? 'landed' : phase === 'spinning' ? 'spinning' : 'idle'}
-          selected={selected}
-          disabled={phase === 'voting'}
-          onLanded={() => setPhase((p) => (p === 'spinning' ? 'landed' : p))}
-          onSelect={pick}
-          onInfo={info}
-        />
+      <div className="vote-machine">
+        <div className="lacquer">
+          <Reel
+            options={options}
+            pool={pool}
+            phase={landed ? 'landed' : phase === 'spinning' ? 'spinning' : 'idle'}
+            selected={selected}
+            disabled={phase === 'voting'}
+            skip={skip}
+            onLanded={() => setPhase((p) => (p === 'spinning' ? 'landed' : p))}
+            onSelect={pick}
+            onInfo={info}
+          />
+        </div>
+        <p className="vote-served">{t.spin.served(shortDay)}</p>
       </div>
-      <p className="vote-served">{t.spin.served(shortDay)}</p>
       <p className="visually-hidden" aria-live="polite">
         {phase === 'spinning' ? t.spin.spinning : landed ? t.spin.landed(options.map((o) => o.name)) : ''}
       </p>
@@ -305,11 +317,9 @@ function SpinPanel({ spin, device, catalog, addToCatalog, showFood, stored, next
           type="button"
           className="btn-press btn-press--big"
           onClick={startSpin}
-          aria-disabled={phase === 'spinning' || undefined}
-          data-busy={phase === 'spinning' || undefined}
           whileTap={press}
         >
-          {phase === 'spinning' ? t.spin.spinning : t.spin.button}
+          {phase === 'spinning' ? voteCopy.skip : t.spin.button}
         </motion.button>
       )}
     </section>

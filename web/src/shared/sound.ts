@@ -1,14 +1,10 @@
 // Short UI sounds made with Web Audio, so there are no files to load.
-// Everything respects the mute toggle, which is saved per browser.
-// The pluck scale, the pluck timbre and the seal sound follow the active world.
-import { useSyncExternalStore } from 'react'
+// Sound is always on: the header mute button is gone, and an old saved "muted" choice is ignored
+// so nobody is left silent with no way back. Every voice stays quiet (peaks at 0.08 or less).
+// The pluck scale, the pluck timbre, the seal and the vote reveal follow the active world.
 import { themeStore } from '../theme/store'
 import type { ThemeId } from '../theme/types'
-import { storeGet, storeSet } from './device'
 
-const KEY = 'lunchloop.muted'
-let muted = storeGet(KEY) === '1'
-const listeners = new Set<() => void>()
 let ctx: AudioContext | null = null
 
 function audio(): AudioContext | null {
@@ -32,20 +28,14 @@ if (typeof window !== 'undefined') {
   idle(() => void audio())
 }
 
+/** Kept so older callers compile. Sound can no longer be muted, so this does nothing. */
 export function setMuted(value: boolean) {
-  muted = value
-  storeSet(KEY, value ? '1' : '0')
-  listeners.forEach((l) => l())
+  void value
 }
 
-export function useMuted() {
-  return useSyncExternalStore(
-    (l) => {
-      listeners.add(l)
-      return () => listeners.delete(l)
-    },
-    () => muted,
-  )
+/** Kept so older callers compile. Always false: sound is always on. */
+export function useMuted(): boolean {
+  return false
 }
 
 function tone(freq: number, ms: number, { type = 'sine', gain = 0.08, delay = 0, slideTo }: {
@@ -54,7 +44,6 @@ function tone(freq: number, ms: number, { type = 'sine', gain = 0.08, delay = 0,
   delay?: number
   slideTo?: number
 } = {}) {
-  if (muted) return
   const ac = audio()
   if (!ac) return
   if (ac.state === 'suspended') void ac.resume().catch(() => {})
@@ -71,13 +60,11 @@ function tone(freq: number, ms: number, { type = 'sine', gain = 0.08, delay = 0,
   osc.stop(t0 + ms / 1000 + 0.02)
 }
 
-// Longer voices for the reward kit. Every voice peaks at 0.08 or less and goes through
-// the same mute switch as tone().
+// Longer voices for the reward kit. Every voice peaks at 0.08 or less.
 let noiseBuf: AudioBuffer | null = null
 let noiseCtx: AudioContext | null = null
 
 function live(): AudioContext | null {
-  if (muted) return null
   const ac = audio()
   if (!ac) return null
   if (ac.state === 'suspended') void ac.resume().catch(() => {})
@@ -281,6 +268,44 @@ function worldStamp() {
   }
 }
 
+/**
+ * One vote option landing on the ballot, by world. `index` is the row (0 to 3): each one lands a
+ * note higher so the four read as a little phrase, and the last one gets an extra flourish.
+ *   Americas: a loteria card slapped on the table, with a marimba note on top.
+ *   East Asia: hyoshigi wood blocks clacking (twice on the last one).
+ *   Mediterranean: a glazed tile set down with a clink.
+ */
+function worldReveal(index: number, last: boolean) {
+  const world = themeStore.get()
+  const i = Math.max(0, Math.min(5, index))
+  if (world === 'americas') {
+    tone(150, 90, { type: 'sine', gain: 0.07, slideTo: 62 })
+    hiss(34, { freq: 2400, q: 0.8, type: 'highpass', gain: 0.055 })
+    marimba(pluckFrequency(5 + i, world), { gain: 0.045, decay: 0.34, delay: 12 })
+    if (last) marimba(pluckFrequency(8 + i, world), { gain: 0.04, decay: 0.5, delay: 110 })
+  } else if (world === 'medi') {
+    const f = pluckFrequency(7 + i, world) * 2
+    tone(210, 70, { type: 'sine', gain: 0.045, slideTo: 120 })
+    bell(f, { gain: 0.04, decay: 0.28 })
+    bell(f * 2.76, { gain: 0.016, decay: 0.16, delay: 4 })
+    hiss(10, { freq: 5200, q: 2, gain: 0.028 })
+    if (last) {
+      bell(f * 1.5, { gain: 0.03, decay: 0.42, delay: 120 })
+      bell(f * 3, { gain: 0.012, decay: 0.3, delay: 135 })
+    }
+  } else {
+    const clack = (delay: number, gain: number) => {
+      const f = pluckFrequency(5 + i, world) * 2
+      tone(f, 55, { type: 'sine', gain, delay })
+      tone(f * 2.4, 30, { type: 'sine', gain: gain * 0.35, delay })
+      hiss(26, { freq: 1900, q: 5, gain: gain * 0.8, delay })
+      tone(240, 50, { type: 'sine', gain: gain * 0.6, slideTo: 150, delay })
+    }
+    clack(0, 0.06)
+    if (last) clack(95, 0.045)
+  }
+}
+
 export const sound = {
   tap: () => tone(660, 50, { type: 'triangle', gain: 0.05 }),
   tick: () => tone(1200, 25, { type: 'square', gain: 0.025 }),
@@ -317,6 +342,10 @@ export const sound = {
     bell(784 * 2.01, { gain: 0.022, decay: 1.2, delay: 20 })
     bell(784 * 3.02, { gain: 0.012, decay: 0.9, delay: 40 })
   },
+  /** The vote reel starting: a quick rising whirr under the first ticks. */
+  spinUp: () => sweep(420, { from: 500, to: 2200, gain: 0.03, q: 1.1 }),
+  /** One vote option landing on the ballot, in the world's voice. See worldReveal. */
+  reveal: (index = 0, last = false) => worldReveal(index, last),
   /** Skip: soft and falling, never a buzz. */
   skip: () => tone(520, 130, { type: 'sine', gain: 0.045, slideTo: 330 }),
   /** Petting the mascot: a tiny happy chirp. */
