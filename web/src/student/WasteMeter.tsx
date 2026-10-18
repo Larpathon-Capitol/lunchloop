@@ -8,7 +8,7 @@ import type { Meter } from '../shared/api'
 import { copy } from '../shared/copy'
 import { fmtDay, fmtInt, fmtMoney } from '../shared/format'
 import { CountUp } from './CountUp'
-import './stampbook.css'
+import './waste.css'
 
 const t = copy.student.meter
 /** Weeks whose underline already painted, so coming back to Today doesn't replay it. */

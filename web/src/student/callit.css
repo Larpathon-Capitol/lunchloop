@@ -1,0 +1,65 @@
+/* The Call it tab. Moved out of student.css so it can change on its own. */
+
+/* ---------- Call it ---------- */
+
+.result-seal {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 92px;
+  height: 92px;
+  flex: none;
+  transform: rotate(-8deg);
+}
+.result-seal svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.result-seal__label {
+  position: relative;
+  max-width: 64px;
+  text-align: center;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 14px;
+  line-height: 1.1;
+}
+.result-seal--right .result-seal__ring {
+  fill: var(--kin);
+}
+.result-seal--right .result-seal__inner {
+  fill: none;
+  stroke: var(--kin-light);
+  stroke-width: 2;
+}
+.result-seal--right .result-seal__label {
+  color: var(--on-shu);
+}
+.result-seal--wrong .result-seal__ring,
+.result-seal--pending .result-seal__ring {
+  fill: none;
+  stroke: var(--nezumi);
+  stroke-width: 2;
+}
+.result-seal--wrong .result-seal__inner,
+.result-seal--pending .result-seal__inner {
+  fill: none;
+  stroke: var(--line);
+  stroke-width: 1.5;
+  stroke-dasharray: 3 4;
+}
+.result-seal--wrong .result-seal__label,
+.result-seal--pending .result-seal__label {
+  color: var(--nezumi);
+}
+.gold-tag {
+  padding: 0 var(--s3);
+  border-radius: var(--radius-pill);
+  background: var(--kin-light);
+  color: var(--sumi);
+  font-weight: 700;
+  font-size: var(--text-sm);
+  line-height: 26px;
+}

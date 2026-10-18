@@ -16,6 +16,7 @@ import { FoodGlyph } from './FoodGlyph'
 import { fade, popSpring } from './springs'
 import { useStudent } from './state'
 import { PanelSkeleton } from './VoteScreen'
+import './callit.css'
 
 const t = copy.student.calledIt
 

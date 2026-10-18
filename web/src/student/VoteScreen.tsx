@@ -20,6 +20,7 @@ import { isTomorrow, schoolDaysBetween } from './days'
 import { NeedsButton } from './NeedsSheet'
 import { fade, popSpring } from './springs'
 import { readStoredVote, useStudent, type StoredVote } from './state'
+import './vote.css'
 
 const t = copy.student
 type Phase = 'idle' | 'spinning' | 'landed' | 'voting' | 'voted' | 'done'

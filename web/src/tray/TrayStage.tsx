@@ -11,6 +11,7 @@ import { stageBus, useTrayHovered } from './stageBus'
 import { trayEvents, trayProjector, trayStore, useTray, type Component, type TrayState } from './store'
 import { buildShadowTexture, buildStudioEnvironment } from './studio'
 import { TrayModel } from './TrayModel'
+import { HeroFoods } from './hero/HeroFoods'
 import './tray.css'
 
 /*
@@ -601,6 +602,7 @@ export default function TrayStage() {
         <directionalLight position={[-3, 2, 4]} intensity={0.35} color="#ffd6e0" />
         <ambientLight intensity={0.22} />
         <Rig wrap={wrap} reduced={reduced} />
+        <HeroFoods />
       </Canvas>
       <StageControls />
     </div>

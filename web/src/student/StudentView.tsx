@@ -22,6 +22,7 @@ import { FreeBanner } from './FreeBanner'
 import { LunchCheckIn } from './LunchCheckIn'
 import { TrayScreen } from './TrayScreen'
 import { VoteScreen } from './VoteScreen'
+import { GameWatermark } from '../theme/Watermark'
 import './student.css'
 
 const t = copy.student.tabs
@@ -181,6 +182,7 @@ function Game() {
   const doneToday = !!(me?.packed_today || me?.voted_today || packed)
   return (
     <div className="game">
+      <GameWatermark />
       <div className="game__top">
         <Hud today={today} streak={me?.streak ?? null} xp={me?.xp ?? null} doneToday={doneToday} bump={hudBump} />
         <Tabs variant="segment" />
