@@ -31,7 +31,7 @@ export function MealCheck({ check, items }: { check: MealCheckData; items: PrepI
   return (
     <section className="k-mc" aria-labelledby="mc-title">
       <div className="k-mc__head">
-        <h2 id="mc-title" className="k-mc__title">{t.heading}</h2>
+        <h3 id="mc-title" className="k-mc__title">{t.heading}</h3>
         <p className={`k-mc__summary ${problems.length ? 'k-mc__summary--bad' : ''}`} role="status">
           {problems.length ? t.problem(problems) : t.allGood}
         </p>
