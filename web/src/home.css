@@ -1,6 +1,6 @@
 /* The hero: one full screen on the pink ground. The world's backdrop behind, the tray floating
-   above it, the lock-in clock hanging at the top center, the words low on phones and on the left
-   on wide screens. The bottom fifth stays clear of words: the tray canvas draws foods there.
+   above it, the world picker at the top center, the words (lock-in clock over the headline) low
+   on phones and on the left on wide screens. The bottom fifth stays clear of words: the tray canvas draws foods there.
    Layers: backdrop (0, on body), tray stage (1), this page (2). */
 
 .home-field {
@@ -18,7 +18,7 @@
   color: var(--ink);
 }
 
-/* Phones: the clock under the bar, the tray under the clock, the words below it. */
+/* Phones: the picker under the logo, the tray under the picker, the words below it. */
 .home__slot {
   position: absolute;
   left: 4vw;
@@ -255,9 +255,8 @@
   }
 }
 
-/* The lock-in clock: a little flip board hanging from two cords at the top center, like the menu
-   board over a lunch line. Plate, tiles and digits take each world's colors and display face. */
-.home__clock {
+/* The world picker, centered at the top of the screen. */
+.home__switch {
   position: absolute;
   z-index: 3;
   /* Phones: below the logo, which owns the top 84px. */
@@ -266,66 +265,33 @@
   right: 0;
   display: flex;
   justify-content: center;
+  padding: 0 var(--s4);
   pointer-events: none;
-  /* Swings from where the cords meet the plate. */
-  transform-origin: 50% 0;
+}
+.home__switch > * {
+  pointer-events: auto;
 }
 
-.flip {
-  --plate: var(--accent-1);
-  --plate-ink: var(--ink);
-  --tile: var(--ink);
-  --tile-ink: var(--pink-1);
-  --fold: rgb(255 255 255 / 0.16);
-  position: relative;
-  display: inline-flex;
+/* The headline and the clock over it share one width, so the clock centers on the words. */
+.home__hook {
+  display: flex;
   flex-direction: column;
+  width: fit-content;
+  max-width: 100%;
+}
+.home__clock {
+  align-self: center;
+  margin-bottom: var(--s3);
+}
+
+/* Flip board countdown: "Tray locks in" and ink tiles that flip one digit at a time. */
+.flip {
+  display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 9px 16px 11px;
-  border: 2px solid var(--ink);
-  border-radius: 15px;
-  background: var(--plate);
-  color: var(--plate-ink);
-  box-shadow: 0 10px 22px -12px rgb(58 22 38 / 0.45);
-}
-:root[data-theme='asia'] .flip {
-  --plate-ink: var(--pink-1);
-  --tile: var(--pink-1);
-  --tile-ink: var(--accent-1);
-  --fold: rgb(35 42 92 / 0.14);
-}
-:root[data-theme='medi'] .flip {
-  --plate-ink: var(--pink-1);
-  --tile: var(--pink-1);
-  --tile-ink: var(--accent-2);
-  --fold: rgb(107 33 69 / 0.14);
-}
-/* The two cords, running up off the top of the screen, each tied through an eyelet. */
-.flip::before,
-.flip::after {
-  content: '';
-  position: absolute;
-  bottom: calc(100% - 9px);
-  width: 9px;
-  height: 100vh;
-  background:
-    radial-gradient(circle at 50% calc(100% - 4.5px), var(--plate) 1.6px, var(--ink) 2.1px 3.6px, transparent 4.1px),
-    linear-gradient(var(--ink), var(--ink)) 50% 0 / 2px calc(100% - 7px) no-repeat;
-}
-.flip::before {
-  left: 18%;
-}
-.flip::after {
-  right: 18%;
-}
-.flip__label {
-  font-family: var(--font-ui);
-  font-size: 11px;
-  font-weight: 800;
-  line-height: 1;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
+  gap: var(--s3);
+  font-size: var(--text-md);
+  font-weight: 700;
+  color: var(--ink-soft);
 }
 .flip__board {
   display: inline-flex;
@@ -338,22 +304,22 @@
   gap: 3px;
 }
 .flip__colon {
-  width: 10px;
-  height: 14px;
+  width: 12px;
+  height: 16px;
   background:
-    radial-gradient(circle, var(--plate-ink) 1.8px, transparent 2.3px) 50% 0 / 5px 5px no-repeat,
-    radial-gradient(circle, var(--plate-ink) 1.8px, transparent 2.3px) 50% 100% / 5px 5px no-repeat;
+    radial-gradient(circle, var(--ink) 2.2px, transparent 2.7px) 50% 2px / 6px 6px no-repeat,
+    radial-gradient(circle, var(--ink) 2.2px, transparent 2.7px) 50% 10px / 6px 6px no-repeat;
 }
 .flip__tile {
   position: relative;
   display: inline-flex;
   justify-content: center;
-  width: 23px;
-  height: 32px;
+  width: 27px;
+  height: 37px;
   overflow: hidden;
-  border-radius: 6px;
-  background: var(--tile);
-  perspective: 120px;
+  border-radius: 7px;
+  background: var(--ink);
+  perspective: 160px;
 }
 /* The fold line across the middle of each tile. */
 .flip__tile::after {
@@ -363,24 +329,14 @@
   right: 0;
   top: 50%;
   height: 1px;
-  background: var(--fold);
+  background: rgb(255 255 255 / 0.14);
 }
 .flip__digit {
   display: block;
-  font-family: var(--font-display);
-  font-weight: 900;
-  font-synthesis: none;
-  line-height: 32px;
-  font-size: 22px;
-  color: var(--tile-ink);
-}
-/* Dela Gothic's figures run wide: a size down so they sit inside their tiles. */
-:root[data-theme='asia'] .flip__digit {
-  font-size: 18px;
-}
-:root[data-theme='asia'] .flip__digit,
-:root[data-theme='medi'] .flip__digit {
-  font-weight: 400;
+  line-height: 37px;
+  font-weight: 800;
+  font-size: 23px;
+  color: var(--pink-1);
 }
 
 /* Quiet links */
@@ -417,7 +373,7 @@
   outline-offset: 2px;
 }
 
-/* Fixed label that answers the hover, away from the cursor and clear of the clock. */
+/* Fixed label that answers the hover, away from the cursor and clear of the picker. */
 .home__hint {
   position: fixed;
   right: max(var(--s6), 4vw);
@@ -457,7 +413,7 @@
   }
 }
 
-/* Phones and tablets in portrait: one column on a grid, top to bottom: the clock under the
+/* Phones and tablets in portrait: one column on a grid, top to bottom: the picker under the
    logo, the tray taking whatever height is left, then the words and a full-width button in
    thumb reach, and a clear band at the bottom where the foods stand on the world's floor. The
    tray gives up height first, so nothing ever overlaps on a short screen. */
@@ -470,10 +426,14 @@
     grid-template-rows: auto minmax(0, 1fr) auto var(--home-band);
     padding-top: var(--home-top);
   }
-  .home__clock {
+  .home__switch {
     position: relative;
     top: auto;
     grid-row: 1;
+  }
+  /* The bar already shows the brand up here; the group keeps its name for screen readers. */
+  .home__switch .ll-switcher__heading {
+    display: none;
   }
   .home__slot {
     position: relative;
@@ -526,34 +486,28 @@
     min-height: 56px;
     padding: 0 var(--s5);
   }
-  /* A smaller board on phones. No cords: they would run through the logo above. */
+  .home__clock {
+    margin-bottom: var(--s2);
+  }
   .flip {
-    gap: 4px;
-    padding: 6px 12px 8px;
-    border-radius: 13px;
-  }
-  .flip::before,
-  .flip::after {
-    display: none;
-  }
-  .flip__label {
-    font-size: 10px;
+    gap: var(--s2);
+    font-size: var(--text-sm);
   }
   .flip__tile {
-    width: 21px;
-    height: 29px;
-    border-radius: 5px;
+    width: 22px;
+    height: 30px;
+    border-radius: 6px;
   }
   .flip__digit {
-    line-height: 29px;
-    font-size: 20px;
-  }
-  :root[data-theme='asia'] .flip__digit {
-    font-size: 16px;
+    line-height: 30px;
+    font-size: 19px;
   }
   .flip__colon {
-    width: 9px;
-    height: 12px;
+    width: 10px;
+    height: 14px;
+    background:
+      radial-gradient(circle, var(--ink) 1.8px, transparent 2.3px) 50% 1px / 5px 5px no-repeat,
+      radial-gradient(circle, var(--ink) 1.8px, transparent 2.3px) 50% 8px / 5px 5px no-repeat;
   }
   /* The quiet links: one calm line under the button, centered on it. */
   .home__quiet {
@@ -591,7 +545,7 @@
   }
 }
 
-/* Phones on their side: two columns, the words on the left and the tray on the right, the clock
+/* Phones on their side: two columns, the words on the left and the tray on the right, the picker
    centered across the top of the screen, everything shrunk to fit a 390px tall screen. The foods
    sit out (no room). */
 @media (max-width: 899px) and (max-height: 520px) and (orientation: landscape) {
@@ -601,9 +555,35 @@
     grid-template-rows: auto minmax(0, 1fr) 12px;
     column-gap: 2vw;
   }
-  .home__clock {
+  /* The logo owns the top left here: the picker goes right, each mascot over its world's name. */
+  .home__switch {
     grid-column: 1 / -1;
     grid-row: 1;
+    justify-content: flex-end;
+    padding: 0 max(16px, env(safe-area-inset-right)) 0 0;
+  }
+  .home__switch .ll-switcher__track {
+    gap: 0;
+    padding: 3px;
+  }
+  .home__switch .ll-switcher__option {
+    flex-direction: column;
+    gap: 1px;
+    min-height: 0;
+    padding: 4px 8px;
+    border-radius: 24px;
+  }
+  .home__switch .ll-switcher__pill {
+    border-radius: 24px;
+  }
+  .home__switch .ll-switcher__text {
+    align-items: center;
+  }
+  .home__switch .ll-switcher__label {
+    font-size: 13px;
+  }
+  .home__switch .ll-switcher__name {
+    display: none;
   }
   .home__slot {
     grid-column: 2;
@@ -648,12 +628,12 @@
     top: 14svh;
     height: 62svh;
   }
-  .home__clock {
-    top: 18px;
+  .home__switch {
+    top: 14px;
   }
-  /* Too narrow to center it beside the logo: hang it over the tray instead. */
+  /* Too narrow to center it beside the logo: set it over the tray instead. */
   @media (max-width: 1099px) {
-    .home__clock {
+    .home__switch {
       left: 46vw;
       right: 4vw;
     }
@@ -661,7 +641,7 @@
   .home__copy {
     left: max(var(--s12), 6vw);
     right: auto;
-    top: 19svh;
+    top: 21svh;
     bottom: auto;
     max-width: 44vw;
     padding: 0;
@@ -701,27 +681,45 @@
     inset: -18% -22% -16% -30%;
     background: radial-gradient(closest-side, var(--pink-1) 62%, color-mix(in srgb, var(--pink-1) 70%, transparent) 80%, transparent);
   }
-  .flip {
-    gap: 8px;
-    padding: 12px 20px 14px;
-    border-radius: 18px;
+  .home__clock {
+    margin-bottom: var(--s5);
   }
-  .flip__label {
-    font-size: 13px;
+  .flip {
+    gap: var(--s4);
+    font-size: var(--text-lg);
   }
   .flip__tile {
-    width: 30px;
-    height: 42px;
+    width: 34px;
+    height: 46px;
+    border-radius: 8px;
   }
   .flip__digit {
-    line-height: 42px;
-    font-size: 30px;
-  }
-  :root[data-theme='asia'] .flip__digit {
-    font-size: 24px;
+    line-height: 46px;
+    font-size: 29px;
   }
   .flip__colon {
-    width: 12px;
-    height: 18px;
+    width: 14px;
+    height: 20px;
+    background:
+      radial-gradient(circle, var(--ink) 2.6px, transparent 3.1px) 50% 2px / 7px 7px no-repeat,
+      radial-gradient(circle, var(--ink) 2.6px, transparent 3.1px) 50% 13px / 7px 7px no-repeat;
+  }
+}
+
+/* Short laptops: the words start a little higher and the clock sits closer, so the links clear
+   the foods band. */
+@media (min-width: 900px) and (max-height: 780px) {
+  .home__copy {
+    top: 19svh;
+  }
+  /* East Asia's noren hangs lower, and its shorter headline leaves the room to start under it. */
+  :root[data-theme='asia'] .home__copy {
+    top: 21svh;
+  }
+  .home__clock {
+    margin-bottom: var(--s3);
+  }
+  .home__actions {
+    margin-top: var(--s5);
   }
 }

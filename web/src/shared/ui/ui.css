@@ -181,9 +181,6 @@ a.btn {
 .shell__brand:active {
   transform: scale(var(--press-scale));
 }
-.shell__brand--static:active {
-  transform: none;
-}
 
 /* Home: no bar at all. The logo sits straight on the hero art with a soft paper halo. */
 .shell__bar--home {
@@ -326,7 +323,7 @@ a.btn {
     left: var(--s1);
     right: var(--s1);
   }
-  .shell__bar--staff .shell__brand:not(.shell__brand--static) .ll-logo__word {
+  .shell__bar--staff .shell__brand .ll-logo__word {
     position: absolute;
     width: 1px;
     height: 1px;
