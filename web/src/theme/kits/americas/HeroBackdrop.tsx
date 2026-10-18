@@ -75,12 +75,15 @@ export function HeroBackdrop({ px, py, className }: HeroBackdropProps) {
 
   // Flags are sized in real pixels so they read the same on a phone and a laptop.
   const wide = w > 720
-  const scale = wide ? 1.05 : 0.78
-  const gap = 62 * scale + (wide ? 22 : 6)
+  // Phones (and phones on their side): one string of small flags along the very top edge,
+  // above the logo, instead of two big strings crossing through the logo and the clock.
+  const compact = !wide || h < 520
+  const scale = compact ? 0.6 : 1.05
+  const gap = 62 * scale + (compact ? 8 : 22)
   const count = Math.max(4, Math.round((w + 40) / gap))
-  const garH = Math.min(h * 0.42, wide ? 300 : 230)
-  const yA = wide ? 10 : 6
-  const yB = wide ? garH - 70 : garH - 95
+  const garH = compact ? 44 : Math.min(h * 0.42, 300)
+  const yA = compact ? -5 : 10
+  const yB = compact ? -5 : garH - 70
 
   return (
     <div
@@ -129,8 +132,8 @@ export function HeroBackdrop({ px, py, className }: HeroBackdropProps) {
 
       <motion.div className="amx-layer" style={{ x: garX, y: garY }}>
         <svg className="amx-hero-svg amx-garland" viewBox={`${-0.06 * w} 0 ${w * 1.12} ${garH}`} style={{ height: garH }}>
-          <Banner x0={-0.08 * w} y0={yA} x1={w * 1.08} y1={yB} sag={wide ? 30 : 18} count={count} scale={scale} />
-          <Banner x0={-0.08 * w} y0={yB + 6} x1={w * 1.08} y1={yA + 4} sag={wide ? 30 : 18} count={count} scale={scale} shift={2} />
+          <Banner x0={-0.08 * w} y0={yA} x1={w * 1.08} y1={yB} sag={compact ? 5 : 30} count={count} scale={scale} />
+          {!compact && <Banner x0={-0.08 * w} y0={yB + 6} x1={w * 1.08} y1={yA + 4} sag={30} count={count} scale={scale} shift={2} />}
         </svg>
       </motion.div>
     </div>

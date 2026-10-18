@@ -284,3 +284,15 @@
     animation: none;
   }
 }
+
+/* ---------- Hero backdrop on phones ---------- */
+/* The SVG motifs hold still on phones: each pennant, flower and spinner is its own SVG repaint
+   every frame on the main thread. The light sweep (one composited layer) keeps moving. */
+@media (max-width: 899px) {
+  .mk-hero .mk-spin,
+  .mk-hero .mk-pennant,
+  .mk-hero .mk-sway,
+  .mk-hero .mk-bob {
+    animation: none;
+  }
+}

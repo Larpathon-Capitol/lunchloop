@@ -32,7 +32,9 @@ interface Layout {
 }
 
 function layoutFor(W: number, H: number): Layout {
-  const w = Math.min(W * 0.88, H * 0.94, 1000)
+  // Phones: a touch wider, so the arch's tiled sides frame the screen instead of running
+  // through the left edge of the words.
+  const w = Math.min(W * (W < 700 ? 0.93 : 0.88), H * 0.94, 1000)
   const mid = W / 2
   const apexY = Math.max(H * 0.06, 58)
   const springY = apexY + w * 0.866

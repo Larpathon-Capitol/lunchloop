@@ -462,3 +462,19 @@
   height: 18px;
   background: var(--ka-indigo);
 }
+
+/* ---------- Hero backdrop on phones ---------- */
+/* A lower wave cloth and a smaller shelf, so the goods stay under the words and the foods have
+   the cloth to themselves. */
+@media (max-width: 899px) {
+  .ka-hero { --waves: clamp(56px, 10.5%, 96px); }
+  .ka-hero .ka-good { width: 30px; }
+  .ka-hero .ka-good--milk { width: 16px; }
+  .ka-hero .ka-hero__goods--left { left: calc(24px + 2%); }
+  .ka-hero .ka-hero__goods--right { right: calc(24px + 2%); }
+}
+@media (max-width: 899px) and (max-height: 520px) and (orientation: landscape) {
+  .ka-hero { --waves: 40px; }
+  .ka-hero .ka-hero__goods { display: none; }
+  .ka-hero .ka-noren__panel { height: 64px; }
+}

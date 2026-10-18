@@ -58,11 +58,13 @@ const settle = { type: 'spring', stiffness: 260, damping: 30, mass: 1 } as const
 const swing = { type: 'spring', stiffness: 170, damping: 11, mass: 1 } as const
 
 const coarsePointer = () => window.matchMedia('(pointer: coarse)').matches
+/** Touch screens: how often the backdrop drifts to a new resting point. */
+const WANDER_MS = 3800
 
 /**
  * Pointer offset from the viewport center, -0.5 to 0.5 on each axis, through Drift springs.
- * On touch screens there is no pointer to follow, so it wanders slowly on its own instead.
- * Still under reduced motion. The idle loop pauses while the tab is hidden.
+ * On touch screens there is no pointer to follow, so it drifts to a new spot every few seconds
+ * instead. Still under reduced motion. The drift skips while the tab is hidden.
  */
 function useHeroPointer(reduce: boolean) {
   const rx = useMotionValue(0)
@@ -76,17 +78,18 @@ function useHeroPointer(reduce: boolean) {
       return
     }
     if (coarsePointer()) {
-      let raf = 0
+      // A new resting point every few seconds; the springs glide there and then stop, so the
+      // backdrop layers are still most of the time instead of restyling on every frame.
       const t0 = performance.now()
-      const tick = (now: number) => {
-        raf = requestAnimationFrame(tick)
+      const wander = () => {
         if (document.hidden) return
-        const t = (now - t0) / 1000
+        const t = (performance.now() - t0) / 1000 + 4
         rx.set(Math.sin(t * 0.21) * 0.22 + Math.sin(t * 0.07) * 0.08)
         ry.set(Math.sin(t * 0.17 + 1.3) * 0.14)
       }
-      raf = requestAnimationFrame(tick)
-      return () => cancelAnimationFrame(raf)
+      wander()
+      const id = window.setInterval(wander, WANDER_MS)
+      return () => window.clearInterval(id)
     }
     const onMove = (e: PointerEvent) => {
       if (e.pointerType === 'touch') return
@@ -183,16 +186,29 @@ function MascotOnTray({ show, reduce, wide }: { show: boolean; reduce: boolean; 
     return () => window.clearTimeout(t)
   }, [hovered, reduce])
 
+  // Ride the rim. The tray drifts on the hero, so this follows it every frame, but it only
+  // touches the DOM when the mascot moves by a device pixel or more (or fades), and while the
+  // tray is drifting slowly it checks every other frame, which the eye cannot tell apart.
   useEffect(() => {
     let raf = 0
+    let skip = false
+    let lastX = NaN
+    let lastY = NaN
+    let lastOpacity = ''
+    const px = 1 / Math.max(1, window.devicePixelRatio || 1)
+    const snap = (v: number) => Math.round(v / px) * px
     const tick = () => {
       raf = requestAnimationFrame(tick)
+      if (skip) {
+        skip = false
+        return
+      }
       const el = ref.current
       if (!el) return
       const p = stageBus.rimPoint(RIM_U, RIM_V)
-      const rect = trayProjector.tray()
+      const rect = p ? trayProjector.tray() : null
       if (!p || !rect) {
-        el.style.opacity = '0'
+        if (lastOpacity !== '0') el.style.opacity = lastOpacity = '0'
         return
       }
       const want = rimSize(rect.width, wideRef.current)
@@ -201,9 +217,19 @@ function MascotOnTray({ show, reduce, wide }: { show: boolean; reduce: boolean; 
         setSize(want)
       }
       const s = sizeRef.current
-      el.style.opacity = String(Math.min(1, stageBus.presence()))
+      const opacity = String(Math.min(1, Math.round(stageBus.presence() * 100) / 100))
+      if (opacity !== lastOpacity) el.style.opacity = lastOpacity = opacity
       // Feet right on the rim line, so it stands on the steel.
-      el.style.transform = `translate3d(${p.x - s / 2}px, ${p.y - s * FEET}px, 0)`
+      const x = snap(p.x - s / 2)
+      const y = snap(p.y - s * FEET)
+      const moved = Math.abs(x - lastX) + Math.abs(y - lastY)
+      // NaN on the first frame, so the first position is always written.
+      if (moved !== 0) {
+        el.style.transform = `translate3d(${x}px, ${y}px, 0)`
+        lastX = x
+        lastY = y
+      }
+      skip = opacity === '1' && moved < 1.5
     }
     raf = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(raf)

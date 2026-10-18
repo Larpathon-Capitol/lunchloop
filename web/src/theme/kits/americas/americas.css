@@ -331,3 +331,27 @@
   border-radius: 5px;
   background: var(--amx-yellow);
 }
+
+/* ---------- hero backdrop on phones ---------- */
+/* A lower, lighter floor so the words above it sit on calm wall: the dado shows just its stripe
+   and scallop trim over a shorter tablecloth, small loteria cards tuck into the bottom corners,
+   and the sun sits behind the tray. Flags and sparkles hold still (each one is a separate SVG
+   paint every frame on a phone's main thread). */
+@media (max-width: 899px) {
+  .amx-hero .amx-burst-wrap { top: 34%; }
+  .amx-hero .amx-wall { height: calc(18% + 2px); }
+  .amx-hero .amx-wall-sign { display: none; }
+  .amx-hero .amx-table { height: calc(18% - 30px); min-height: 72px; }
+  .amx-hero .amx-cards { height: 18%; }
+  .amx-hero .amx-card { width: 54px; filter: drop-shadow(0 4px 4px rgba(58, 22, 38, 0.16)); }
+  .amx-hero .amx-card-l { left: -8px; bottom: 6%; rotate: -10deg; }
+  .amx-hero .amx-card-r { right: -8px; bottom: 9%; rotate: 9deg; }
+  .amx-hero .amx-sway,
+  .amx-hero .amx-twinkle { animation: none; }
+}
+@media (max-width: 899px) and (max-height: 520px) and (orientation: landscape) {
+  .amx-hero .amx-burst-wrap { left: 74%; top: 50%; }
+  .amx-hero .amx-wall { height: 10%; }
+  .amx-hero .amx-table { height: 6%; min-height: 26px; }
+  .amx-hero .amx-cards { display: none; }
+}
