@@ -1,17 +1,18 @@
 # LunchLoop
 
-LunchLoop tells a school cafeteria how many servings of each item to cook, so less food ends up in the trash. It also has a daily student game: spin to see menu options, vote, and guess what will be popular.
+Welcome to LunchLoop! LunchLoop is an interactive, gamified school cafeteria tracker to measure how many servings of each food item to cook, so less food ends up in the trash. It also has a daily student retention game: spin to see menu options, vote, and guess what will be popular.
 
-It is a web app with a Python backend. We're building it for Hack Club Capitol. The main demo runs on a simulated school, a large Texas high school of 2,750 students, not real cafeteria records.
+LunchLoop is a website with a Python backend server. It was built fully at Capitol. The demo runs on a simulated school of 2750, while the live runs on YOUR actual data.
 
 ---
 
 ## Try it
 
-Open the site: **https://larpathon-capitol.github.io/lunchloop/**
+To try it, open the site!: **https://larpathon-capitol.github.io/lunchloop/**
 
-The site is hosted on GitHub Pages and talks to a backend that we run ourselves. If the backend is off, the pages will load but show no data.
+The site is hosted on GitHub Pages (for free!!!) and talks to a backend that we run ourselves (off tailscale!!). If the backend is off, the pages will load but show no data.
 
+Here are the directories:
 - `/` is the home page.
 - `/hub` lists every page and has a QR code for the live game, so a room can join from their phones.
 - `/student` is the student game on the simulated school: spin, vote, make a "Called It" guess, build streaks, earn badges, and watch the leftovers meter.
@@ -20,9 +21,9 @@ The site is hosted on GitHub Pages and talks to a backend that we run ourselves.
 - `/live` is a separate live demo school where real votes are counted. `/live/admin` is its staff view. The staff password is set by whoever runs the server.
 - `/behind-the-scenes` shows the server's anonymous event log, the path a request takes, and a forecast worked out step by step.
 
-The simulated school's demo staff password is `lunchloop`. It is public on purpose, so anyone can try the staff view.
+The simulated school's demo staff password is `lunchloop`. Obviously its public so people could try it, but on a real use-case, it would be locked down.
 
-Students do not need an account. The browser makes a random device ID and keeps it. There is no name or email.
+Students do not need an account. The browser makes a random device ID and keeps it. There is no name or email for ease of access, as students will NOT be taking time out of their days to make accounts.
 
 ---
 
@@ -139,7 +140,7 @@ You can also move the demo clock for a single request with a header, like `X-Dem
 
 ### Staff passwords
 
-Passwords never live in the repo. To give a school a password, make a hash and put it in `LUNCHLOOP_SCHOOL_PASSWORDS`:
+Passwords never live in the repo, and to give a school a password, make a hash and put it in `LUNCHLOOP_SCHOOL_PASSWORDS`:
 
 ```
 python tools/hash_password.py
