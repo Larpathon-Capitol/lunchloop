@@ -6,7 +6,7 @@
 // Tapping the reel (or the Spin button again) skips straight to the end.
 // Reduced motion: nothing rolls or shakes; the four options fade in one by one, quickly.
 import { animate, motion, motionValue, useReducedMotion } from 'framer-motion'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { memo, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { sparkBurst } from '../celebrate'
 import { ume } from '../mascot'
 import type { PoolItem, SpinOption } from '../shared/api'
@@ -18,8 +18,10 @@ import type { ThemeId } from '../theme/types'
 import { FoodGlyph } from './FoodGlyph'
 import { ChoiceRow } from './ChoiceRow'
 
-/** Spinning row height in px. Matches --reel-row in vote.css. */
-const ROW = 60
+/** Spinning row height in px: 60 on wider screens, 52 on phones. Matches --reel-row in vote.css. */
+const ROW_WIDE = 60
+const ROW_PHONE = 52
+const PHONE = '(max-width: 559px)'
 /** Rows each window rolls through before its option: the lower windows roll longer. */
 const ROWS_FIRST = 12
 const ROWS_STEP = 6
@@ -53,6 +55,22 @@ interface Props {
   onLanded: () => void
   onSelect: (id: string) => void
   onInfo: (option: SpinOption) => void
+  /** Tapping the empty reel starts the spin, same as the Spin button. */
+  onStart?: () => void
+}
+
+/** The row height for this screen, kept in step with the media query in vote.css. */
+function useRow(): number {
+  const phone = useSyncExternalStore(
+    (l) => {
+      const mq = window.matchMedia(PHONE)
+      mq.addEventListener('change', l)
+      return () => mq.removeEventListener('change', l)
+    },
+    () => window.matchMedia(PHONE).matches,
+    () => false,
+  )
+  return phone ? ROW_PHONE : ROW_WIDE
 }
 
 /** One window's filler: the pool from its own starting point, never the same item twice in a row. */
@@ -89,9 +107,18 @@ function shakeFrames(world: ThemeId, k: number): Keyframe[] {
   return [{ transform: 'none' }, { transform: `translateY(${3 * k}px) rotate(${-0.25 * k}deg)` }, { transform: `translateY(${-1.5 * k}px)` }, { transform: `translateY(${0.5 * k}px)` }, { transform: 'none' }]
 }
 
-function Idle() {
+/** Before the spin: four empty windows waiting for their entrees. Tapping it spins. */
+function Idle({ count, onStart }: { count: number; onStart?: () => void }) {
   return (
-    <div className="reel reel--idle">
+    <div className="reel reel--idle" onClick={onStart}>
+      {Array.from({ length: Math.max(1, Math.min(count, 4)) }, (_, i) => (
+        <div className="reel__slot reel__slot--idle" key={i} aria-hidden="true">
+          <span className="reel__ghost">
+            <span className="reel__blank" />
+            <span className="reel__line" />
+          </span>
+        </div>
+      ))}
       <p className="reel__idle-text">{t.idle}</p>
     </div>
   )
@@ -117,12 +144,29 @@ function Ghost({ item, disc }: { item: PoolRow; disc?: boolean }) {
   )
 }
 
-export function Reel({ options, pool, phase, selected, disabled, skip = 0, onLanded, onSelect, onInfo }: Props) {
+/** A window's rolling rows. Memoized so a landing (which only flips a class) doesn't re-render them. */
+const Strip = memo(function Strip({ option, rows }: { option: PoolRow; rows: PoolRow[] }) {
+  return (
+    <>
+      <div className="reel__row reel__row--final">
+        <Ghost item={option} disc />
+      </div>
+      {rows.map((p, k) => (
+        <div className="reel__row" key={k}>
+          <Ghost item={p} />
+        </div>
+      ))}
+    </>
+  )
+})
+
+export function Reel({ options, pool, phase, selected, disabled, skip = 0, onLanded, onSelect, onInfo, onStart }: Props) {
   const reduce = useReducedMotion()
+  const rowH = useRow()
   const strips = useMemo(() => options.map((_, i) => buildStrip(pool, options, i, ROWS_FIRST + i * ROWS_STEP)), [pool, options])
   // One strip offset per window. A strip starts rolled up its full length and rolls down to 0,
   // where its option (the first row) fills the window.
-  const ys = useMemo(() => strips.map((s) => motionValue(-s.length * ROW)), [strips])
+  const ys = useMemo(() => strips.map((s) => motionValue(-s.length * rowH)), [strips, rowH])
   const rootRef = useRef<HTMLDivElement>(null)
   const slotRefs = useRef<(HTMLDivElement | null)[]>([])
   const groupRef = useRef<HTMLDivElement>(null)
@@ -208,14 +252,14 @@ export function Reel({ options, pool, phase, selected, disabled, skip = 0, onLan
     } else {
       sound.spinUp()
       ys.forEach((mv, i) => {
-        const from = -strips[i].length * ROW
+        const from = -strips[i].length * rowH
         const ms = FIRST_MS + i * GAP_MS
         mv.set(from)
         // Tick as rows pass, but only for the next window due to stop: the ticks slow as it does.
         const off = mv.on('change', (v) => {
           const r = run.current
           if (r.landed !== i) return
-          const row = Math.round(-v / ROW)
+          const row = Math.round(-v / rowH)
           if (row === r.rows[i]) return
           r.rows[i] = row
           const now = performance.now()
@@ -267,7 +311,7 @@ export function Reel({ options, pool, phase, selected, disabled, skip = 0, onLan
     if (open) groupRef.current?.querySelector<HTMLButtonElement>('.choice__main')?.focus({ preventScroll: true })
   }, [open])
 
-  if (!spinning || !count) return <Idle />
+  if (!spinning || !count) return <Idle count={count} onStart={onStart} />
 
   // Windows still rolling: a tap anywhere on the reel skips to the end.
   const rolling = landed < count
@@ -276,7 +320,7 @@ export function Reel({ options, pool, phase, selected, disabled, skip = 0, onLan
       ref={rootRef}
       className={`reel reel--slots${open ? ' reel--open' : ''}${reduce ? ' reel--calm' : ''}`}
       initial={false}
-      animate={{ height: open ? 'auto' : ROW * count }}
+      animate={{ height: open ? 'auto' : rowH * count }}
       transition={reduce ? { duration: 0 } : { type: 'spring', stiffness: 260, damping: 30 }}
       onClick={rolling ? () => skipRef.current() : undefined}
     >
@@ -306,14 +350,7 @@ export function Reel({ options, pool, phase, selected, disabled, skip = 0, onLan
               }}
             >
               <motion.div className="reel__strip" style={{ y: ys[i] }}>
-                <div className="reel__row reel__row--final">
-                  <Ghost item={o} disc />
-                </div>
-                {strips[i].map((p, k) => (
-                  <div className="reel__row" key={k}>
-                    <Ghost item={p} />
-                  </div>
-                ))}
+                <Strip option={o} rows={strips[i]} />
               </motion.div>
             </div>
           ))}

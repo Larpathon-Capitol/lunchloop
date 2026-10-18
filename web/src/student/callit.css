@@ -673,3 +673,78 @@ html[data-theme='americas'] .callit-count__n {
   line-height: 26px;
 }
 
+
+/* ---------- Phones and tablets: the tab bar is at the bottom ---------- */
+
+.callit-phone {
+  display: none;
+}
+@media (max-width: 959px) {
+  /* The lock button rides just above the tab bar, so it's there the moment a pick is made. */
+  .callit .callit-lock--ready {
+    position: sticky;
+    bottom: calc(var(--tabbar-h, 64px) + 3px + env(safe-area-inset-bottom, 0px) + var(--s3));
+    z-index: 6;
+  }
+}
+/* Short screens (a phone on its side): the pinned button fits its words and sits at the right. */
+@media (max-width: 959px) and (max-height: 520px) {
+  .callit .callit-lock--ready {
+    justify-self: end;
+    width: auto;
+    min-width: 200px;
+    padding-inline: var(--s8);
+  }
+}
+
+/* ---------- Phones ---------- */
+
+@media (max-width: 559px) {
+  .callit .callit-wide {
+    display: none;
+  }
+  .callit .callit-phone {
+    display: inline;
+  }
+  .callit.tabscreen {
+    gap: var(--s5);
+  }
+  .callit-choose {
+    gap: var(--s4);
+  }
+  .callit-choose__intro {
+    gap: var(--s1);
+  }
+  .callit-choose__q {
+    font-size: var(--text-xl);
+  }
+  .callit-choose__lead {
+    text-wrap: pretty;
+    font-size: 15px;
+    line-height: 1.4;
+  }
+  .callit-choose__pick {
+    gap: var(--s3);
+  }
+  .callit .choice__main .glyph-disc {
+    width: 36px;
+    height: 36px;
+  }
+
+  /* Locked: a slightly smaller card so the countdown shows without scrolling. */
+  .callit-locked {
+    gap: var(--s4);
+  }
+  .callit-locked .ct {
+    --ct-w: 164px;
+  }
+  .callit-locked__title {
+    font-size: var(--text-lg);
+  }
+  .callit-count__n {
+    font-size: 40px;
+  }
+  .callit-guard {
+    margin-top: var(--s1);
+  }
+}

@@ -113,7 +113,7 @@ export function PanelSkeleton() {
 function CallItLink({ children }: { children: ReactNode }) {
   const { base, search } = useGameBase()
   return (
-    <Link to={`${base}/call-it${search}`} className="btn-ink">
+    <Link to={`${base}/call-it${search}`} className="btn-ink vote-cta">
       {children}
     </Link>
   )
@@ -239,7 +239,7 @@ function SpinPanel({ spin, device, catalog, addToCatalog, showFood, stored, next
 
   if (phase === 'done') {
     return (
-      <section className="paper" aria-labelledby="done-title">
+      <section className="paper voted" aria-labelledby="done-title">
         <span className="done-seal" aria-hidden="true">
           <Check />
         </span>
@@ -259,11 +259,15 @@ function SpinPanel({ spin, device, catalog, addToCatalog, showFood, stored, next
       <div className="vote-intro">
         <div className="vote-day">
           <h2 id="spin-title" className="section-title">
-            {t.spin.heading(day)}
+            <span className="vote-wide">{t.spin.heading(day)}</span>
+            <span className="vote-phone">{voteCopy.heading(shortDay)}</span>
           </h2>
           <span className="vote-day__when">{when}</span>
         </div>
-        <p className="paper__lead">{t.spin.lead}</p>
+        <p className="paper__lead">
+          <span className="vote-wide">{t.spin.lead}</span>
+          <span className="vote-phone">{voteCopy.lead}</span>
+        </p>
       </div>
 
       <div className="vote-machine">
@@ -278,9 +282,10 @@ function SpinPanel({ spin, device, catalog, addToCatalog, showFood, stored, next
             onLanded={() => setPhase((p) => (p === 'spinning' ? 'landed' : p))}
             onSelect={pick}
             onInfo={info}
+            onStart={phase === 'idle' ? startSpin : undefined}
           />
         </div>
-        <p className="vote-served">{t.spin.served(shortDay)}</p>
+        <p className="vote-served vote-wide">{t.spin.served(shortDay)}</p>
       </div>
       <p className="visually-hidden" aria-live="polite">
         {phase === 'spinning' ? t.spin.spinning : landed ? t.spin.landed(options.map((o) => o.name)) : ''}
@@ -295,7 +300,7 @@ function SpinPanel({ spin, device, catalog, addToCatalog, showFood, stored, next
       {landed ? (
         <motion.div
           key="vote"
-          className="paper__action"
+          className={chosen ? 'paper__action vote-cta' : 'paper__action'}
           initial={reduce ? false : { scale: 0.9, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           transition={reduce ? fade : popSpring}
@@ -315,7 +320,7 @@ function SpinPanel({ spin, device, catalog, addToCatalog, showFood, stored, next
         <motion.button
           key="spin"
           type="button"
-          className="btn-press btn-press--big"
+          className="btn-press btn-press--big vote-cta"
           onClick={startSpin}
           whileTap={press}
         >
@@ -351,7 +356,7 @@ function VotedPanel({ spin, result, chosen, storedXp, fresh, nextLabel }: VotedP
 
   return (
     <motion.section
-      className="paper"
+      className="paper voted"
       aria-labelledby="voted-title"
       initial={still ? false : { opacity: 0, scale: 0.97 }}
       animate={{ opacity: 1, scale: 1 }}

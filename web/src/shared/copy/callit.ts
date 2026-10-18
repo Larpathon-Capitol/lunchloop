@@ -29,6 +29,10 @@ export const callit = {
   question: 'Which entree wins?',
   lead: 'Guess the entree most students pick. A right call earns 25 XP. One call per day.',
   lock: 'Lock in my call',
+  /** The lock button once a pick is made: says which one, like the Vote button does. */
+  lockName: (name: string) => `Lock in ${name}`,
+  /** Phones: the lead, shorter. */
+  leadShort: 'Guess the top pick. A right call earns 25 XP.',
   locking: 'Locking in',
   pickFirst: 'Pick one to call',
   already: 'This device already made today’s call.',

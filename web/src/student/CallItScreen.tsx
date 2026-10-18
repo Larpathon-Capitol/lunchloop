@@ -274,7 +274,10 @@ export function CallItScreen() {
           <h2 id="guess-title" className="callit-choose__q">
             {t.question}
           </h2>
-          <p className="callit-choose__lead">{t.lead}</p>
+          <p className="callit-choose__lead">
+            <span className="callit-wide">{t.lead}</span>
+            <span className="callit-phone">{t.leadShort}</span>
+          </p>
         </div>
         <div className="callit-choose__pick">
           {choices.length === 0 ? (
@@ -304,8 +307,8 @@ export function CallItScreen() {
               {error}
             </p>
           )}
-          <motion.button type="button" className="btn-press btn-press--big callit-lock" disabled={!chosen || busy} onClick={lock} whileTap={press}>
-            {busy ? t.locking : chosen ? t.lock : t.pickFirst}
+          <motion.button type="button" className={`btn-press btn-press--big callit-lock${chosen ? ' callit-lock--ready' : ''}`} disabled={!chosen || busy} onClick={lock} whileTap={press}>
+            {busy ? t.locking : chosen ? t.lockName(chosen.name) : t.pickFirst}
           </motion.button>
         </div>
         {wide && (

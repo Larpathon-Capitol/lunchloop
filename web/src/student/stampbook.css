@@ -287,6 +287,50 @@ html[data-theme='medi'] .stamp-face__tails {
   fill: #e9b44c;
 }
 
+/* Phones: four small stamps to a row, so every section (none has more than four) is one tidy
+   row with no stamp left on its own, and the columns line up from section to section. */
+@media (max-width: 559px) {
+  .sbook {
+    --stamp-size: 62px;
+    gap: var(--s4, 16px);
+  }
+  .sbook__summary {
+    gap: var(--s2, 8px) var(--s3, 12px);
+  }
+  .sbook__total {
+    max-width: none;
+  }
+  .sbook__group {
+    gap: var(--s3, 12px);
+    padding-top: var(--s3, 12px);
+  }
+  .sbook__grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: var(--s4, 16px) 6px;
+  }
+  .sbook__stamp {
+    gap: 6px;
+  }
+  .sbook__name {
+    font-size: 13px;
+    line-height: 1.2;
+  }
+  .sbook__state {
+    font-size: 12px;
+    line-height: 1.25;
+  }
+  .sbook__brush {
+    max-width: 64px;
+  }
+  .sbook__new {
+    right: -6px;
+    font-size: 10px;
+  }
+  .sbook__rule {
+    padding-top: var(--s3, 12px);
+  }
+}
+
 /* Wider screens: bigger stamps, four to a row. */
 @media (min-width: 560px) {
   .sbook {
