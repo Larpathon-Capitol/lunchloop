@@ -42,15 +42,21 @@ const LIFT: [number, number] = [240, 15]
 
 /**
  * Pixel budget for the full-screen canvas. A retina laptop would otherwise draw 2880x1800 with
- * 4x multisampling every frame for a tray that covers a fraction of it. Phones stay at 2x.
+ * 4x multisampling every frame for a tray that covers a fraction of it.
  */
 const PIXEL_BUDGET = 3.2e6
 const MAX_DPR = 2
+/**
+ * Touch screens cap lower: the canvas spans the whole phone while the tray fills a quarter of it,
+ * and the multisampled metal edges at 1.5x look the same at arm's length as 2x or 3x.
+ */
+const MAX_DPR_TOUCH = 1.5
 
 function stageDpr() {
   const native = window.devicePixelRatio || 1
   const area = Math.max(1, window.innerWidth * window.innerHeight)
-  return Math.max(1, Math.min(native, MAX_DPR, Math.sqrt(PIXEL_BUDGET / area)))
+  const cap = window.matchMedia('(pointer: coarse)').matches ? MAX_DPR_TOUCH : MAX_DPR
+  return Math.max(1, Math.min(native, cap, Math.sqrt(PIXEL_BUDGET / area)))
 }
 
 function useStageDpr() {
@@ -236,6 +242,8 @@ function Rig({ wrap, reduced }: RigProps) {
     shown: false,
     phase: trayStore.get().phase,
     t: 0,
+    /** Counts the rig's frames, so screen projections can be cached until the tray moves again. */
+    frame: 0,
   })
 
   // Any store change wakes the loop. A vanished slot needs one more look after the grace period.
@@ -299,15 +307,31 @@ function Rig({ wrap, reduced }: RigProps) {
     return () => document.body.classList.remove('tray-pointer')
   }, [pointerCursor])
 
-  // Screen projections for DOM overlays (Ume, the stamp, labels).
+  // Screen projections for DOM overlays (Ume, the stamp, labels). Overlays poll these every
+  // animation frame while the tray may draw at 30 fps or not at all, so each answer is kept until
+  // the tray's next frame: a repeat call between frames costs a map lookup, not a projection.
+  // The canvas covers the viewport from its top left corner, so its size (kept by the canvas,
+  // updated on resize) maps clip space to viewport pixels without reading window sizes per call.
+  const getState = useThree((st) => st.get)
   useEffect(() => {
+    const cache = new Map<string, unknown>()
+    let cachedFrame = -1
+    const memo = <T,>(key: string, compute: () => T): T => {
+      if (cachedFrame !== a.current.frame) {
+        cache.clear()
+        cachedFrame = a.current.frame
+      }
+      if (cache.has(key)) return cache.get(key) as T
+      const v = compute()
+      cache.set(key, v)
+      return v
+    }
     const project = (corners: [number, number, number][]) => {
       const g = tray.current
       if (!g || a.current.presence.x < 0.05) return null
       g.updateWorldMatrix(true, false)
       box.makeEmpty()
-      const w = window.innerWidth
-      const h = window.innerHeight
+      const { width: w, height: h } = getState().size
       for (const [x, y, z] of corners) {
         tmp.set(x, y, z).applyMatrix4(g.matrixWorld).project(camera)
         box.expandByPoint(pt.set(((tmp.x + 1) / 2) * w, ((1 - tmp.y) / 2) * h))
@@ -315,40 +339,43 @@ function Rig({ wrap, reduced }: RigProps) {
       return new DOMRect(box.min.x, box.min.y, box.max.x - box.min.x, box.max.y - box.min.y)
     }
     const top = TRAY.body + TRAY.rimHeight + TRAY.bevel
+    const trayCorners: [number, number, number][] = []
+    for (const x of [-1, 1]) for (const z of [-1, 1]) for (const y of [-0.06, top]) trayCorners.push([(x * TRAY.width) / 2, y, (z * TRAY.depth) / 2])
     trayProjector.register({
-      tray: () => {
-        const c: [number, number, number][] = []
-        for (const x of [-1, 1]) for (const z of [-1, 1]) for (const y of [-0.06, top]) c.push([(x * TRAY.width) / 2, y, (z * TRAY.depth) / 2])
-        return project(c)
-      },
-      compartment: (id: Component) => {
-        const comp = COMPARTMENTS.find((c) => c.id === id)
-        if (!comp) return null
-        const c: [number, number, number][] = []
-        for (const [x, y] of compartmentCorners(comp)) for (const hy of [TRAY.floor, TRAY.body]) c.push([x, hy, -y])
-        return project(c)
-      },
+      tray: () => memo('tray', () => project(trayCorners)),
+      compartment: (id: Component) =>
+        memo(`c:${id}`, () => {
+          const comp = COMPARTMENTS.find((c) => c.id === id)
+          if (!comp) return null
+          const c: [number, number, number][] = []
+          for (const [x, y] of compartmentCorners(comp)) for (const hy of [TRAY.floor, TRAY.body]) c.push([x, hy, -y])
+          return project(c)
+        }),
     })
     stageBus.registerPresence(() => a.current.presence.x)
-    stageBus.registerRim((u, v) => {
-      const g = tray.current
-      if (!g || a.current.presence.x < 0.05) return null
-      g.updateWorldMatrix(true, false)
-      tmp.set(u * (TRAY.width / 2 - TRAY.rim / 2), top, -v * (TRAY.depth / 2 - TRAY.rim / 2))
-      tmp.applyMatrix4(g.matrixWorld).project(camera)
-      return { x: ((tmp.x + 1) / 2) * window.innerWidth, y: ((1 - tmp.y) / 2) * window.innerHeight }
-    })
+    stageBus.registerRim((u, v) =>
+      memo(`r:${u}:${v}`, () => {
+        const g = tray.current
+        if (!g || a.current.presence.x < 0.05) return null
+        g.updateWorldMatrix(true, false)
+        tmp.set(u * (TRAY.width / 2 - TRAY.rim / 2), top, -v * (TRAY.depth / 2 - TRAY.rim / 2))
+        tmp.applyMatrix4(g.matrixWorld).project(camera)
+        const { width: w, height: h } = getState().size
+        return { x: ((tmp.x + 1) / 2) * w, y: ((1 - tmp.y) / 2) * h }
+      }),
+    )
     return () => {
       trayProjector.register(null)
       stageBus.registerRim(null)
       stageBus.registerPresence(null)
     }
-  }, [camera])
+  }, [camera, getState])
 
   useFrame((state, dt) => {
     const g = tray.current
     const st = a.current
     if (!g) return
+    st.frame++
     const store = trayStore.get()
     const now = performance.now()
     let moving = false
@@ -465,6 +492,8 @@ function Rig({ wrap, reduced }: RigProps) {
     cam.aspect = aspect
     cam.setViewOffset(W, H, -st.slot.x.x, -st.slot.y.x, size.width, size.height)
     cam.updateProjectionMatrix()
+    // The pose and camera changed: cached projections from earlier in this frame are stale.
+    st.frame++
 
     // Soft contact shadow, following the tray's turn and softening as it rises.
     const sh = shadow.current
@@ -544,6 +573,9 @@ function Rig({ wrap, reduced }: RigProps) {
             position={[0, 0.1, 0]}
             onPointerOver={(e) => {
               e.stopPropagation()
+              // A finger resting on the hero (or starting a swipe) is not a hover: no lift, so a
+              // touch does not wake the tray at full frame rate. A tap still opens the game.
+              if (e.pointerType === 'touch') return
               if (!fromUi(e)) stageBus.setHovered(true)
             }}
             onPointerOut={() => stageBus.setHovered(false)}

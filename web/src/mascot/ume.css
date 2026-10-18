@@ -25,6 +25,14 @@
     pointer;
 }
 
+/* On touch screens a vertical swipe that starts on the mascot still scrolls the page; rubbing
+   sideways and tapping still pet it. */
+@media (pointer: coarse) {
+  .ume-button {
+    touch-action: pan-y;
+  }
+}
+
 .ume-button:focus-visible {
   outline: none;
   box-shadow: var(--focus-ring);
@@ -215,6 +223,10 @@
   align-items: flex-end;
   gap: var(--s3);
   min-height: var(--ume-inline-size);
+  /* The stage box reaches past the slot for hops; it must never widen the page. The model is
+     drawn by the shared layer from the box's rect, so clipping the empty box changes nothing. */
+  overflow-x: clip;
+  overflow-clip-margin: 0;
 }
 
 .ume-inline__ume {
@@ -290,4 +302,35 @@
 .ume-inline__bubble--live {
   width: 100%;
   max-width: none;
+}
+
+/* ---- Phones and tablets: in a screen heading, Ume perches at the end of the row ----
+   The mascot sits at the right of the heading row with its line to its left, so it lines up the
+   same way on every tab, and it shares the row with the title and the needs button instead of
+   wrapping onto a row of its own (which pushed each screen down by a whole mascot). Elsewhere
+   (the Tray tab's dock, for one) the host lays Ume out. */
+@media (max-width: 959px) {
+  /* Beats the heading's own `flex: 1 1 200px`, which wraps Ume onto its own row on phones. */
+  html .tabscreen__head > .ume-inline {
+    flex: 1 1 0;
+    min-width: var(--ume-inline-size);
+    flex-direction: row-reverse;
+  }
+  .tabscreen__head > .ume-inline .ume-inline__say {
+    justify-content: flex-end;
+  }
+}
+
+/* The live bubble floats in the mascot layer, outside the row, so UmeInline marks which side
+   Ume stands on and the tail points that way. */
+.ume-inline__bubble[data-tail='end'] {
+  transform-origin: 100% 100%;
+}
+.ume-inline__bubble[data-tail='end']::before {
+  left: auto;
+  right: -6px;
+  border-left: 0;
+  border-bottom: 0;
+  border-top: var(--hairline);
+  border-right: var(--hairline);
 }

@@ -27,6 +27,9 @@ const LINGER_MS = 3000
  * seconds, so the eye cannot tell); and not at all while no mascot is on screen.
  */
 const CALM_FRAME_MS = 1000 / 30 - 5
+/** Tiny mascots (the header badge) breathe well under a pixel per frame: 12 fps looks the same. */
+const TINY_CALM_FRAME_MS = 1000 / 12 - 5
+const TINY_SIZE = 40
 /** While nothing is on screen, how often to look again (a stage shown by CSS, a queued move). */
 const ASLEEP_POLL_MS = 250
 /** Moods whose own loops (wing flaps, flutters) are quick enough to want full frame rate. */
@@ -35,9 +38,9 @@ const LIVELY = new Set(['happy', 'excited', 'petted', 'surprised'])
 const MOOD_EASE_S = 0.8
 
 /** What this frame drew and asked for. Reset by Clear, filled by each Instance, acted on by Pace. */
-type Plan = { cleared: boolean; drew: boolean; drewLast: boolean; fast: boolean; calm: boolean; timer: number; hidden: boolean }
+type Plan = { cleared: boolean; drew: boolean; drewLast: boolean; fast: boolean; calm: boolean; calmMs: number; timer: number; hidden: boolean }
 /** One canvas exists at a time, so one plan. */
-const plan: Plan = { cleared: false, drew: false, drewLast: false, fast: false, calm: false, timer: 0, hidden: false }
+const plan: Plan = { cleared: false, drew: false, drewLast: false, fast: false, calm: false, calmMs: CALM_FRAME_MS, timer: 0, hidden: false }
 /** Last mood each handle's rig has acted on, so the asleep poll can spot a change. */
 const seenMood = new Map<number, string>()
 
@@ -490,7 +493,10 @@ function Instance({ h, shadowMap }: { h: MascotHandle; shadowMap: THREE.Texture 
         Math.abs(sim.back.x) > 0.004 ||
         Math.abs(sim.tilt.v) > 0.15
       if (fast) plan.fast = true
-      else plan.calm = true
+      else {
+        plan.calm = true
+        plan.calmMs = Math.min(plan.calmMs, S <= TINY_SIZE ? TINY_CALM_FRAME_MS : CALM_FRAME_MS)
+      }
     }
 
     // ---- Draw into this mascot's own patch of the canvas.
@@ -557,6 +563,7 @@ function Clear() {
     plan.drew = false
     plan.fast = false
     plan.calm = false
+    plan.calmMs = TINY_CALM_FRAME_MS
   }, 1)
   return null
 }
@@ -586,7 +593,7 @@ function Pace() {
       plan.timer = window.setTimeout(() => {
         plan.timer = 0
         invalidate()
-      }, CALM_FRAME_MS)
+      }, plan.calmMs)
     }
   }, 3)
 

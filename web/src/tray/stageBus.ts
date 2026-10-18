@@ -17,6 +17,13 @@ let idleWake: (() => void) | null = null
  * costs the GPU half as much. Slightly under 1/30 s so the timer lands on every second vsync.
  */
 const IDLE_FRAME_MS = 1000 / 30 - 5
+/**
+ * Phones and tablets: 20 fps. The hero drift there peaks near 12 px a second, so a frame still
+ * moves it well under a pixel, and a phone's GPU and battery get a third of the work back.
+ */
+const IDLE_FRAME_MS_TOUCH = 1000 / 20 - 5
+const coarse = typeof window !== 'undefined' ? window.matchMedia('(pointer: coarse)') : null
+const idleFrameMs = () => (coarse?.matches ? IDLE_FRAME_MS_TOUCH : IDLE_FRAME_MS)
 
 export const stageBus = {
   /** The stage calls this when the pointer (or keyboard focus) is on the tray in the hero. */
@@ -58,7 +65,7 @@ export const stageBus = {
     idleTimer = window.setTimeout(() => {
       idleTimer = 0
       idleWake?.()
-    }, IDLE_FRAME_MS)
+    }, idleFrameMs())
   },
 }
 
