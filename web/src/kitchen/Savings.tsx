@@ -57,19 +57,21 @@ function ChartTooltip({ active, payload, label }: { active?: boolean; payload?: 
   )
 }
 
+/** Dollars and cents, so the bridge rows add up exactly as printed. */
+const cents = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2 })
+const round2 = (n: number) => Math.round(n * 100) / 100
+
 /**
  * The money bridge: what less waste saved, minus what running short cost (at the shortage ratio),
- * leaves the net. Each row is built from the whole-dollar figures shown elsewhere on the panel
- * ($5,775 - $2,673, and 3 x $584), so a reader can check them. The total is the exact figure,
- * which can differ from the rounded rows by a dollar or two; a note says so when it does.
+ * leaves the net. Rows are exact to the cent and the total is printed as their difference, so a
+ * reader who subtracts gets the same number. The headline above rounds it to whole dollars.
  */
 function Bridge({ data }: { data: SavingsData }) {
-  const lessWaste = Math.round(data.usual.dollars_wasted) - Math.round(data.lunchloop.dollars_wasted)
-  const penalty = data.shortage_ratio * (Math.round(data.lunchloop.dollars_short) - Math.round(data.usual.dollars_short))
-  const net = Math.round(data.net_dollars_saved)
+  const lessWaste = round2(data.usual.dollars_wasted - data.lunchloop.dollars_wasted)
+  const penalty = round2(data.shortage_ratio * (data.lunchloop.dollars_short - data.usual.dollars_short))
+  const net = round2(lessWaste - penalty)
   if (lessWaste <= 0 || net <= 0 || penalty < 0) return null
   const netPct = Math.min(100, (net / lessWaste) * 100)
-  const rounded = lessWaste - penalty !== net
   return (
     <div className="k-bridge">
       <p className="k-bridge__title">{t.net.bridgeTitle}</p>
@@ -80,18 +82,18 @@ function Bridge({ data }: { data: SavingsData }) {
       <dl className="k-bridge__rows">
         <div>
           <dt><span className="k-dot k-dot--total" aria-hidden="true" />{t.net.lessWaste}</dt>
-          <dd className="num">{fmtMoney(lessWaste)}</dd>
+          <dd className="num">{cents.format(lessWaste)}</dd>
         </div>
         <div>
           <dt><span className="k-dot k-dot--warn" aria-hidden="true" />{t.net.shortPenalty(data.shortage_ratio)}</dt>
-          <dd className="num">−{fmtMoney(penalty)}</dd>
+          <dd className="num">−{cents.format(penalty)}</dd>
         </div>
         <div className="k-bridge__sum">
           <dt><span className="k-dot k-dot--good" aria-hidden="true" />{t.net.netLabel}</dt>
-          <dd className="num">{fmtMoney(net)}</dd>
+          <dd className="num">{cents.format(net)}</dd>
         </div>
       </dl>
-      {rounded && <p className="k-bridge__note">{t.net.rounded}</p>}
+      <p className="k-bridge__note">{t.net.rounded}</p>
     </div>
   )
 }

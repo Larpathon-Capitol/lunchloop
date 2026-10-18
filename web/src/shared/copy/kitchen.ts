@@ -75,7 +75,7 @@ export const kitchen = {
       lessWaste: 'Less food thrown away',
       shortPenalty: (ratio: number) => `Running short, counted at ${ratio}× food cost`,
       netLabel: 'Saved overall',
-      rounded: 'Figures rounded to the nearest dollar.',
+      rounded: 'Exact to the cent. The big number above rounds this to the nearest dollar.',
       how: (ratio: number) =>
         `A serving short is counted as ${ratio} times its food cost, so this number already pays for running short.`,
       howToggle: 'How we count this',
