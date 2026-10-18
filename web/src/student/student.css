@@ -1853,12 +1853,12 @@ html[data-theme='medi'] .chip__group {
   }
   /* Packed: the mascot stands at the right edge, its line to its left, closing the food groups
      card instead of sitting alone on a row above "What everyone packed". */
-  .pack > .pack__ume {
+  .pack__side > .pack__ume {
     flex-direction: row-reverse;
     margin-top: calc(var(--s2) * -1);
     margin-bottom: calc(var(--s3) * -1);
   }
-  .pack > .pack__ume .ume-inline__say {
+  .pack__side > .pack__ume .ume-inline__say {
     justify-content: flex-end;
   }
   .pack__dock > .pack__ume {
@@ -2108,8 +2108,14 @@ html[data-theme='medi'] .chip__group {
 
 /* Landscape phones: too short for a stacked page with a sticky dock (the dock covered most of the
    tray). The tray takes the left half under the HUD; the heading, food groups and the next step
-   stack on the right, and the dock sits in the flow instead of sticking. */
+   stack on the right, and the dock stays stuck just above the tab bar. */
 @media (max-width: 959px) and (max-height: 500px) {
+  /* Landscape phones have about 266px between the header and the tab bar. On the Tray tab the
+     streak row and the date line give way so the food groups and the stuck dock both fit. */
+  .game[data-tab='tray'] .hud,
+  .game[data-tab='tray'] .pack__day {
+    display: none;
+  }
   .pack {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
     column-gap: var(--s4);
@@ -2133,11 +2139,13 @@ html[data-theme='medi'] .chip__group {
     grid-column: 2;
   }
   .pack__dock {
-    position: static;
+    position: sticky;
+    z-index: 6;
+    bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom, 0px));
     margin: 0;
-    padding: 0;
+    padding: var(--s2) 0;
     border-top: 0;
-    background: none;
+    background: color-mix(in srgb, var(--washi, #ffe5ec) 97%, transparent);
     grid-template-columns: auto minmax(0, 1fr) auto;
     align-items: center;
   }
