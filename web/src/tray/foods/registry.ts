@@ -1,8 +1,8 @@
 import type { BuiltFood } from './build'
-import { BUILDERS, FALLBACK_BUILDERS, type Component, type FoodId } from './items'
+import { BUILDERS, FALLBACK_BUILDERS, FOOD_COMPONENT, type Component, type FoodId } from './items'
 
 /** Every item id with its own model. Anything else falls back to a model for its component. */
-export const FOOD_IDS = Object.keys(BUILDERS) as FoodId[]
+export const FOOD_IDS = Object.keys(FOOD_COMPONENT) as FoodId[]
 
 export function hasFoodModel(id: string): id is FoodId {
   return Object.hasOwn(BUILDERS, id)

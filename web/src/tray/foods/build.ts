@@ -221,3 +221,91 @@ export function alignUp(normal: THREE.Vector3, spin = 0) {
   const q = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), normal.clone().normalize())
   return q.multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), spin))
 }
+
+// ---------------------------------------------------------------- cute toolkit
+
+const SHADE_LIGHT = new THREE.Color('#fff8ec')
+/** Plum shadow tint (close to --ink), so every food's shadows lean the same warm way. */
+const SHADE_DEEP = new THREE.Color('#5c2236')
+const tmpBase = new THREE.Color()
+
+/**
+ * Soft-toy shading baked into vertex colors: the base color in the middle, a creamy highlight on
+ * top and a warm plum shadow underneath. `light` and `deep` are how far to lean (0 to 1).
+ * Uses the part's own normal, so it reads right for parts that sit roughly upright.
+ */
+export function toon(base: THREE.ColorRepresentation, light = 0.16, deep = 0.36): Paint {
+  const b = new THREE.Color(base)
+  return (_p, n, out) => {
+    tmpBase.copy(b)
+    if (n.y >= 0) out.copy(tmpBase.lerp(SHADE_LIGHT, smoothstep(0.15, 1, n.y) * light))
+    else out.copy(tmpBase.lerp(SHADE_DEEP, smoothstep(0, -1, n.y) * deep))
+  }
+}
+
+/** Like `toon`, but blends from `bottom` to `top` by local height between y0 and y1 first. */
+export function toonRamp(
+  bottom: THREE.ColorRepresentation,
+  top: THREE.ColorRepresentation,
+  y0: number,
+  y1: number,
+  light = 0.16,
+  deep = 0.36,
+): Paint {
+  const a = new THREE.Color(bottom)
+  const c = new THREE.Color(top)
+  return (p, n, out) => {
+    tmpBase.copy(a).lerp(c, smoothstep(y0, y1, p.y))
+    if (n.y >= 0) out.copy(tmpBase.lerp(SHADE_LIGHT, smoothstep(0.15, 1, n.y) * light))
+    else out.copy(tmpBase.lerp(SHADE_DEEP, smoothstep(0, -1, n.y) * deep))
+  }
+}
+
+/** A squashed, slightly lumpy low-poly ball: the basic chunky food piece. Radius about 1. */
+export function puff(seed: number, lump = 0.08, detail = 2) {
+  return lump > 0 ? blob(detail, seed, lump) : ball(detail)
+}
+
+export interface Spot {
+  x: number
+  /** Height of the heap surface here. */
+  y: number
+  z: number
+  /** 0 at the center of the heap, 1 at its edge. */
+  r: number
+  /** Surface normal of the heap here, for tilting pieces so they lie on it. */
+  normal: THREE.Vector3
+}
+
+/**
+ * Spots spread evenly over a rounded-rectangle footprint `w` by `d`, with heights on a dome
+ * `height` tall (edge pieces sit lower, center pieces higher). `square` 2 = ellipse, 4+ = rounded
+ * rectangle. Use it to heap nuggets, florets, corn and the like so they fill a compartment.
+ */
+export function heap(opts: { w: number; d: number; count: number; seed: number; height: number; square?: number; jitter?: number }) {
+  const { w, d, count, seed, height } = opts
+  const square = opts.square ?? 3
+  const r = rng(seed)
+  const a = w / 2
+  const b = d / 2
+  // Grid spacing so about `count` cells land inside the footprint.
+  const fillRatio = square >= 4 ? 0.92 : square >= 3 ? 0.86 : 0.785
+  const step = Math.sqrt((w * d * fillRatio) / count)
+  const jitter = (opts.jitter ?? 0.3) * step
+  const spots: Spot[] = []
+  const rad = (x: number, z: number) => Math.pow(Math.pow(Math.abs(x / a), square) + Math.pow(Math.abs(z / b), square), 1 / square)
+  const surf = (x: number, z: number) => height * (1 - Math.pow(Math.min(rad(x, z), 1), 2.2))
+  let row = 0
+  for (let z = -b + step / 2; z <= b; z += step * 0.88, row++) {
+    for (let x = -a + step / 2 + (row % 2 ? step / 2 : 0); x <= a; x += step) {
+      const jx = x + (r() - 0.5) * 2 * jitter
+      const jz = z + (r() - 0.5) * 2 * jitter
+      const rr = rad(jx, jz)
+      if (rr > 0.9) continue
+      const e = 0.01
+      const normal = new THREE.Vector3(surf(jx - e, jz) - surf(jx + e, jz), 2 * e, surf(jx, jz - e) - surf(jx, jz + e)).normalize()
+      spots.push({ x: jx, y: surf(jx, jz), z: jz, r: rr, normal })
+    }
+  }
+  return spots
+}
