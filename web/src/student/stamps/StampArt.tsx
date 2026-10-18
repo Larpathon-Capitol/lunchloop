@@ -77,7 +77,7 @@ export function StampArt({ shape, label, tone, tilt, earned, progress, delay = 0
   const world = useThemeId()
   const reduce = !!useReducedMotion()
   const uid = useId().replace(/[^a-zA-Z0-9]/g, '')
-  const { d } = SHAPES[shape]
+  const { d, textY = 50 } = SHAPES[shape]
   const clip = `stamp-clip-${uid}`
 
   if (!earned) {
@@ -151,6 +151,8 @@ export function StampArt({ shape, label, tone, tilt, earned, progress, delay = 0
           </g>
         )}
         <Label text={label} shape={shape} world={world} className="stamp-face__text" />
+        {/* Phones: the label would be too small to read (the caption under the stamp says it), so a check stands in. */}
+        <path d={`M35 ${textY + 1}l10 10 20-22`} className="stamp-face__mark" />
         {!reduce && world !== 'asia' && (
           <g clipPath={`url(#${clip})`}>
             <g transform="rotate(24 50 50)">

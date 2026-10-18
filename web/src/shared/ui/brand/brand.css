@@ -70,6 +70,12 @@
   );
   pointer-events: none;
 }
+/* East Asia and the courtyard set the logo on flat cloth or plaster (the noren panel, the wall
+   above the arch), where a pale pool reads as a smudge: the die-cut edge alone carries it. */
+html[data-theme='asia'] .ll-logo--hero::before,
+html[data-theme='medi'] .ll-logo--hero::before {
+  display: none;
+}
 /* On the hero the logo sits straight on the art, no card: a thin die-cut edge in the page pink
    keeps it legible over garlands, rays and tiles. */
 .ll-logo--hero .ll-logo__mark {

@@ -7,6 +7,7 @@ import { BrushProgress } from '../celebrate'
 import type { Meter } from '../shared/api'
 import { waste as t } from '../shared/copy/waste'
 import { fmtDay, fmtInt, fmtMoney } from '../shared/format'
+import { LIVE_SCHOOL, activeStudentSchool } from '../shared/studentSchool'
 import { useThemeId } from '../theme/store'
 import type { ThemeId } from '../theme/types'
 import './waste.css'
@@ -115,6 +116,7 @@ function useCount(value: number, run: boolean, still: boolean) {
 }
 
 export function WasteMeter({ meter }: { meter: Meter }) {
+  const live = activeStudentSchool() === LIVE_SCHOOL
   const reduce = useReducedMotion()
   const [still] = useState(() => !!reduce || counted.has(meter.week_start))
   const ref = useRef<HTMLElement>(null)
@@ -155,13 +157,13 @@ export function WasteMeter({ meter }: { meter: Meter }) {
                 {unit}
               </p>
               <p className="leftovers__note">
-                {t.note}
+                {t.note(live)}
                 {showDollars && <> {t.dollars(fmtMoney(meter.net_dollars_saved))}</>}
               </p>
             </div>
           </div>
         ) : (
-          <p className="leftovers__note">{t.none}</p>
+          <p className="leftovers__note">{t.none(live)}</p>
         )}
       </div>
       <div className="leftovers__stub" aria-hidden="true">

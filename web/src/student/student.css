@@ -1466,7 +1466,9 @@ html[data-theme='asia'] .hud__value {
    pick stays in the UI face so long food names read easily. */
 .chips {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  /* Equal cells, except a cell whose group name needs more room ("Vegetable" in a wide display
+     face) takes exactly that, so a name never runs over the dividers. */
+  grid-template-columns: repeat(5, minmax(min-content, 1fr));
   align-content: start;
   margin: 0;
   padding: 4px;
@@ -1513,7 +1515,7 @@ html[data-theme='asia'] .hud__value {
   align-content: start;
   gap: 6px;
   width: 100%;
-  padding: var(--s3) 2px var(--s3);
+  padding: var(--s3) 4px var(--s3);
   border: 0;
   border-radius: calc(var(--radius) - 5px);
   background: transparent;
@@ -1569,7 +1571,7 @@ span.chip__body {
 .chip__text {
   display: grid;
   gap: 2px;
-  min-width: 0;
+  /* No min-width: 0 here: the group name's width has to count when the columns are sized. */
   width: 100%;
 }
 .chip__group {
@@ -1766,9 +1768,12 @@ html[data-theme='medi'] .chip__group {
 /* ---------- Phones and small tablets (tab bar at the bottom) ---------- */
 
 @media (max-width: 959px) {
+  /* Just clear the tab bar at the end of the page. The negative margin cancels the shell's own
+     bottom padding, which would otherwise stack on top of this. */
   .game {
     --tabbar-h: 60px;
-    padding-bottom: calc(var(--tabbar-h) + var(--s8) + env(safe-area-inset-bottom, 0px));
+    padding-bottom: calc(var(--tabbar-h) + var(--s4) + env(safe-area-inset-bottom, 0px));
+    margin-bottom: calc(var(--s16) * -1);
   }
 
   /* The tab bar: paper, a hairline and a soft lift instead of a heavy rule. */
@@ -1838,12 +1843,23 @@ html[data-theme='medi'] .chip__group {
   .pack__dock .pack__action {
     min-height: 0;
   }
-  /* In the dock the mascot stands at the left, the progress and the button stacked beside it,
-     and its speech bubble floats just above the dock instead of taking a row. */
+  /* In the dock the mascot stands at the left, the progress and the button stacked beside it.
+     Its speech bubble takes the progress line's place while it talks (same cell, so the dock
+     keeps its height and the bubble never floats over the food groups above). */
   .pack__dock {
     grid-template-columns: auto minmax(0, 1fr);
     column-gap: var(--s3);
     align-items: end;
+  }
+  /* Packed: the mascot stands at the right edge, its line to its left, closing the food groups
+     card instead of sitting alone on a row above "What everyone packed". */
+  .pack > .pack__ume {
+    flex-direction: row-reverse;
+    margin-top: calc(var(--s2) * -1);
+    margin-bottom: calc(var(--s3) * -1);
+  }
+  .pack > .pack__ume .ume-inline__say {
+    justify-content: flex-end;
   }
   .pack__dock > .pack__ume {
     display: contents;
@@ -1854,18 +1870,22 @@ html[data-theme='medi'] .chip__group {
     align-self: end;
   }
   .pack__dock .ume-inline__col {
-    display: block;
-    position: relative;
     grid-column: 2;
+    grid-template: 'line' minmax(36px, auto) / minmax(0, 1fr);
+    align-items: center;
     min-height: 0;
+    gap: 0;
+  }
+  .pack__dock .ume-inline__say,
+  .pack__dock .pack__progress {
+    grid-area: line;
   }
   .pack__dock .ume-inline__say {
-    position: absolute;
-    left: 0;
-    right: 0;
-    bottom: calc(100% + var(--s3));
     min-height: 0;
     pointer-events: none;
+  }
+  .pack__dock .ume-inline__say:has(.ume-inline__bubble--ghost) + .pack__progress {
+    visibility: hidden;
   }
   .pack__dock .pack__action {
     grid-column: 2;
@@ -2006,7 +2026,7 @@ html[data-theme='medi'] .chip__group {
   }
   .chip__body {
     gap: 4px;
-    padding: var(--s2) 2px;
+    padding: var(--s2) 4px;
   }
   .chip__icon {
     width: 36px;
@@ -2081,7 +2101,7 @@ html[data-theme='medi'] .chip__group {
    the groups and the dock keep the room. */
 @media (max-width: 380px) {
   html[data-theme='asia'] .chip__group {
-    font-size: 10.5px;
+    font-size: 11.5px;
     letter-spacing: -0.02em;
   }
 }

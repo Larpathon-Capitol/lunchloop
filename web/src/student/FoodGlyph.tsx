@@ -16,10 +16,10 @@ const G: Record<string, ReactNode> = {
   ),
   beef_nachos: (
     <>
-      <path style={TINT} d="M3.5 18 8 8.5l4 9.5" />
-      <path d="M10 18l5-10.5L20.5 18" />
-      <path d="M6 14.5c1.2.8 2.3.8 3.5 0M13 13.5c1.3.9 2.7.9 4 0" />
-      <path d="M2.5 20.5h19" />
+      <path style={TINT} d="M2.4 11.2 7.6 2.8l4 8.9z" />
+      <path style={TINT} d="M13.4 10 19 2.6l2.7 8.6z" />
+      <path style={TINT} d="M2.8 21.2 10.6 12.6 21.2 20z" />
+      <path style={TINT} d="M6.4 17.2 10.6 12.6l4.6 3.2c-.4 1.3-.8 2.6-2 2.4-.9-.1-.9 1.5-2 1.5-1.4 0-1-2-2.3-2-.9 0-1 1.6-2.1 1.2-1-.5-.4-1.7-.4-1.7z" />
     </>
   ),
   chicken_nuggets: (

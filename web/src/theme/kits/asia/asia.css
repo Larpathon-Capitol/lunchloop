@@ -473,6 +473,16 @@
   .ka-hero .ka-hero__goods--left { left: calc(24px + 2%); }
   .ka-hero .ka-hero__goods--right { right: calc(24px + 2%); }
 }
+/* Narrow phones: the mist bands are wider than the screen and only their cut ends would show
+   past the tray, as stray white bars at the edges. The moon holds the sky on its own. */
+@media (max-width: 699px) {
+  .ka-hero .ka-hero__mist { display: none; }
+}
+/* Phones: the hanging clock covers the centre panel, so its crest would only peek out as a
+   half circle between the logo and the clock. */
+@media (max-width: 899px) {
+  .ka-hero .ka-noren__crest { display: none; }
+}
 @media (max-width: 899px) and (max-height: 520px) and (orientation: landscape) {
   .ka-hero { --waves: 40px; }
   .ka-hero .ka-hero__goods { display: none; }

@@ -177,6 +177,21 @@ html[data-theme='americas'] .stamp-face__text {
 .stamp-ghost__text {
   fill: var(--ink-soft, #7a3f58);
 }
+/* The check that replaces the label on phones (shown in the phone block below). */
+.stamp-face__mark {
+  display: none;
+  fill: none;
+  stroke: #fff;
+  stroke-width: 7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+html[data-theme='americas'] .stamp-face__mark {
+  stroke: var(--st-text);
+}
+html[data-theme='asia'] .stamp-face__mark {
+  stroke: var(--surface, #fff4f7);
+}
 
 /* Earned faces share one structure: rim, body, inner line, label. Each world inks it its own way. */
 .stamp-face__shadow {
@@ -293,6 +308,15 @@ html[data-theme='medi'] .stamp-face__tails {
   .sbook {
     --stamp-size: 62px;
     gap: var(--s4, 16px);
+  }
+  /* At this size the word on the stamp lands around 8px. The caption below already says it,
+     so the ghost shows only its shape and progress, and an earned stamp shows a check. */
+  .stamp-ghost__text,
+  .stamp-face__text {
+    display: none;
+  }
+  .stamp-face__mark {
+    display: inline;
   }
   .sbook__summary {
     gap: var(--s2, 8px) var(--s3, 12px);

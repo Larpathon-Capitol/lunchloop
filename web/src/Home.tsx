@@ -16,14 +16,13 @@ import { heroCopy } from './tray/hero/copy'
 import { Countdown } from './tray/hero/Countdown'
 import { Headline } from './tray/hero/Headline'
 import { HeroCta } from './tray/hero/HeroCta'
-import { StickerField } from './tray/hero/StickerField'
 import { stageBus, useTrayHovered } from './tray/stageBus'
 import { trayEvents, trayProjector, trayStore, TraySlot } from './tray/store'
 import './home.css'
 
 /*
  * The home hero: one full screen, no scroll. The world's backdrop behind, the steel tray floating
- * in it with the mascot riding the rim, food stickers around it, and the words and the button.
+ * in it with the mascot riding the rim, 3D foods along the bottom, and the words and the button.
  * Tapping the tray or the button sends the tray gliding into the game behind the world's curtain.
  * The bottom band of the screen is left free of words: the tray canvas draws foods along it.
  *
@@ -111,16 +110,15 @@ function useHeroPointer(reduce: boolean) {
 }
 
 /**
- * The world's backdrop and the far stickers, on <body> behind the tray stage (which sits one
- * layer up), so the tray floats in front of them.
+ * The world's backdrop, on <body> behind the tray stage (which sits one layer up), so the tray
+ * floats in front of it. The only foods on the hero are the tray canvas's 3D ones.
  */
-function Backdrop({ px, py, reduce, leaving }: { px: MotionValue<number>; py: MotionValue<number>; reduce: boolean; leaving: boolean }) {
+function Backdrop({ px, py }: { px: MotionValue<number>; py: MotionValue<number> }) {
   const kit = useKit()
   const Art = kit.HeroBackdrop
   return createPortal(
     <div className="home-field" aria-hidden="true">
       <Art px={px} py={py} />
-      <StickerField px={px} py={py} reduce={reduce} leaving={leaving} layer="far" />
     </div>,
     document.body,
   )
@@ -290,7 +288,7 @@ export function Home({ live = false }: HomeProps) {
     }
   }, [])
 
-  // CSS loops (stickers, the button's shine) stop while the tab is hidden.
+  // CSS loops (the button's shine, the world's art) stop while the tab is hidden.
   useEffect(() => {
     const onVis = () => setPaused(document.hidden)
     document.addEventListener('visibilitychange', onVis)
@@ -330,9 +328,8 @@ export function Home({ live = false }: HomeProps) {
 
   return (
     <div className={paused ? 'home is-paused' : 'home'}>
-      <Backdrop px={px} py={py} reduce={reduce} leaving={leaving} />
+      <Backdrop px={px} py={py} />
       <TraySlot className="home__slot" />
-      <StickerField px={px} py={py} reduce={reduce} leaving={leaving} layer="near" />
       <MascotOnTray show={!leaving} reduce={reduce} wide={wide} />
 
       {/* The lock-in clock hangs at the top center, where the eye lands first. */}

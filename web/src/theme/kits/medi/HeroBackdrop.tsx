@@ -28,17 +28,31 @@ interface Layout {
   springY: number
   apexY: number
   w: number
-  wide: boolean
+  /** Wide screens: the arch frames the tray on the right, the words stand on the plain wall. */
+  side: boolean
 }
 
+/** Where the hero's tray sits on wide screens (home.css: left 46vw, width 50vw), and on phones
+    turned on their side (the right column). */
+const TRAY_MID = 0.71
+const TRAY_MID_LANDSCAPE = 0.74
+
 function layoutFor(W: number, H: number): Layout {
+  // Wide screens and phones on their side: the doorway frames the tray on the right, so the
+  // words on the left read on calm plaster instead of crossing the arch's tile border.
+  if (W >= 900 || (W > H && H < 520)) {
+    const w = Math.min(W * 0.5, H * 0.94, 1000)
+    const mid = W * (W >= 900 ? TRAY_MID : TRAY_MID_LANDSCAPE)
+    const apexY = Math.max(H * 0.06, 54)
+    return { W, H, x0: mid - w / 2, x1: mid + w / 2, mid, springY: apexY + w * 0.866, apexY, w, side: true }
+  }
   // Phones: a touch wider, so the arch's tiled sides frame the screen instead of running
-  // through the left edge of the words.
+  // through the left edge of the words. The apex drops below the logo row, so the keystone
+  // hides behind the hanging clock instead of crowding the wordmark.
   const w = Math.min(W * (W < 700 ? 0.93 : 0.88), H * 0.94, 1000)
   const mid = W / 2
-  const apexY = Math.max(H * 0.06, 58)
-  const springY = apexY + w * 0.866
-  return { W, H, x0: mid - w / 2, x1: mid + w / 2, mid, springY, apexY, w, wide: (W - w) / 2 > 150 }
+  const apexY = W < 700 ? 106 : Math.max(H * 0.06, 58)
+  return { W, H, x0: mid - w / 2, x1: mid + w / 2, mid, springY: apexY + w * 0.866, apexY, w, side: false }
 }
 
 /** The far wall through the doorway. */
@@ -54,7 +68,7 @@ function FarWall({ L, uid }: { L: Layout; uid: string }) {
           <path d={`M0 ${-T * 0.13}L${T * 0.13} 0L0 ${T * 0.13}L${-T * 0.13} 0Z M${T} ${-T * 0.13}L${T + T * 0.13} 0L${T} ${T * 0.13}L${T - T * 0.13} 0Z M0 ${T - T * 0.13}L${T * 0.13} ${T}L0 ${T + T * 0.13}L${-T * 0.13} ${T}Z M${T} ${T - T * 0.13}L${T + T * 0.13} ${T}L${T} ${T + T * 0.13}L${T - T * 0.13} ${T}Z`} className="f-p3" />
           <path d={`M${c} ${c - T * 0.34}V0M${c} ${c + T * 0.34}V${T}M${c - T * 0.34} ${c}H0M${c + T * 0.34} ${c}H${T}`} className="s-p3" strokeWidth="1" />
         </pattern>
-        <radialGradient id={`calm-${uid}`} cx="50%" cy="56%" r="62%">
+        <radialGradient id={`calm-${uid}`} cx={`${((L.mid + M) / (L.W + 2 * M)) * 100}%`} cy="56%" r="62%">
           <stop offset="0.28" stopColor="#000" />
           <stop offset="0.8" stopColor="#fff" />
         </radialGradient>
@@ -134,9 +148,13 @@ function NearWall({ L, uid }: { L: Layout; uid: string }) {
   const outer = `M${-M} ${-M}H${W + M}V${H + M}H${-M}Z`
   const opening = `${archPath(x0, x1, springY, bottom)}Z`
   const band = Math.max(18, Math.min(30, L.w * 0.034))
-  const sideW = x0
   const fr = 9 // frieze scallop radius
-  const lift = L.wide ? H * 0.16 : 0 // on wide screens the spandrel motifs sit below the swags
+  // Wide screens: one pair of motifs in the top right corner, beside the doorway; the left wall
+  // stays calm for the words. The swag runs from past the logo to just short of the clock.
+  const motifR = Math.max(15, Math.min(L.side ? 36 : 30, L.w * 0.045))
+  const botehS = Math.max(26, Math.min(L.side ? 62 : 56, L.w * 0.07))
+  const swagA = Math.max(320, W * 0.236)
+  const swagB = W >= 1100 ? Math.min(x0 - band - 24, W / 2 - 150) : x0 - band - 24
   return (
     <svg viewBox={`${-M} ${-M} ${W + 2 * M} ${H + 2 * M}`} aria-hidden="true">
       <defs>
@@ -150,12 +168,6 @@ function NearWall({ L, uid }: { L: Layout; uid: string }) {
           <circle cx="48" cy="0" r="2" className="f-p3" />
           <circle cx="0" cy="48" r="2" className="f-p3" />
           <circle cx="48" cy="48" r="2" className="f-p3" />
-        </pattern>
-        <pattern id={`panel-${uid}`} width="40" height="40" patternUnits="userSpaceOnUse">
-          <rect width="40" height="40" className="f-p3" />
-          <path d={starPath(20, 20, 13)} className="f-tq s-au" strokeWidth="1" />
-          <path d={starPath(20, 20, 6, 22.5)} className="f-p1" />
-          <path d="M0 -6L6 0L0 6L-6 0ZM40 -6L46 0L40 6L34 0ZM0 34L6 40L0 46L-6 40ZM40 34L46 40L40 46L34 40Z" className="f-au" />
         </pattern>
       </defs>
 
@@ -178,41 +190,31 @@ function NearWall({ L, uid }: { L: Layout; uid: string }) {
       {/* keystone star at the apex */}
       <StarTile x={mid} y={L.apexY - band * 0.5} R={band * 0.95} a="f-p5" b="f-p1" c="f-tq" line="s-au" />
 
-      {/* spandrels: pomegranates and boteh in the upper corners */}
-      <g className="mk-bob" style={{ animationDelay: '-1.2s' }}>
-        <Pomegranate x={Math.max(34, x0 * 0.5 + 10)} y={Math.max(70, L.apexY + 30) + lift} r={Math.max(15, Math.min(L.wide ? 40 : 30, L.w * 0.045))} />
-      </g>
-      <Boteh x={Math.max(84, x0 * 0.5 + 64)} y={Math.max(78, L.apexY + 44) + lift} s={Math.max(26, Math.min(L.wide ? 70 : 56, L.w * 0.07))} rot={-24} />
-      <g className="mk-bob" style={{ animationDelay: '-3s' }}>
-        <PomegranateHalf x={Math.min(W - 34, W - x0 * 0.5 - 10)} y={Math.max(72, L.apexY + 34) + lift} r={Math.max(16, Math.min(L.wide ? 40 : 30, L.w * 0.045))} />
-      </g>
-      <Boteh x={Math.min(W - 84, W - x0 * 0.5 - 64)} y={Math.max(80, L.apexY + 46) + lift} s={Math.max(26, Math.min(L.wide ? 70 : 56, L.w * 0.07))} rot={204} outer="f-p5" inner="f-p2" />
+      {/* spandrels: pomegranates and boteh in the upper corners (phones), or the top right
+          corner beside the doorway (wide screens) */}
+      {L.side ? (
+        <>
+          <g className="mk-bob" style={{ animationDelay: '-3s' }}>
+            <PomegranateHalf x={W - Math.max(80, W * 0.065)} y={Math.max(112, H * 0.13)} r={motifR} />
+          </g>
+          {/* below 1100px the clock hangs over the tray, right where this one would go */}
+          {W >= 1100 && <Boteh x={W - Math.max(170, W * 0.13)} y={Math.max(88, H * 0.1)} s={botehS} rot={-24} />}
+        </>
+      ) : (
+        <>
+          <g className="mk-bob" style={{ animationDelay: '-1.2s' }}>
+            <Pomegranate x={Math.max(34, x0 * 0.5 + 10)} y={Math.max(70, L.apexY + 30)} r={motifR} />
+          </g>
+          <Boteh x={Math.max(84, x0 * 0.5 + 64)} y={Math.max(78, L.apexY + 44)} s={botehS} rot={-24} />
+          <g className="mk-bob" style={{ animationDelay: '-3s' }}>
+            <PomegranateHalf x={Math.min(W - 34, W - x0 * 0.5 - 10)} y={Math.max(72, L.apexY + 34)} r={Math.max(16, motifR)} />
+          </g>
+          <Boteh x={Math.min(W - 84, W - x0 * 0.5 - 64)} y={Math.max(80, L.apexY + 46)} s={botehS} rot={204} outer="f-p5" inner="f-p2" />
+        </>
+      )}
 
-      {/* wide screens: a tiled niche on each side wall */}
-      {L.wide &&
-        [sideW / 2, W - sideW / 2].map((cx, i) => {
-          const nw = Math.min(sideW * 0.52, 190)
-          const top = H * 0.36
-          const nb = H * 0.86
-          const sy = top + nw * 0.866
-          const nx0 = cx - nw / 2
-          const nx1 = cx + nw / 2
-          return (
-            <g key={i}>
-              <path d={`${archPath(nx0, nx1, sy, nb)}Z`} fill={`url(#panel-${uid})`} />
-              <path d={`${archPath(nx0, nx1, sy, nb)}Z`} className="f-none s-au" strokeWidth="5" strokeLinejoin="round" />
-              <path d={`${archPath(nx0, nx1, sy, nb, 7)}`} className="f-none s-tq" strokeWidth="3" />
-              <path d={`M${nx0 - 18} ${nb + 6}H${nx1 + 18}`} className="s-au" strokeWidth="8" strokeLinecap="round" />
-              <path d={`M${nx0 - 12} ${nb + 14}H${nx1 + 12}`} className="s-tq" strokeWidth="3" strokeLinecap="round" />
-            </g>
-          )
-        })}
-
-      {/* wide screens: pennants swagged from the frieze toward the arch, kept clear of the logo at
-          the top left (it owns about 340px at 1440 wide) and mirrored on the right. On most
-          laptops the logo reaches the arch, so the swags only show on very wide screens. */}
-      {L.wide && x0 - band - 24 - W * (340 / 1440) >= 120 && chain(W * (340 / 1440), x0 - band - 24, 34, 40, 26, 'wl')}
-      {L.wide && x0 - band - 24 - W * (340 / 1440) >= 120 && chain(x1 + band + 24, W - W * (340 / 1440), 34, 40, 26, 'wr')}
+      {/* wide screens: pennants swagged along the frieze between the logo and the clock */}
+      {L.side && swagB - swagA >= 120 && chain(swagA, swagB, 34, 34, 26, 'wl')}
 
       {/* truck-art frieze along the top: thick rule, thin rule, scallops with a dot each */}
       <rect x={-M} y={-M} width={W + 2 * M} height={M + 9} className="f-au" />

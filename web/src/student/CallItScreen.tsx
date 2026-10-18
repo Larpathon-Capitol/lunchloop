@@ -152,9 +152,17 @@ export function CallItScreen() {
     }
   }, [])
 
-  const header = (
+  // While choosing, the question is the screen's one visible heading; the tab name stays in it for screen readers.
+  const header = (ask = false) => (
     <header className="tabscreen__head callit__head">
-      <h1 className="tabscreen__title">{t.title}</h1>
+      {ask ? (
+        <h1 id="guess-title" className="tabscreen__title">
+          <span className="visually-hidden">{t.title}: </span>
+          {t.question}
+        </h1>
+      ) : (
+        <h1 className="tabscreen__title">{t.title}</h1>
+      )}
       <UmeInline size={48} />
     </header>
   )
@@ -162,21 +170,21 @@ export function CallItScreen() {
   if (calendarError)
     return (
       <div className="tabscreen callit">
-        {header}
+        {header()}
         <ErrorNotice error={calendarError} onRetry={reloadCalendar} />
       </div>
     )
   if (meError)
     return (
       <div className="tabscreen callit">
-        {header}
+        {header()}
         <ErrorNotice error={meError} onRetry={refreshMe} />
       </div>
     )
   if (!calendar || !me)
     return (
       <div className="tabscreen callit" role="status" aria-live="polite">
-        {header}
+        {header()}
         <span className="visually-hidden">{copy.student.loading.calledIt}</span>
         <PanelSkeleton />
       </div>
@@ -272,9 +280,6 @@ export function CallItScreen() {
       <section className="callit-choose" aria-labelledby="guess-title">
         <div className="callit-choose__intro">
           <p className="callit-choose__kicker">{t.kicker(fmtDay(next.date), isTomorrow(calendar.today, next.date))}</p>
-          <h2 id="guess-title" className="callit-choose__q">
-            {t.question}
-          </h2>
           <p className="callit-choose__lead">
             <span className="callit-wide">{t.lead}</span>
             <span className="callit-phone">{t.leadShort}</span>
@@ -326,7 +331,7 @@ export function CallItScreen() {
 
   return (
     <div className="tabscreen callit">
-      {header}
+      {header(!!next && !todays)}
       {past && (
         <LastCall
           item_id={past.item_id}

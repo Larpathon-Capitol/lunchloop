@@ -53,15 +53,6 @@ html[data-theme='medi'] .callit {
   font-weight: 700;
   letter-spacing: 0.02em;
 }
-.callit-choose__q {
-  margin: 0;
-  font-family: var(--font-display);
-  font-weight: var(--display-weight);
-  font-synthesis: none;
-  font-size: var(--text-2xl);
-  line-height: 1.05;
-  color: var(--sumi);
-}
 .callit-choose__lead {
   margin: 0;
   max-width: 46ch;
@@ -714,9 +705,6 @@ html[data-theme='americas'] .callit-count__n {
   }
   .callit-choose__intro {
     gap: var(--s1);
-  }
-  .callit-choose__q {
-    font-size: var(--text-xl);
   }
   .callit-choose__lead {
     text-wrap: pretty;
