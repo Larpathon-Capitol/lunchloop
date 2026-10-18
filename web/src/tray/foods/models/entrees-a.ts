@@ -6,7 +6,7 @@ import { FOOT } from '../fit'
 import { FOOD as C } from '../palette'
 
 /*
- * Entrees, part A. Style rules for every food (see also models/README in the foods brief):
+ * Entrees, part A. Style rules for every food:
  * chunky soft-toy pieces, a few big parts, low poly (ball detail 1 to 2), toon() shading,
  * and the portion fills FOOT.meat_alternate (about 1.6 wide, 1 deep). No faces.
  */
