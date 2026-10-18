@@ -20,8 +20,16 @@ def test_prep_without_a_date_reads_the_live_day_for_the_live_school(client):
     assert live["date"] == "2026-10-19"
 
 
+def meter_dates(client):
+    return [e["detail"]["date"] for e in client.get("/api/events").json()["events"] if e["kind"] == "meter"]
+
+
 def test_meter_reads_the_live_day_for_the_live_school(client):
+    # The meter's totals don't change with the day in the sample data, so check the day the
+    # engine was asked about, which the event log records.
+    assert client.get("/api/meter", headers=STEPPED).status_code == 200
     assert client.get("/api/meter?school=live", headers=STEPPED).status_code == 200
+    assert meter_dates(client) == ["2026-10-20", "2026-10-19"]
 
 
 def test_unknown_school_is_rejected(client):
