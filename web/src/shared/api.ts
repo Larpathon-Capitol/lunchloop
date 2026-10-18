@@ -335,6 +335,16 @@ export interface DemoCalendar {
   simulated: true
 }
 
+/** The live school's day, as staff see it on GET or POST /api/admin/clock. */
+export interface AdminClock {
+  /** The live school's current day. */
+  today: string
+  /** The day it goes back to on reset. */
+  default_today: string
+  school_days: string[]
+  simulated: true
+}
+
 export interface DemoCrowd {
   ok: true
   added: number
@@ -375,6 +385,14 @@ export class ApiError extends Error {
     super(message)
     this.status = status
   }
+}
+
+/** The server's answer when a tray was packed for a lunch day that has since moved on. */
+export const DAY_CHANGED = 'the lunch day changed'
+
+/** True when a tray, vote or guess failed because staff moved the live day after the page loaded. */
+export function isDayChanged(e: unknown): boolean {
+  return e instanceof ApiError && e.status === 409 && e.message === DAY_CHANGED
 }
 
 // A presenter can step the simulated school's calendar. The day lives in this browser only and
@@ -421,6 +439,8 @@ export function setStudentSchool(id: string | null | undefined) {
   currentSchool = id && /^[a-z0-9-]{1,40}$/.test(id) ? id : DEFAULT_SCHOOL
 }
 const school = () => (currentSchool === DEFAULT_SCHOOL ? undefined : currentSchool)
+/** Only the live school's day can move under an open page, so only live actions carry their day. */
+const liveDay = (date?: string) => (currentSchool === 'live' ? date : undefined)
 
 // The server signs each browser's id so scripts can't invent voters. The first call that needs a
 // player trades the plain id for a signed one (keeping its streak) and saves it. If the server is
@@ -454,17 +474,29 @@ export const api = {
   simulate: (body: { date?: string; attendance_multiplier: number; price_multiplier: number; ratio: number }) =>
     request<SimulateResult>('/simulate', post(body)),
   spin: async (device: string) => request<Spin>(`/spin${query({ device: await signed(device), school: school() })}`),
-  vote: async (device: string, item_id: string) => request<VoteResult>('/vote', post({ device: await signed(device), item_id, school: school() })),
-  guess: async (device: string, item_id: string) => request<GuessResult>('/guess', post({ device: await signed(device), item_id, school: school() })),
+  /** date: the day the page loaded with; 409 DAY_CHANGED (see isDayChanged) once the school moved on. */
+  vote: async (device: string, item_id: string, date?: string) =>
+    request<VoteResult>('/vote', post({ device: await signed(device), item_id, school: school(), date: liveDay(date) })),
+  guess: async (device: string, item_id: string, date?: string) =>
+    request<GuessResult>('/guess', post({ device: await signed(device), item_id, school: school(), date: liveDay(date) })),
   /** Tomorrow's tray. 404 when there is no next school day. */
   getTray: async (device: string) => request<Tray>(`/tray${query({ device: await signed(device), school: school() })}`),
-  /** Pack today's tray. 400 with a plain message for bad picks, 409 when already packed today. */
-  postTray: async (device: string, picks: TrayPicks) => request<TrayResult>('/tray', post({ device: await signed(device), picks, school: school() })),
+  /**
+   * Pack today's tray. 400 with a plain message for bad picks, 409 when already packed today, and
+   * 409 DAY_CHANGED (see isDayChanged) when target_date is no longer the school's next lunch day.
+   */
+  postTray: async (device: string, picks: TrayPicks, target_date?: string) =>
+    request<TrayResult>('/tray', post({ device: await signed(device), picks, school: school(), target_date })),
   me: async (device: string) => request<Me>(`/me${query({ device: await signed(device), school: school() })}`),
   meter: () => request<Meter>(`/meter${query({ school: school() })}`),
   schools: () => request<Schools>('/schools'),
   adminLogin: (school_id: string, password: string) => request<AdminLogin>('/admin/login', post({ school_id, password })),
   adminSummary: (token: string) => request<AdminSummary>('/admin/summary', bearer(token)),
+  /** Staff, live school only: the live day everyone plays on. */
+  adminClock: (token: string) => request<AdminClock>('/admin/clock', bearer(token)),
+  /** Staff, live school only: move the live day for everyone (YYYY-MM-DD), or null to go back to the default day. */
+  setAdminClock: (token: string, date: string | null) =>
+    request<AdminClock>('/admin/clock', { ...post({ date }), ...bearer(token) }),
   events: (after = 0, limit?: number, scope?: EventScope) => request<Events>(`/events${query({ after, limit, scope })}`),
   /** After lunch: did the student get what they packed? Can be changed later the same day. */
   served: async (device: string, got: boolean) =>

@@ -43,6 +43,9 @@ def init_db(path, data_dir):
                 school_id TEXT NOT NULL DEFAULT 'demo', date TEXT, item_id TEXT, created_at TEXT NOT NULL,
                 PRIMARY KEY(school_id, date, item_id)
             );
+            CREATE TABLE IF NOT EXISTS school_clock(
+                school_id TEXT PRIMARY KEY, today TEXT NOT NULL
+            );
             DROP TABLE IF EXISTS items;
             DROP TABLE IF EXISTS meals;
             DROP TABLE IF EXISTS menu;

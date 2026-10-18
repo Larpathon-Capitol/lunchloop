@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { BrushProgress, XpToast, burstPetals } from '../celebrate'
 import { UmeInline, lines, pickLine, ume } from '../mascot'
-import { api, ApiError, type Spin, type SpinOption, type VoteResult } from '../shared/api'
+import { api, ApiError, isDayChanged, type Spin, type SpinOption, type VoteResult } from '../shared/api'
 import { copy } from '../shared/copy'
 import { voteCopy } from '../shared/copy/vote'
 import { sortByNeeds, useNeeds } from '../shared/needs'
@@ -22,6 +22,7 @@ import { NeedsButton } from './NeedsSheet'
 import { fade, popSpring } from './springs'
 import { readStoredVote, useStudent, type StoredVote } from './state'
 import './vote.css'
+import { staleFromServer } from './liveDay'
 
 const t = copy.student
 type Phase = 'idle' | 'spinning' | 'landed' | 'voting' | 'voted' | 'done'
@@ -206,7 +207,7 @@ function SpinPanel({ spin, device, catalog, addToCatalog, showFood, stored, next
     setPhase('voting')
     setError(null)
     try {
-      const r = await api.vote(device, chosen.item_id)
+      const r = await api.vote(device, chosen.item_id, spin.date)
       if (!alive.current) return
       sound.vote()
       const row = panelRef.current?.querySelector<HTMLElement>('.choice--on') ?? voteRef.current
@@ -219,7 +220,11 @@ function SpinPanel({ spin, device, catalog, addToCatalog, showFood, stored, next
     } catch (e) {
       if (!alive.current) return
       const status = e instanceof ApiError ? e.status : 0
-      if (status === 409) {
+      if (isDayChanged(e)) {
+        // Staff moved the live day: the day note explains it; the choice stays on screen.
+        staleFromServer()
+        setPhase('landed')
+      } else if (status === 409) {
         setError(t.errors.alreadyVoted)
         setPhase('done')
         onAlreadyVoted()

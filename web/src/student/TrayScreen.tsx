@@ -2,7 +2,7 @@
 // get stamped, and see what everyone else packed.
 import { AnimatePresence, LayoutGroup, motion, useReducedMotion } from 'framer-motion'
 import { useEffect, useRef, useState } from 'react'
-import { api, ApiError, type Component, type Tray, type TrayPicks } from '../shared/api'
+import { api, ApiError, isDayChanged, type Component, type Tray, type TrayPicks } from '../shared/api'
 import { BrushProgress, isStreakMilestone, useCelebrate } from '../celebrate'
 import { UmeInline, lines, pickLine, ume } from '../mascot'
 import { copy } from '../shared/copy'
@@ -12,10 +12,12 @@ import { press } from '../shared/motion'
 import { sound } from '../shared/sound'
 import { ErrorNotice } from '../shared/ui/Notice'
 import { useApi } from '../shared/useApi'
+import { LIVE_SCHOOL, activeStudentSchool } from '../shared/studentSchool'
 import { useKit } from '../theme/registry'
 import { TraySlot, trayEvents, trayStore, useTrayLanded } from '../tray/store'
 import { flyToTray } from './flyToTray'
 import { GLAZE, groupName } from './groups'
+import { staleFromServer } from './liveDay'
 import { PickerSheet } from './PickerSheet'
 import { NeedsButton } from './NeedsSheet'
 import { Quests } from './Quests'
@@ -213,7 +215,7 @@ function Packing({ data }: { data: Tray }) {
     setError(null)
     sound.tok()
     try {
-      const r = await api.postTray(device, sent)
+      const r = await api.postTray(device, sent, data.target_date)
       if (!alive.current) return
       const before = me
       // /api/me may still be loading: then assume the standard 10 XP and reload me after.
@@ -243,7 +245,12 @@ function Packing({ data }: { data: Tray }) {
     } catch (e) {
       if (!alive.current) return
       const err = e instanceof ApiError ? e : new ApiError(0, String(e))
-      if (err.status === 409) {
+      if (isDayChanged(err)) {
+        // Staff moved the lunch day while this tray was open. The live game explains it and
+        // offers a refresh; the picks stay on screen either way.
+        if (activeStudentSchool() === LIVE_SCHOOL) staleFromServer()
+        else setError(t.failed)
+      } else if (err.status === 409) {
         setError(t.already)
         setRevealed(true)
         reloadTray()
