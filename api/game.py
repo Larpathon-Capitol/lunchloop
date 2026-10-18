@@ -130,29 +130,79 @@ def stats(connection, player_device, current_date, taken, school_id="demo"):
         streak += 1
         index -= 1
 
-    correct_guesses = correct_guess_count(connection, player_device, current_date, taken, school_id)
-    tray_count = connection.execute(
-        "SELECT COUNT(DISTINCT date) FROM trays WHERE school_id=? AND device=? AND date<=?",
-        (school_id, player_device, current_date),
-    ).fetchone()[0]
-    xp = len(vote_rows) * 10 + tray_count * 10 + correct_guesses * 25
+    counts = player_counts(connection, player_device, current_date, taken, school_id)
+    correct_guesses = counts["correct_calls"]
+    xp = len(vote_rows) * 10 + counts["trays"] * 10 + correct_guesses * 25
 
-    longest = 0
-    current_run = 0
-    for school_date in dates:
-        if school_date <= current_date and school_date in active_dates:
-            current_run += 1
-            longest = max(longest, current_run)
-        elif school_date <= current_date:
-            current_run = 0
     badges = []
-    if longest >= 3:
+    if counts["longest_streak"] >= 3:
         badges.append("streak_3")
-    if longest >= 7:
+    if counts["longest_streak"] >= 7:
         badges.append("streak_7")
     if correct_guesses >= 5:
         badges.append("called_it_5")
+    # Added later; the three above keep their ids and their order.
+    badges.extend(badge for badge, key, need in STAMP_RULES if counts[key] >= need)
     return streak, xp, badges, last_vote_date
+
+
+# Badge id, the player_counts key it is earned from, and how many it takes.
+STAMP_RULES = (
+    ("streak_10", "longest_streak", 10),
+    ("first_tray", "trays", 1),
+    ("trays_5", "trays", 5),
+    ("explorer_4", "entrees", 4),
+    ("first_checkin", "checkins", 1),
+    ("first_vote", "votes", 1),
+    ("votes_5", "votes", 5),
+    ("first_call", "calls", 1),
+    ("called_it_1", "correct_calls", 1),
+)
+
+
+def longest_streak(connection, player_device, current_date, school_id="demo"):
+    """The longest run of school days, on or before today, with a vote or a packed tray."""
+    active = {
+        row[0]
+        for row in rows(
+            connection,
+            "SELECT date FROM votes WHERE school_id=? AND device=? AND date<=? "
+            "UNION SELECT date FROM trays WHERE school_id=? AND device=? AND date<=?",
+            (school_id, player_device, current_date, school_id, player_device, current_date),
+        )
+    }
+    longest = run = 0
+    for school_date in school_dates(connection):
+        if school_date > current_date:
+            break
+        run = run + 1 if school_date in active else 0
+        longest = max(longest, run)
+    return longest
+
+
+def player_counts(connection, player_device, current_date, taken, school_id="demo"):
+    """How far a player has got toward each stamp, counting only rows dated on or before today.
+
+    trays: days with a packed tray. entrees: different entrees packed. checkins: "How was
+    lunch?" answers. votes: days voted. calls: "call it" guesses made. correct_calls: guesses
+    scored right. longest_streak: the longest run of active school days.
+    """
+
+    def one(query):
+        return connection.execute(query, (school_id, player_device, current_date)).fetchone()[0]
+
+    return {
+        "trays": one("SELECT COUNT(DISTINCT date) FROM trays WHERE school_id=? AND device=? AND date<=?"),
+        "entrees": one(
+            "SELECT COUNT(DISTINCT item_id) FROM trays WHERE school_id=? AND device=? AND date<=? "
+            "AND component='meat_alternate' AND item_id IS NOT NULL"
+        ),
+        "checkins": one("SELECT COUNT(*) FROM served WHERE school_id=? AND device=? AND date<=?"),
+        "votes": one("SELECT COUNT(*) FROM votes WHERE school_id=? AND device=? AND date<=?"),
+        "calls": one("SELECT COUNT(*) FROM guesses WHERE school_id=? AND device=? AND date<=?"),
+        "correct_calls": correct_guess_count(connection, player_device, current_date, taken, school_id),
+        "longest_streak": longest_streak(connection, player_device, current_date, school_id),
+    }
 
 
 def valid_num(value, default, lower=None, upper=None, integer=False):

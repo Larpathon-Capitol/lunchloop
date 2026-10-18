@@ -31,6 +31,7 @@ from .game import (
     ensure_player,
     next_day,
     parse_date,
+    player_counts,
     score_guess,
     stats,
     today,
@@ -895,6 +896,7 @@ def create_app(max_requests=None, max_actions=None, body_limit=16 * 1024, reques
             voted_today = bool(connection.execute("SELECT 1 FROM votes WHERE school_id=? AND device=? AND date=?", (selected_school, player_device, current_date)).fetchone())
             packed_today = bool(connection.execute("SELECT 1 FROM trays WHERE school_id=? AND device=? AND date=?", (selected_school, player_device, current_date)).fetchone())
             correct_calls = correct_guess_count(connection, player_device, current_date, request.app.state.taken, selected_school)
+            stamp_counts = player_counts(connection, player_device, current_date, request.app.state.taken, selected_school)
             lunch = today_lunch(connection, selected_school, player_device, current_date)
             free = free_items(connection, selected_school, current_date, include_component=True)
         response = {
@@ -906,6 +908,7 @@ def create_app(max_requests=None, max_actions=None, body_limit=16 * 1024, reques
             "voted_today": voted_today,
             "packed_today": packed_today,
             "correct_calls": correct_calls,
+            "stamp_counts": stamp_counts,
             "today_lunch": lunch,
             "free_today": free,
             "simulated": True,
