@@ -1,6 +1,615 @@
-/* The Call it tab. Moved out of student.css so it can change on its own. */
+/* The Call it tab. Moved out of student.css so it can change on its own.
+   student.css loads after this file, so rules here are scoped under .callit to win on specificity. */
 
-/* ---------- Call it ---------- */
+/* ---------- World marks ---------- */
+
+.callit {
+  container-type: inline-size;
+  --callit-mark: var(--pink-5);
+  --callit-mark-ink: var(--ink);
+}
+html[data-theme='americas'] .callit {
+  --callit-mark: #ffc72c;
+}
+html[data-theme='asia'] .callit {
+  --callit-mark: #be2b1a;
+  --callit-mark-ink: #ffffff;
+}
+html[data-theme='medi'] .callit {
+  --callit-mark: #0a6c70;
+  --callit-mark-ink: #ffffff;
+}
+
+.callit.tabscreen {
+  gap: var(--s6);
+}
+.callit .callit__head {
+  min-height: 48px;
+}
+.callit__stage {
+  min-width: 0;
+}
+
+/* ---------- Choosing ---------- */
+
+.callit-choose {
+  display: grid;
+  gap: var(--s5) var(--s8);
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas: 'intro' 'pick';
+}
+.callit-choose__intro {
+  grid-area: intro;
+  display: grid;
+  gap: var(--s2);
+}
+.callit-choose__kicker,
+.callit-locked__kicker {
+  display: flex;
+  align-items: center;
+  margin: 0;
+  color: var(--nezumi);
+  font-size: var(--text-sm);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+.callit-choose__q {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: var(--display-weight);
+  font-synthesis: none;
+  font-size: var(--text-2xl);
+  line-height: 1.05;
+  color: var(--sumi);
+}
+.callit-choose__lead {
+  margin: 0;
+  max-width: 46ch;
+  color: var(--nezumi);
+}
+.callit-choose__pick {
+  grid-area: pick;
+  display: grid;
+  gap: var(--s4);
+  align-content: start;
+  min-width: 0;
+}
+.callit-choose__card {
+  grid-area: card;
+  display: grid;
+  justify-items: center;
+  align-content: start;
+  gap: var(--s3);
+  padding-top: var(--s1);
+}
+.callit-choose__cardlabel {
+  margin: 0;
+  color: var(--nezumi);
+  font-size: var(--text-sm);
+  font-weight: 700;
+}
+
+@container (min-width: 560px) {
+  .callit-choose:has(.callit-choose__card) {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas: 'intro intro' 'pick card';
+  }
+}
+
+/* ---------- The card ---------- */
+
+.ct {
+  --ct-w: 196px;
+  position: relative;
+  width: var(--ct-w);
+  flex: none;
+}
+.ct__card {
+  position: relative;
+  display: grid;
+  grid-template-rows: auto 1fr auto auto;
+  gap: var(--s2);
+  aspect-ratio: 5 / 7;
+  padding: 14px;
+  border-radius: 10px;
+  background: #fffaf4;
+  color: var(--ink);
+  box-shadow: var(--shadow-float);
+}
+.ct__top {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 24px;
+  font-family: var(--font-display);
+  font-weight: var(--display-weight);
+  font-synthesis: none;
+  font-size: 14px;
+  line-height: 1;
+}
+.ct__toptext {
+  flex: 1;
+}
+.ct__art {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-height: 0;
+  border-radius: 6px;
+  overflow: hidden;
+}
+.ct__glyph {
+  display: grid;
+  place-items: center;
+  color: var(--g-entree);
+}
+.ct__glyph svg {
+  width: 76px;
+  height: 76px;
+  stroke-width: 1.35;
+}
+.ct__q {
+  font-family: var(--font-display);
+  font-weight: var(--display-weight);
+  font-synthesis: none;
+  font-size: 64px;
+  line-height: 1;
+  color: var(--ink-soft);
+  opacity: 0.55;
+}
+.ct__name {
+  display: grid;
+  place-items: center;
+  min-height: 2.3em;
+  padding: 4px 10px;
+  text-align: center;
+  font-family: var(--font-display);
+  font-weight: var(--display-weight);
+  font-synthesis: none;
+  font-size: 17px;
+  line-height: 1.08;
+  overflow-wrap: anywhere;
+}
+.ct__foot {
+  text-align: center;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--ink-soft);
+}
+.ct__seal {
+  position: absolute;
+  right: -30px;
+  bottom: -26px;
+  pointer-events: none;
+}
+.ct--blank .ct__name {
+  color: var(--ink-soft);
+}
+
+/* Americas: a loteria card. Ink double frame, star badge, the day as the card number,
+   a sun-ray panel and a notched name ribbon. */
+html[data-theme='americas'] .ct__card {
+  border: 2.5px solid var(--ink);
+  outline: 1.5px solid var(--ink);
+  outline-offset: -9px;
+  padding: 15px;
+}
+html[data-theme='americas'] .ct__badge {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #1d3fae;
+}
+html[data-theme='americas'] .ct__badge svg {
+  width: 14px;
+  height: 14px;
+  fill: #ffffff;
+}
+html[data-theme='americas'] .ct__toptext {
+  text-align: center;
+  font-size: 13px;
+}
+html[data-theme='americas'] .ct__num {
+  min-width: 24px;
+  text-align: right;
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-size: 20px;
+}
+html[data-theme='americas'] .ct__art {
+  border: 2px solid var(--ink);
+  background: repeating-conic-gradient(from 0deg at 50% 62%, var(--pink-2) 0deg 12deg, var(--pink-1) 12deg 24deg);
+}
+html[data-theme='americas'] .ct__glyph {
+  width: 104px;
+  height: 104px;
+  border-radius: 50%;
+  background: #fffaf4;
+  border: 2px solid var(--ink);
+}
+html[data-theme='americas'] .ct--blank .ct__glyph {
+  border-style: dashed;
+}
+html[data-theme='americas'] .ct__name {
+  margin: 0 -4px;
+  background: var(--pink-4);
+  clip-path: polygon(0 0, 100% 0, 93% 50%, 100% 100%, 0 100%, 7% 50%);
+  padding: 6px 18px;
+}
+html[data-theme='americas'] .ct--blank .ct__name {
+  background: var(--pink-2);
+}
+
+/* East Asia: an omikuji fortune slip. Indigo header band, fold creases, the fortune grade in
+   vermilion down the side, the name between two vermilion rules. */
+html[data-theme='asia'] .ct {
+  --ct-w: 184px;
+}
+html[data-theme='asia'] .ct__card {
+  aspect-ratio: 5 / 8;
+  padding: 0 14px 14px;
+  border-radius: 4px;
+  background:
+    linear-gradient(to bottom, transparent calc(36% - 1px), rgba(58, 22, 38, 0.07) 36%, transparent calc(36% + 1px)),
+    linear-gradient(to bottom, transparent calc(70% - 1px), rgba(58, 22, 38, 0.07) 70%, transparent calc(70% + 1px)),
+    #fffdf8;
+}
+html[data-theme='asia'] .ct__top {
+  justify-content: center;
+  margin: 0 -14px;
+  padding: 10px 14px;
+  border-radius: 4px 4px 0 0;
+  background: #232a5c;
+  color: var(--pink-1);
+  font-size: 15px;
+  letter-spacing: 0.08em;
+}
+html[data-theme='asia'] .ct__toptext {
+  flex: none;
+}
+html[data-theme='asia'] .ct__art {
+  margin-top: var(--s2);
+  background: #fffdf8;
+  border: 1.5px solid #be2b1a;
+  outline: 1px solid #be2b1a;
+  outline-offset: -5px;
+  border-radius: 2px;
+}
+html[data-theme='asia'] .ct__grade {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  padding: 4px 2px;
+  writing-mode: vertical-rl;
+  background: #be2b1a;
+  color: #ffffff;
+  font-family: var(--font-display);
+  font-size: 15px;
+  line-height: 1;
+  border-radius: 2px;
+}
+html[data-theme='asia'] .ct__glyph {
+  color: #232a5c;
+}
+html[data-theme='asia'] .ct__name {
+  border-top: 1.5px solid #be2b1a;
+  border-bottom: 1.5px solid #be2b1a;
+  font-size: 15px;
+  line-height: 1.2;
+}
+html[data-theme='asia'] .ct__seal {
+  right: -34px;
+}
+
+/* Mediterranean: a sealed postcard. Airmail stripes in tile turquoise and aubergine, an arched
+   window for the food, a round postmark with the day. */
+html[data-theme='medi'] .ct__card {
+  border: 9px solid transparent;
+  border-image: repeating-linear-gradient(
+      135deg,
+      #0a6c70 0 9px,
+      #fffaf4 9px 15px,
+      #6b2145 15px 24px,
+      #fffaf4 24px 30px
+    )
+    9;
+  border-radius: 0;
+  padding: 10px;
+}
+html[data-theme='medi'] .ct__top {
+  color: #6b2145;
+  font-size: 15px;
+}
+html[data-theme='medi'] .ct__art {
+  margin: 2px 8px 0;
+  border-radius: 999px 999px 6px 6px;
+  border: 2px solid #0a6c70;
+  background:
+    radial-gradient(circle at 50% 100%, var(--pink-2) 0 40%, transparent 40.5%),
+    var(--pink-1);
+}
+html[data-theme='medi'] .ct__glyph {
+  margin-top: 18px;
+  color: #6b2145;
+}
+html[data-theme='medi'] .ct__glyph svg {
+  width: 68px;
+  height: 68px;
+}
+html[data-theme='medi'] .ct__name {
+  color: #6b2145;
+  font-size: 18px;
+  min-height: 2.1em;
+}
+html[data-theme='medi'] .ct__postmark {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  display: grid;
+  place-items: center;
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(107, 33, 69, 0.55);
+  box-shadow: inset 0 0 0 4px #fffaf4, inset 0 0 0 5.5px rgba(107, 33, 69, 0.4);
+  color: rgba(107, 33, 69, 0.75);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  transform: rotate(-14deg);
+}
+html[data-theme='medi'] .ct--blank .ct__postmark {
+  opacity: 0.35;
+}
+
+/* ---------- Locked in ---------- */
+
+.callit-locked {
+  display: grid;
+  gap: var(--s6);
+  justify-items: center;
+  text-align: center;
+}
+.callit-locked__card {
+  position: relative;
+}
+.callit-locked__info {
+  display: grid;
+  gap: var(--s3);
+  justify-items: center;
+  max-width: 420px;
+}
+.callit-locked__kicker {
+  justify-content: center;
+}
+.callit-locked__kicker .inline-icon {
+  margin-right: var(--s2);
+  color: inherit;
+}
+.callit-locked__title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: var(--display-weight);
+  font-synthesis: none;
+  font-size: var(--text-xl);
+  line-height: 1.1;
+  color: var(--sumi);
+}
+.callit-locked__title:focus {
+  outline: none;
+}
+
+/* The countdown: the number of school days until it's scored, big, then when. */
+.callit-count {
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  margin-top: var(--s1);
+}
+.callit-count__row {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s2);
+}
+.callit-count__n {
+  font-family: var(--font-display);
+  font-weight: var(--display-weight);
+  font-synthesis: none;
+  font-size: 48px;
+  line-height: 1;
+  color: var(--accent-2);
+}
+html[data-theme='americas'] .callit-count__n {
+  color: #1d3fae;
+}
+.callit-count__unit {
+  font-weight: 700;
+  font-size: var(--text-md);
+  color: var(--sumi);
+}
+.callit-count__when {
+  color: var(--nezumi);
+  font-size: var(--text-sm);
+}
+
+/* The mascot's line, keeping watch over the call. */
+.callit-guard {
+  position: relative;
+  margin: var(--s3) 0 0;
+  padding: var(--s3) var(--s4);
+  background: var(--shoji);
+  border: var(--hairline);
+  border-radius: var(--radius);
+  text-align: left;
+}
+.callit-guard::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: -6px;
+  width: 10px;
+  height: 10px;
+  margin-left: -5px;
+  background: var(--shoji);
+  border-left: var(--hairline);
+  border-top: var(--hairline);
+  transform: rotate(45deg);
+}
+.callit-guard__line {
+  margin: 0;
+  font-weight: 600;
+  color: var(--sumi);
+  line-height: 1.35;
+}
+.callit-guard__who {
+  margin-top: var(--s1);
+  color: var(--nezumi);
+  font-size: var(--text-sm);
+}
+
+@container (min-width: 560px) {
+  .callit-locked {
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    justify-items: start;
+    text-align: left;
+    gap: var(--s10);
+  }
+  .callit-locked__info {
+    justify-items: start;
+  }
+  .callit-locked__kicker {
+    justify-content: flex-start;
+  }
+  .callit-count {
+    justify-items: start;
+  }
+  .callit-guard::before {
+    left: -6px;
+    top: 18px;
+    margin-left: 0;
+    border-top: 0;
+    border-bottom: var(--hairline);
+  }
+  .callit-locked__title {
+    font-size: var(--text-2xl);
+  }
+}
+
+/* ---------- Caller record ---------- */
+
+.callit-record {
+  display: grid;
+  gap: var(--s2);
+  padding-top: var(--s5);
+  border-top: 1.5px dashed var(--line);
+}
+.callit-record__title {
+  margin: 0;
+  font-size: var(--text-sm);
+  font-weight: 700;
+  color: var(--nezumi);
+}
+.callit-record__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s2) var(--s4);
+}
+.callit-record__pips {
+  display: flex;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.callit-record__pips li {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 1.5px dashed var(--line);
+}
+.callit-record__pips li.is-on {
+  border: 1.5px solid var(--ink);
+  background: var(--callit-mark);
+}
+.callit-record__text {
+  margin: 0;
+  color: var(--sumi);
+  font-weight: 600;
+}
+
+/* ---------- The last call (scored or waiting) ---------- */
+
+.callit-stub {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--s4);
+  padding: var(--s4) var(--s5);
+  border-radius: var(--radius);
+  background: var(--shoji);
+  box-shadow: var(--lift);
+  border-left: 3px dashed var(--line);
+}
+.callit .callit-stub__disc {
+  background: var(--washi);
+}
+.callit-stub__body {
+  display: grid;
+  gap: var(--s1);
+  justify-items: start;
+}
+.callit-stub__title {
+  margin: 0;
+  font-size: var(--text-sm);
+  font-weight: 700;
+  color: var(--nezumi);
+}
+.callit-stub__lead {
+  margin: 0;
+  font-weight: 700;
+  color: var(--sumi);
+}
+.callit-stub__say {
+  margin: 0;
+  color: var(--nezumi);
+  font-size: var(--text-sm);
+}
+.callit-stub__who {
+  font-weight: 700;
+  color: var(--sumi);
+}
+.callit-stub__seal {
+  display: grid;
+  place-items: center;
+}
+@container (max-width: 459px) {
+  .callit-stub {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
+    gap: var(--s2);
+    padding: var(--s4);
+  }
+  .callit .callit-stub__disc {
+    display: none;
+  }
+  .callit-stub__seal {
+    margin: -6px -6px 0 0;
+    transform: scale(0.82);
+    transform-origin: top right;
+  }
+}
+
+.callit-empty {
+  display: grid;
+}
+
+/* ---------- Seals and tags ---------- */
 
 .result-seal {
   position: relative;
@@ -63,3 +672,4 @@
   font-size: var(--text-sm);
   line-height: 26px;
 }
+
