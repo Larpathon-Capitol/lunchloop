@@ -51,7 +51,7 @@ function HeaderBand() {
 export function Shell() {
   const reduce = !!useReducedMotion()
   const parting = useNoren() !== 0
-  const { pathname } = useLocation()
+  const { pathname, search } = useLocation()
   const [, seg1 = '', seg2 = ''] = pathname.split('/')
   // One key per top-level view, so the Student view's own sub-routes never remount.
   const view = seg1 || 'home'
@@ -95,10 +95,11 @@ export function Shell() {
   }, [viewKey, liveGame])
 
   const logo = <Logo size={home ? 'hero' : 'bar'} />
-  const brand = liveGame ? (
-    <span className="shell__brand shell__brand--static">{logo}</span>
-  ) : (
-    <Link to="/" className="shell__brand">
+  // The logo goes back to the hero of the school you are in: /join for the live school (so peers
+  // never land in the simulated one), / for the rest, keeping the simulated game's school query.
+  const heroTo = liveGame || view === 'join' ? '/join' : { pathname: '/', search: view === 'student' ? search : '' }
+  const brand = (
+    <Link to={heroTo} className="shell__brand">
       {logo}
     </Link>
   )

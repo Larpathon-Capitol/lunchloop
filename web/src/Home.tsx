@@ -12,6 +12,7 @@ import { sound } from './shared/sound'
 import { applyStudentSchool, LIVE_SCHOOL, schoolForStudentUrl } from './shared/studentSchool'
 import { noren } from './shared/ui/norenStore'
 import { useKit } from './theme/registry'
+import { ThemeSwitcher } from './theme/ThemeSwitcher'
 import { heroCopy } from './tray/hero/copy'
 import { Countdown } from './tray/hero/Countdown'
 import { Headline } from './tray/hero/Headline'
@@ -53,8 +54,6 @@ const leave = { duration: 0.24, ease: [0.4, 0, 1, 1] as const }
 const HANDOFF_MS = 240
 const drift = { stiffness: 120, damping: 20, mass: 1 }
 const settle = { type: 'spring', stiffness: 260, damping: 30, mass: 1 } as const
-/** The hanging clock drops in and swings once on its cords before it settles. */
-const swing = { type: 'spring', stiffness: 170, damping: 11, mass: 1 } as const
 
 const coarsePointer = () => window.matchMedia('(pointer: coarse)').matches
 /** Touch screens: how often the backdrop drifts to a new resting point. */
@@ -332,14 +331,13 @@ export function Home({ live = false }: HomeProps) {
       <TraySlot className="home__slot" />
       <MascotOnTray show={!leaving} reduce={reduce} wide={wide} />
 
-      {/* The lock-in clock hangs at the top center, where the eye lands first. */}
       <motion.div
-        className="home__clock"
-        initial={reduce ? false : { opacity: 0, y: -40, rotate: -5 }}
-        animate={leaving ? { opacity: 0, y: -24 } : { opacity: 1, y: 0, rotate: 0 }}
-        transition={leaving ? leave : { ...swing, delay: reduce ? 0 : 0.45 }}
+        className="home__switch"
+        initial={reduce ? false : { opacity: 0, y: -18 }}
+        animate={leaving ? { opacity: 0, y: -12 } : { opacity: 1, y: 0 }}
+        transition={leaving ? leave : { ...settle, delay: reduce ? 0 : 0.6 }}
       >
-        <Countdown reduce={reduce} />
+        <ThemeSwitcher />
       </motion.div>
 
       <motion.div
@@ -348,7 +346,18 @@ export function Home({ live = false }: HomeProps) {
         animate={out}
         transition={leaving ? leave : { ...settle, delay: 0.05 }}
       >
-        <Headline reduce={reduce} delay={0.15} />
+        {/* The lock-in clock sits centered over the headline, as wide as its longest line. */}
+        <div className="home__hook">
+          <motion.div
+            className="home__clock"
+            initial={reduce ? false : { opacity: 0, y: -12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ ...settle, delay: reduce ? 0 : 0.7 }}
+          >
+            <Countdown reduce={reduce} />
+          </motion.div>
+          <Headline reduce={reduce} delay={0.15} />
+        </div>
         <motion.p
           className="home__lead"
           initial={reduce ? false : { opacity: 0, x: -18 }}
