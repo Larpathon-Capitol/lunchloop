@@ -447,7 +447,11 @@ function Rig({ wrap, reduced }: RigProps) {
       if (opacity !== st.opacity) el.style.opacity = st.opacity = opacity
       if (visibility !== st.visibility) el.style.visibility = st.visibility = visibility
     }
-    if (pres < 0.003 && want === 0 && !moving) return
+    if (pres < 0.003 && want === 0 && !moving) {
+      // One last word to the riders, so they hide with the tray.
+      stageBus.frame()
+      return
+    }
 
     // Pointer tilt on a spring: the target follows the pointer, the tray chases it with some lag.
     const hero = store.phase === 'hero'
@@ -504,6 +508,9 @@ function Rig({ wrap, reduced }: RigProps) {
       sh.scale.set(TRAY.width * 1.2 * spread, TRAY.depth * 1.35 * spread, 1)
       ;(sh.material as THREE.MeshBasicMaterial).opacity = (lerp(0.55, 0.32, THREE.MathUtils.clamp(p, 0, 1)) / (spread * spread)) * pres
     }
+
+    // Riders (the hero mascot) move with this exact pose, in this same frame.
+    stageBus.frame()
 
     // Next frame: right away while anything springs, at a gentle 30 fps for the idle drift alone,
     // and nothing at all when the tray is still or the tab is hidden.

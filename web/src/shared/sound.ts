@@ -28,16 +28,6 @@ if (typeof window !== 'undefined') {
   idle(() => void audio())
 }
 
-/** Kept so older callers compile. Sound can no longer be muted, so this does nothing. */
-export function setMuted(value: boolean) {
-  void value
-}
-
-/** Kept so older callers compile. Always false: sound is always on. */
-export function useMuted(): boolean {
-  return false
-}
-
 function tone(freq: number, ms: number, { type = 'sine', gain = 0.08, delay = 0, slideTo }: {
   type?: OscillatorType
   gain?: number

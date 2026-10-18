@@ -10,6 +10,7 @@ let rim: ((u: number, v: number) => Point | null) | null = null
 let presence: (() => number) | null = null
 let idleTimer = 0
 let idleWake: (() => void) | null = null
+const frameListeners = new Set<() => void>()
 
 /**
  * Frame interval for slow idle motion on the stage (the hero tray's drift, breathing foods).
@@ -54,6 +55,20 @@ export const stageBus = {
   },
   /** How visible the tray is this frame, 0 to 1, so things riding on it can fade with it. */
   presence: () => presence?.() ?? 0,
+  /**
+   * Things riding on the tray (the hero mascot) follow it here instead of running their own
+   * animation loop: the stage calls frame() once per drawn frame, after the pose and camera are
+   * set, so the rim point read inside a listener matches the picture about to be drawn.
+   */
+  onFrame(l: () => void) {
+    frameListeners.add(l)
+    return () => {
+      frameListeners.delete(l)
+    }
+  },
+  frame() {
+    frameListeners.forEach((l) => l())
+  },
   /**
    * Book the next frame for idle-only motion at about 30 fps. Call it from useFrame instead of
    * state.invalidate() when nothing but a slow drift is moving; anything quicker should keep

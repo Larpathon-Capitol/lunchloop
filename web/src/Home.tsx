@@ -186,23 +186,17 @@ function MascotOnTray({ show, reduce, wide }: { show: boolean; reduce: boolean; 
     return () => window.clearTimeout(t)
   }, [hovered, reduce])
 
-  // Ride the rim. The tray drifts on the hero, so this follows it every frame, but it only
-  // touches the DOM when the mascot moves by a device pixel or more (or fades), and while the
-  // tray is drifting slowly it checks every other frame, which the eye cannot tell apart.
+  // Ride the rim. The stage tells riders when it draws a frame (stageBus.onFrame), so the mascot
+  // moves exactly when the tray does, at the tray's own pace (full rate while it springs, about
+  // 30 fps for the idle drift, nothing while it is still) instead of running a loop of its own.
+  // It only touches the DOM when the mascot moves by a device pixel or more, or fades.
   useEffect(() => {
-    let raf = 0
-    let skip = false
     let lastX = NaN
     let lastY = NaN
     let lastOpacity = ''
     const px = 1 / Math.max(1, window.devicePixelRatio || 1)
     const snap = (v: number) => Math.round(v / px) * px
-    const tick = () => {
-      raf = requestAnimationFrame(tick)
-      if (skip) {
-        skip = false
-        return
-      }
+    const follow = () => {
       const el = ref.current
       if (!el) return
       const p = stageBus.rimPoint(RIM_U, RIM_V)
@@ -222,17 +216,20 @@ function MascotOnTray({ show, reduce, wide }: { show: boolean; reduce: boolean; 
       // Feet right on the rim line, so it stands on the steel.
       const x = snap(p.x - s / 2)
       const y = snap(p.y - s * FEET)
-      const moved = Math.abs(x - lastX) + Math.abs(y - lastY)
       // NaN on the first frame, so the first position is always written.
-      if (moved !== 0) {
+      if (x !== lastX || y !== lastY) {
         el.style.transform = `translate3d(${x}px, ${y}px, 0)`
         lastX = x
         lastY = y
       }
-      skip = opacity === '1' && moved < 1.5
     }
-    raf = requestAnimationFrame(tick)
-    return () => cancelAnimationFrame(raf)
+    // The tray may already be standing still when the hero mounts: place the mascot once anyway.
+    const first = requestAnimationFrame(follow)
+    const off = stageBus.onFrame(follow)
+    return () => {
+      cancelAnimationFrame(first)
+      off()
+    }
   }, [])
 
   return (

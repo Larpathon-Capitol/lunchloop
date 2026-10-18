@@ -208,9 +208,11 @@ function NearWall({ L, uid }: { L: Layout; uid: string }) {
           )
         })}
 
-      {/* wide screens: pennants swagged from the frieze toward the arch */}
-      {L.wide && chain(-M, x0 - band - 24, 34, 40, 26, 'wl')}
-      {L.wide && chain(x1 + band + 24, W + M, 34, 40, 26, 'wr')}
+      {/* wide screens: pennants swagged from the frieze toward the arch, kept clear of the logo at
+          the top left (it owns about 340px at 1440 wide) and mirrored on the right. On most
+          laptops the logo reaches the arch, so the swags only show on very wide screens. */}
+      {L.wide && x0 - band - 24 - W * (340 / 1440) >= 120 && chain(W * (340 / 1440), x0 - band - 24, 34, 40, 26, 'wl')}
+      {L.wide && x0 - band - 24 - W * (340 / 1440) >= 120 && chain(x1 + band + 24, W - W * (340 / 1440), 34, 40, 26, 'wr')}
 
       {/* truck-art frieze along the top: thick rule, thin rule, scallops with a dot each */}
       <rect x={-M} y={-M} width={W + 2 * M} height={M + 9} className="f-au" />

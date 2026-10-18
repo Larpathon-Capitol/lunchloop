@@ -211,6 +211,12 @@
 .amx-card-l { left: max(-4px, 2vw - 24px); bottom: 7%; rotate: -11deg; }
 .amx-card-r { right: max(-4px, 2vw - 24px); bottom: 9%; rotate: 9deg; }
 .amx-sparkles { position: absolute; inset: 0; width: 100%; height: 100%; }
+/* Sparkles and garland flags are each a small <svg> in an HTML box, so their loops are
+   compositor-only (see HeroBackdrop). Centered on their spot; the twinkle turns about the center. */
+.amx-spark { position: absolute; display: block; overflow: visible; translate: -50% -50%; }
+.amx-flag { position: absolute; display: block; overflow: visible; }
+div.amx-garland { overflow: hidden; }
+.amx-flag-string { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
 
 /* ---------- header band ---------- */
 /* The bar is sun yellow (--bar in tokens.css). The flag string sits in the top 10px and the

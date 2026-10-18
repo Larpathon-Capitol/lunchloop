@@ -79,6 +79,31 @@ export function Flag({ cut, fill, delay = 0, x, y, scale = 1 }: FlagProps) {
   )
 }
 
+/** The flag's box in its own units: 56 wide, the scallops reach 4 below the 36 body. */
+const FLAG_H = BODY + W / SCALLOP / 2
+
+/**
+ * The same flag as its own little <svg>, placed in CSS pixels inside a positioned box. Its sway
+ * then runs on the compositor: a flag inside one big <svg> repaints that whole <svg> on every
+ * frame of its sway, this one only moves a layer. Looks the same as Flag.
+ */
+export function FlagSvg({ cut, fill, delay = 0, x, y, scale = 1 }: FlagProps) {
+  return (
+    <svg
+      className="amx-flag amx-sway"
+      viewBox={`0 0 ${W} ${FLAG_H}`}
+      width={W * scale}
+      height={FLAG_H * scale}
+      style={{ left: x - (W / 2) * scale, top: y, animationDelay: `${-delay}s` }}
+      aria-hidden="true"
+      focusable="false"
+    >
+      <path className={fill} d={outline + border + CUTS[cut % CUTS.length]} fillRule="evenodd" opacity="0.94" />
+      <rect className="amx-fold" x="0" y="0" width={W} height="3.2" />
+    </svg>
+  )
+}
+
 export interface BannerProps {
   x0: number
   y0: number
@@ -93,7 +118,8 @@ export interface BannerProps {
 }
 
 /** A string of flags hanging from a drooping line between two points. */
-export function Banner({ x0, y0, x1, y1, sag, count, scale = 1, shift = 0 }: BannerProps) {
+/** The string's curve and where each flag hangs on it, shared by Banner and HtmlBanner. */
+function stringOf({ x0, y0, x1, y1, sag, count, scale = 1, shift = 0 }: BannerProps) {
   // Quadratic curve with its control point pulled down by twice the sag.
   const cx = (x0 + x1) / 2
   const cy = (y0 + y1) / 2 + sag * 2
@@ -101,24 +127,47 @@ export function Banner({ x0, y0, x1, y1, sag, count, scale = 1, shift = 0 }: Ban
     x: (1 - t) * (1 - t) * x0 + 2 * (1 - t) * t * cx + t * t * x1,
     y: (1 - t) * (1 - t) * y0 + 2 * (1 - t) * t * cy + t * t * y1,
   })
-  const flags = Array.from({ length: count }, (_, i) => {
+  const flags: FlagProps[] = Array.from({ length: count }, (_, i) => {
     const p = at((i + 0.5) / count)
-    return (
-      <Flag
-        key={i}
-        x={p.x}
-        y={p.y - 1}
-        scale={scale}
-        cut={i + shift}
-        fill={FLAG_FILLS[(i + shift) % FLAG_FILLS.length]}
-        delay={(i * 0.37 + shift * 0.5) % 3.2}
-      />
-    )
+    return {
+      x: p.x,
+      y: p.y - 1,
+      scale,
+      cut: i + shift,
+      fill: FLAG_FILLS[(i + shift) % FLAG_FILLS.length],
+      delay: (i * 0.37 + shift * 0.5) % 3.2,
+    }
   })
+  return { d: `M${x0} ${y0}Q${cx} ${cy} ${x1} ${y1}`, flags }
+}
+
+export function Banner(props: BannerProps) {
+  const { d, flags } = stringOf(props)
   return (
     <g>
-      <path className="amx-string" d={`M${x0} ${y0}Q${cx} ${cy} ${x1} ${y1}`} fill="none" />
-      {flags}
+      <path className="amx-string" d={d} fill="none" />
+      {flags.map((f, i) => (
+        <Flag key={i} {...f} />
+      ))}
     </g>
+  )
+}
+
+/**
+ * A Banner for a big backdrop, in a positioned box whose CSS pixels match the coordinates: the
+ * string is drawn in an <svg> over the box (viewBox in those same pixels, starting at originX), and
+ * every flag is its own FlagSvg, so the swaying flags never repaint the string or each other.
+ */
+export function HtmlBanner({ originX, width, height, ...props }: BannerProps & { originX: number; width: number; height: number }) {
+  const { d, flags } = stringOf(props)
+  return (
+    <>
+      <svg className="amx-flag-string" viewBox={`${originX} 0 ${width} ${height}`} aria-hidden="true" focusable="false">
+        <path className="amx-string" d={d} fill="none" />
+      </svg>
+      {flags.map((f, i) => (
+        <FlagSvg key={i} {...f} x={f.x - originX} />
+      ))}
+    </>
   )
 }

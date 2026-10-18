@@ -36,6 +36,9 @@ const PALETTE: Array<[string, string]> = [
   ['--leaf', '#5FB77A'],
 ]
 
+/** Seconds between petal frames: about 30 fps, a hair early so it lands on every second vsync. */
+const PETAL_FRAME_S = 1 / 30 - 0.004
+
 function rand(a: number, b: number) {
   return a + Math.random() * (b - a)
 }
@@ -118,8 +121,15 @@ export function PetalField({ px, py, still }: { px: MotionValue<number>; py: Mot
     let lastY = py.get()
     let gust = 0
     let frame = 0
-    const stop = frameLoop((dt, t) => {
-      if (++frame % 30 === 0) rect = canvas.getBoundingClientRect()
+    // Petals fall a pixel or so per frame, so 30 fps reads the same as 60 and halves the canvas
+    // work (a full-screen clear, fill and upload per frame). Time is kept, so speeds stay right.
+    let owed = 0
+    const stop = frameLoop((tick, t) => {
+      owed += tick
+      if (owed < PETAL_FRAME_S) return
+      const dt = Math.min(0.05, owed)
+      owed = 0
+      if (++frame % 15 === 0) rect = canvas.getBoundingClientRect()
       const nx = px.get()
       const ny = py.get()
       if (Math.abs(nx - lastX) + Math.abs(ny - lastY) > 0.0005) gust = 1

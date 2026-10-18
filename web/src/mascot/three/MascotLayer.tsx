@@ -26,7 +26,14 @@ const LINGER_MS = 3000
  * looks around, talks or blinks; at 30 fps while it only breathes and sways (a few pixels over
  * seconds, so the eye cannot tell); and not at all while no mascot is on screen.
  */
-const CALM_FRAME_MS = 1000 / 30 - 5
+const CALM_FRAME_MS_FINE = 1000 / 30 - 5
+/**
+ * Phones and tablets: 20 fps for the calm breathing, the same pace as the tray's idle drift there
+ * (see stageBus), so the hero mascot riding the rim moves in step with it and the phone's GPU
+ * draws the full-screen canvas a third less often. Quick moves still get full rate.
+ */
+const CALM_FRAME_MS_TOUCH = 1000 / 20 - 5
+const CALM_FRAME_MS = typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches ? CALM_FRAME_MS_TOUCH : CALM_FRAME_MS_FINE
 /** Tiny mascots (the header badge) breathe well under a pixel per frame: 12 fps looks the same. */
 const TINY_CALM_FRAME_MS = 1000 / 12 - 5
 const TINY_SIZE = 40
@@ -38,7 +45,18 @@ const LIVELY = new Set(['happy', 'excited', 'petted', 'surprised'])
 const MOOD_EASE_S = 0.8
 
 /** What this frame drew and asked for. Reset by Clear, filled by each Instance, acted on by Pace. */
-type Plan = { cleared: boolean; drew: boolean; drewLast: boolean; fast: boolean; calm: boolean; calmMs: number; timer: number; hidden: boolean }
+type Plan = {
+  cleared: boolean
+  drew: boolean
+  drewLast: boolean
+  fast: boolean
+  calm: boolean
+  calmMs: number
+  timer: number
+  hidden: boolean
+  /** The phone tab bar's box this frame (null: none), measured by the first mascot that needs it. */
+  bar?: DOMRect | null
+}
 /** One canvas exists at a time, so one plan. */
 const plan: Plan = { cleared: false, drew: false, drewLast: false, fast: false, calm: false, calmMs: CALM_FRAME_MS, timer: 0, hidden: false }
 /** Last mood each handle's rig has acted on, so the asleep poll can spot a change. */
@@ -492,7 +510,13 @@ function Instance({ h, shadowMap }: { h: MascotHandle; shadowMap: THREE.Texture 
         Math.abs(sim.back.v) > 0.05 ||
         Math.abs(sim.back.x) > 0.004 ||
         Math.abs(sim.tilt.v) > 0.15
-      if (fast) plan.fast = true
+      // Tiny mascots (the header faces) blink and wiggle under a pixel per frame at 30 fps, so their
+      // quick moves get 30 fps instead of every frame. Three of them blinking out of step would
+      // otherwise keep the whole canvas at full rate most of the time.
+      if (fast && S <= TINY_SIZE) {
+        plan.calm = true
+        plan.calmMs = Math.min(plan.calmMs, CALM_FRAME_MS_FINE)
+      } else if (fast) plan.fast = true
       else {
         plan.calm = true
         plan.calmMs = Math.min(plan.calmMs, S <= TINY_SIZE ? TINY_CALM_FRAME_MS : CALM_FRAME_MS)
@@ -515,7 +539,9 @@ function Instance({ h, shadowMap }: { h: MascotHandle; shadowMap: THREE.Texture 
     gl.setViewport(r.left, bottom, r.width, r.height)
     // The phone tab bar sits inside the page's stacking context, under this canvas, so stop
     // drawing at its top edge instead of painting over it.
-    const bar = document.querySelector('.tabbar')?.getBoundingClientRect()
+    // Measured once per frame for every mascot on the canvas, not once per mascot.
+    if (plan.bar === undefined) plan.bar = document.querySelector('.tabbar')?.getBoundingClientRect() ?? null
+    const bar = plan.bar
     const clipBottom = bar && bar.height > 0 && bar.top < r.bottom ? Math.max(r.top, bar.top) : r.bottom
     if (clipBottom <= r.top) return
     if (!plan.cleared) {
@@ -561,6 +587,7 @@ function Clear() {
     gl.autoClear = false
     plan.cleared = false
     plan.drew = false
+    plan.bar = undefined
     plan.fast = false
     plan.calm = false
     plan.calmMs = TINY_CALM_FRAME_MS
