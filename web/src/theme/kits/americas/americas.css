@@ -213,6 +213,8 @@
 .amx-sparkles { position: absolute; inset: 0; width: 100%; height: 100%; }
 
 /* ---------- header band ---------- */
+/* The bar is sun yellow (--bar in tokens.css). The flag string sits in the top 10px and the
+   rosa rule in the bottom 4px; the shell keeps the logo and switcher between them. */
 
 .amx-band {
   position: absolute;
@@ -220,34 +222,31 @@
   overflow: hidden;
   pointer-events: none;
 }
-.amx-band-hem {
+.amx-band-tiles {
+  position: absolute;
+  inset: 0;
+  opacity: 0.13;
+  -webkit-mask-image: linear-gradient(90deg, transparent 50%, #000 86%);
+  mask-image: linear-gradient(90deg, transparent 50%, #000 86%);
+}
+.amx-band-string {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: block;
+}
+.amx-band-cord { fill: var(--amx-ink); opacity: 0.32; }
+.amx-band-rosa { fill: #c7266a; }
+.amx-band-punch { fill: var(--bar, #ffc72c); }
+.amx-band-rule {
   position: absolute;
   left: 0;
   right: 0;
   bottom: 0;
-  height: 11px;
+  height: 4px;
+  background: #c7266a;
+  box-shadow: 0 -1.5px 0 var(--amx-pink4);
 }
-.amx-band-hem::before {
-  /* checker rail on the bottom edge, pink and cobalt so it reads on the cobalt bar */
-  content: '';
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  height: 6px;
-  background: repeating-conic-gradient(var(--amx-pink2) 0 25%, transparent 0 50%) 0 0 / 12px 12px;
-}
-.amx-band-hem::after {
-  content: '';
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 6px;
-  height: 3px;
-  background: var(--amx-yellow);
-}
-.amx-band-flags { position: absolute; top: 0; height: 30px; width: 120px; }
-.amx-band-flags.is-right { right: 0; }
 
 /* ---------- corner ---------- */
 

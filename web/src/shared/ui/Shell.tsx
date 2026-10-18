@@ -2,10 +2,8 @@ import { lazy, Suspense, useEffect, useRef } from 'react'
 import { NavLink, Link, Outlet, useLocation } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { UmeDock } from '../../mascot'
-import { SoundOff, SoundOn } from '../icons'
 import { copy } from '../copy'
 import { useReducedMotion } from '../motion'
-import { setMuted, useMuted } from '../sound'
 import { useKit } from '../../theme/registry'
 import { ThemeSwitcher } from '../../theme/ThemeSwitcher'
 import { Logo } from './Logo'
@@ -37,21 +35,6 @@ function NavItem({ to, label, reduce }: { to: string; label: string; reduce: boo
         </>
       )}
     </NavLink>
-  )
-}
-
-function MuteButton() {
-  const muted = useMuted()
-  return (
-    <button
-      className="shell__mute"
-      onClick={() => setMuted(!muted)}
-      aria-pressed={!muted}
-      aria-label={copy.app.sound}
-      title={muted ? copy.app.soundTurnOn : copy.app.soundTurnOff}
-    >
-      {muted ? <SoundOff width={22} height={22} /> : <SoundOn width={22} height={22} />}
-    </button>
   )
 }
 
@@ -111,15 +94,12 @@ export function Shell() {
     document.title = titles[viewKey] ?? copy.app.titleHome
   }, [viewKey, liveGame])
 
+  const logo = <Logo size={home ? 'hero' : 'bar'} />
   const brand = liveGame ? (
-    <span className="shell__brand shell__brand--static">
-      <Logo />
-      <span className="shell__brand-name">{copy.app.name}</span>
-    </span>
+    <span className="shell__brand shell__brand--static">{logo}</span>
   ) : (
     <Link to="/" className="shell__brand">
-      <Logo />
-      <span className="shell__brand-name">{copy.app.name}</span>
+      {logo}
     </Link>
   )
 
@@ -147,8 +127,7 @@ export function Shell() {
               <NavItem to={backstageTo} label={copy.app.navBackstage} reduce={reduce} />
             </nav>
           )}
-          {inGame && <ThemeSwitcher compact className="shell__switch" />}
-          <MuteButton />
+          {inGame && <ThemeSwitcher compact collapse className="shell__switch" />}
         </div>
       </header>
       {(home || inGame) && (

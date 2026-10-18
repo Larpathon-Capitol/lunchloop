@@ -1,0 +1,121 @@
+/* The LunchLoop logo. Tints come from the --mark-* and --word-* tokens in tokens.css, which
+   change per world and per header (hero art, game bar, calm staff bar). */
+
+.ll-mark {
+  display: block;
+  flex: none;
+  overflow: visible;
+}
+.ll-mark__a,
+.ll-mark__b {
+  fill: none;
+  stroke-width: 5;
+  stroke-linecap: round;
+}
+.ll-mark__a {
+  stroke: var(--mark-a, #fb6f92);
+}
+.ll-mark__b {
+  stroke: var(--mark-b, #3a1626);
+}
+.ll-mark__leaf {
+  fill: var(--mark-leaf, #5fb77a);
+}
+.ll-mark__vein {
+  fill: none;
+  stroke: var(--mark-vein, #ffe5ec);
+  stroke-width: 1.2;
+  stroke-linecap: round;
+}
+
+.ll-logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  color: var(--word, var(--ink));
+  white-space: nowrap;
+}
+.ll-logo__word {
+  font-family: var(--font-display);
+  font-weight: var(--display-weight, 900);
+  font-synthesis: var(--display-synthesis, none);
+  font-size: var(--word-size, 24px);
+  letter-spacing: var(--word-track, 0);
+  line-height: 1;
+  /* Optical nudge: the display faces sit high or low in their em box. */
+  transform: translateY(var(--word-shift, 0));
+}
+.ll-logo__loop {
+  color: var(--word-loop, var(--pink-5-deep));
+}
+
+.ll-logo--hero {
+  gap: 11px;
+  --word-size: 32px;
+}
+/* On the hero the logo sits straight on the art, no card: a thin die-cut edge in the page pink
+   keeps it legible over garlands, rays and tiles. */
+.ll-logo--hero .ll-logo__mark {
+  filter: drop-shadow(0 0 1.2px var(--word-halo, #ffe5ec)) drop-shadow(0 0 1.2px var(--word-halo, #ffe5ec))
+    drop-shadow(0 0 1px var(--word-halo, #ffe5ec));
+}
+.ll-logo--hero .ll-logo__word {
+  -webkit-text-stroke: 7px var(--word-halo, #ffe5ec);
+  paint-order: stroke fill;
+}
+
+@media (max-width: 480px) {
+  .ll-logo--hero {
+    gap: 9px;
+    --word-size: 27px;
+  }
+  .ll-logo--hero .ll-logo__mark {
+    width: 34px;
+    height: 34px;
+  }
+}
+
+/* Per world wordmark tuning, so the three faces read at the same size. */
+html[data-theme='americas'] .ll-logo {
+  --word-track: 0.005em;
+  --word-shift: 1px;
+}
+html[data-theme='americas'] .ll-logo--hero {
+  --word-size: 36px;
+}
+html[data-theme='asia'] .ll-logo {
+  --word-size: 20px;
+  --word-track: -0.01em;
+}
+html[data-theme='asia'] .ll-logo--hero {
+  --word-size: 27px;
+}
+html[data-theme='medi'] .ll-logo {
+  --word-size: 26px;
+  --word-shift: 1px;
+}
+html[data-theme='medi'] .ll-logo--hero {
+  --word-size: 35px;
+}
+/* Staff pages use the UI face, tight and calm. */
+html[data-mode='staff'] .ll-logo {
+  --word-size: 21px;
+  --word-track: -0.02em;
+  --word-shift: 0px;
+  gap: 8px;
+}
+html[data-mode='staff'] .ll-logo__word {
+  font-weight: 800;
+}
+
+@media (max-width: 480px) {
+  html[data-theme='americas'] .ll-logo--hero {
+    --word-size: 28px;
+  }
+  html[data-theme='asia'] .ll-logo--hero {
+    --word-size: 21px;
+  }
+  html[data-theme='medi'] .ll-logo--hero {
+    --word-size: 27px;
+  }
+}

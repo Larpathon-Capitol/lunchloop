@@ -294,10 +294,17 @@
 }
 .ka-band__sprig {
   position: absolute;
-  top: -4px;
-  right: -6px;
-  width: 72px;
+  top: 0;
+  right: 12px;
+  width: 66px;
   height: auto;
+  overflow: visible;
+}
+/* The sprig lives in the margin past the switcher; with no margin to spare it would sit under it. */
+@media (max-width: 1259px) {
+  .ka-band__sprig {
+    display: none;
+  }
 }
 
 /* ---------- Corner ---------- */

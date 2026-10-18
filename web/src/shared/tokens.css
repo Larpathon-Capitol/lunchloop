@@ -270,3 +270,56 @@ html {
 html.theme-vt {
   transition: none;
 }
+
+/* Header bar and logo. --bar is the game header's ground. It follows the world's field color,
+   except in the Americas, where the bar is sun yellow so it sits with the pink page and the
+   hero's rays. --mark-* tint the logo mark, --word* the wordmark. The defaults are for the
+   pink page (hero and staff); .shell__bar--game swaps in the --bar-* tints. */
+:root {
+  --bar: var(--field);
+  --bar-deep: var(--field-deep);
+  --on-bar: var(--on-field);
+  --on-bar-soft: var(--on-field-soft);
+  --bar-track: rgba(255, 244, 247, 0.14);
+  --bar-track-line: rgba(255, 244, 247, 0.3);
+  --bar-mark-a: var(--pink-4);
+  --bar-mark-b: var(--pink-1);
+  --bar-word-loop: var(--pink-4);
+
+  --mark-a: var(--pink-5);
+  --mark-b: var(--ink);
+  --mark-leaf: var(--leaf);
+  --mark-vein: var(--pink-1);
+  --word: var(--ink);
+  --word-loop: var(--pink-5-deep); /* 3.2:1 on pink-1, the logo is large text */
+  --word-halo: var(--pink-1);
+}
+html[data-theme='americas'] {
+  --bar: #ffc72c;
+  --bar-deep: #e9a90f;
+  --on-bar: #3a1626; /* 10.2:1 on sun yellow */
+  --on-bar-soft: #5c2740; /* 7.4:1 */
+  --bar-track: rgba(255, 244, 247, 0.5);
+  --bar-track-line: rgba(58, 22, 38, 0.16);
+  --bar-mark-a: #c7266a;
+  --bar-mark-b: #3a1626;
+  --bar-word-loop: #b0205c; /* rosa mexicano, 4.2:1 on sun yellow, large text */
+}
+html[data-theme='medi'] {
+  --bar-mark-a: #f4a51c;
+  --bar-word-loop: #f4a51c; /* marigold, 5.3:1 on aubergine */
+}
+/* Where each world's band draws inside the game bar, so the logo and switcher center in the
+   space left between them. */
+:root {
+  --bar-hem-top: 0px;
+  --bar-hem: 10px;
+}
+html[data-theme='americas'] {
+  --bar-hem-top: 12px;
+  --bar-hem: 6px;
+}
+html[data-theme='medi'] {
+  --bar-hem-top: 6px;
+  --bar-hem: 12px;
+}
