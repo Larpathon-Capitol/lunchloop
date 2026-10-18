@@ -208,6 +208,34 @@
 .game__sim--top {
   display: none;
 }
+
+/* ---------- The game column ----------
+   One column holds today's strip (free food, the check-in) and the current tab, so their
+   edges always line up. The Tray tab uses the full width (tray plus its panel); the other
+   tabs read best narrower, and the strip narrows with them. */
+.game {
+  --game-col: 1400px;
+  --strip-gap: var(--s6);
+}
+.game:not([data-tab='tray']) {
+  --game-col: 680px;
+}
+.game__today,
+.game__screen {
+  width: 100%;
+  max-width: var(--game-col);
+  margin-inline: auto;
+}
+.game__today {
+  container-type: inline-size;
+  display: grid;
+  gap: var(--s3);
+  transition: max-width 360ms var(--ease-out);
+}
+/* Only take space when something is showing. */
+.game__today:has(.fb, .lci) {
+  margin-bottom: var(--strip-gap);
+}
 .game__sim--foot {
   display: flex;
   justify-content: center;
@@ -444,8 +472,6 @@
 .tabscreen {
   display: grid;
   gap: var(--s5);
-  max-width: 640px;
-  margin: 0 auto;
 }
 .tabscreen__head {
   display: flex;
@@ -487,7 +513,7 @@
 .pack__plum {
   position: absolute;
   z-index: -1;
-  top: calc(var(--s2) * -1);
+  top: 0;
   right: calc(var(--s4) * -1);
   width: 104px;
   height: auto;
@@ -527,136 +553,6 @@
   display: grid;
   gap: var(--s4);
   align-content: start;
-}
-
-/* The five food groups as one bento strip: a single paper box divided by hairlines like tray
-   compartments. A row of cells on phones, a column beside the tray on laptops. A picked group
-   gets a short glaze mark at its foot; the open group gets a vermilion one. */
-.chips {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  border: var(--hairline);
-  border-radius: var(--radius);
-  background: var(--shoji);
-}
-.chip {
-  position: relative;
-  display: grid;
-  min-width: 0;
-}
-.chip + .chip {
-  border-left: var(--hairline);
-}
-.chip--picked::after,
-.chip--focus::after {
-  content: '';
-  position: absolute;
-  left: 30%;
-  right: 30%;
-  bottom: 6px;
-  height: 3px;
-  border-radius: var(--radius-pill);
-  background: var(--glaze);
-  pointer-events: none;
-}
-.chip--focus::after {
-  background: var(--shu);
-}
-.chip__body {
-  display: grid;
-  justify-items: center;
-  align-content: start;
-  gap: 6px;
-  width: 100%;
-  min-height: 104px;
-  padding: var(--s3) 2px var(--s4);
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  text-align: center;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  transition: background-color var(--t-fast) var(--ease);
-}
-.chip:first-child .chip__body {
-  border-radius: var(--radius) 0 0 var(--radius);
-}
-.chip:last-child .chip__body {
-  border-radius: 0 var(--radius) var(--radius) 0;
-}
-button.chip__body:hover {
-  background: var(--washi);
-}
-.chip__body:focus-visible {
-  position: relative;
-  z-index: 1;
-  outline: none;
-  box-shadow: var(--focus-ring);
-}
-span.chip__body {
-  cursor: default;
-}
-.chip__disc {
-  display: grid;
-  place-items: center;
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  background: var(--washi);
-  box-shadow: inset 0 0 0 1.5px currentColor;
-}
-.chip__disc svg {
-  width: 24px;
-  height: 24px;
-}
-.chip--picked .chip__disc {
-  color: var(--on-shu);
-  box-shadow: none;
-}
-.chip--skipped .chip__disc {
-  color: var(--nezumi);
-  box-shadow: inset 0 0 0 1.5px var(--line);
-}
-.chip__text {
-  display: grid;
-  gap: 1px;
-  min-width: 0;
-  width: 100%;
-}
-.chip__group {
-  font-size: 11px;
-  color: var(--nezumi);
-}
-.chip__state {
-  font-size: 13px;
-  font-weight: 700;
-  line-height: 1.2;
-  color: var(--sumi);
-  overflow-wrap: anywhere;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-.chip--open .chip__state {
-  color: var(--ink);
-}
-.chip--skipped .chip__state {
-  color: var(--nezumi);
-  font-weight: 500;
-}
-.chip--skel {
-  display: grid;
-  justify-items: center;
-  align-content: start;
-  gap: var(--s2);
-  min-height: 104px;
-  padding-top: var(--s3);
 }
 
 .pack__progress {
@@ -1134,9 +1030,11 @@ span.chip__body {
     display: none;
   }
   .pack__plum {
-    top: calc(var(--s3) * -1);
     right: var(--s4);
     width: 200px;
+  }
+  .game {
+    --strip-gap: var(--s8);
   }
 
   .pack {
@@ -1172,48 +1070,12 @@ span.chip__body {
     grid-template-columns: 1fr 1fr;
     gap: var(--s5) var(--s6);
   }
-  .chips {
-    grid-template-columns: 1fr;
-  }
-  .chip + .chip {
-    border-left: 0;
-    border-top: var(--hairline);
-  }
-  .chip--picked::after,
-  .chip--focus::after {
-    left: calc(var(--s5) + 40px + var(--s3));
-    right: auto;
-    bottom: 10px;
-    width: 28px;
-  }
-  .chip__body,
-  .chip--skel {
-    display: flex;
-    align-items: center;
-    justify-items: start;
-    gap: var(--s3);
-    min-height: 64px;
-    padding: var(--s2) var(--s4) var(--s2) var(--s5);
-    text-align: left;
-  }
-  .chip:first-child .chip__body {
-    border-radius: var(--radius) var(--radius) 0 0;
-  }
-  .chip:last-child .chip__body {
-    border-radius: 0 0 var(--radius) var(--radius);
-  }
-  .chip__group {
-    font-size: var(--text-sm);
-  }
-  .chip__state {
-    font-size: var(--text-base);
-  }
-  .tabscreen {
-    max-width: 680px;
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .game__today {
+    transition: none;
+  }
   .skel,
   .week__dot--waiting {
     animation: none;
@@ -1250,22 +1112,6 @@ html[data-theme='asia'] .tabscreen__title {
   color: var(--accent-1, var(--ink));
 }
 
-/* The sliding pill under the open (or next) food group. */
-.chip__pill {
-  position: absolute;
-  inset: 4px;
-  z-index: 0;
-  border-radius: calc(var(--radius) - 2px);
-  background: var(--pink-2, #ffc2d1);
-  pointer-events: none;
-}
-.chip__body {
-  position: relative;
-  z-index: 1;
-}
-.chip--picked .chip__disc {
-  color: var(--surface, #fff);
-}
 
 /* Desktop: hold the columns beside the tray back until the tray has landed from the hero. */
 .traytab .pack__side,
@@ -1329,14 +1175,7 @@ html[data-theme='asia'] .tabscreen__title {
     right: calc(var(--s2) * -1);
   }
 }
-/* "Choose" sits on pink: ink keeps it readable on the pill and the panel. */
-.chip--open .chip__state {
-  color: var(--ink, var(--sumi));
-  text-decoration: underline;
-  text-decoration-color: var(--pink-5, #fb6f92);
-  text-decoration-thickness: 2px;
-  text-underline-offset: 3px;
-}
+
 
 /* Sheet top edge: a soft grab handle; East Asia keeps its noren panels in the field color. */
 html:not([data-theme='asia']) .sheet__noren {
@@ -1601,4 +1440,280 @@ html[data-theme='asia'] .hud__value {
 .needs__clear:disabled {
   opacity: 0.45;
   cursor: default;
+}
+
+/* ---------- Food group list (Tray tab) ---------- */
+
+/* Five tray compartments as one paper card split by hairlines: a row of five cells on phones,
+   a compact list beside the tray on laptops. Group names use the world's display face; the
+   pick stays in the UI face so long food names read easily. */
+.chips {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  align-content: start;
+  margin: 0;
+  padding: 4px;
+  list-style: none;
+  border: var(--hairline);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+.chip {
+  position: relative;
+  display: grid;
+  min-width: 0;
+}
+/* Hairlines between cells, inset so they stop short of the card edge like tray dividers. */
+.chip + .chip::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 14px;
+  bottom: 14px;
+  width: 1px;
+  background: var(--hairline-color);
+  pointer-events: none;
+}
+/* The sliding pill under the open (or next) food group. */
+.chip__pill {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: calc(var(--radius) - 5px);
+  background: var(--pink-2);
+  pointer-events: none;
+}
+/* The pill hides the dividers on either side of it. */
+.chip:has(> .chip__pill)::before,
+.chip:has(> .chip__pill) + .chip::before {
+  opacity: 0;
+}
+.chip__body {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  justify-items: center;
+  align-content: start;
+  gap: 6px;
+  width: 100%;
+  padding: var(--s3) 2px var(--s3);
+  border: 0;
+  border-radius: calc(var(--radius) - 5px);
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  text-align: center;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background-color var(--t-fast) var(--ease);
+}
+button.chip__body:hover {
+  background: color-mix(in srgb, var(--pink-2) 55%, transparent);
+}
+.chip__body:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+span.chip__body {
+  cursor: default;
+}
+
+/* The icon tile: a soft rounded square washed in the group's color. */
+.chip__icon {
+  position: relative;
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: color-mix(in oklab, var(--glaze) 13%, var(--surface));
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--glaze) 26%, transparent);
+  color: var(--glaze);
+}
+.chip__icon svg {
+  width: 26px;
+  height: 26px;
+}
+.chip--skipped .chip__icon {
+  background: transparent;
+  box-shadow: inset 0 0 0 1.5px var(--hairline-color);
+  color: var(--ink-soft);
+}
+.chip--skipped .chip__icon svg {
+  width: 20px;
+  height: 20px;
+}
+.chip--skel .chip__icon {
+  background: var(--pink-2);
+  box-shadow: none;
+}
+
+.chip__text {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  width: 100%;
+}
+.chip__group {
+  font-family: var(--font-display);
+  font-weight: var(--display-weight, 400);
+  font-synthesis: none;
+  font-size: 15px;
+  line-height: 1.05;
+  color: var(--accent-2, var(--ink));
+}
+.chip__state {
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.25;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.chip--open .chip__state {
+  color: var(--ink-soft);
+  font-weight: 500;
+}
+.chip--skipped .chip__group,
+.chip--skipped .chip__state {
+  color: var(--ink-soft);
+}
+.chip--skipped .chip__state {
+  font-weight: 500;
+}
+
+/* Picked: a small glaze seal with a check. On phones it sits on the tile's corner. */
+.chip__mark {
+  display: grid;
+  place-items: center;
+  flex: none;
+}
+.chip__mark:empty {
+  display: none;
+}
+.chip--picked .chip__mark {
+  position: absolute;
+  z-index: 2;
+  top: 6px;
+  left: calc(50% + 12px);
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--glaze);
+  color: #fff;
+  box-shadow: 0 0 0 2px var(--surface);
+}
+.chip--picked .chip__mark svg {
+  width: 12px;
+  height: 12px;
+  stroke-width: 3;
+}
+.chip--open .chip__mark {
+  display: none;
+}
+
+.chip--skel {
+  display: grid;
+  justify-items: center;
+  align-content: start;
+  gap: var(--s2);
+  min-height: 92px;
+  padding-top: var(--s3);
+}
+
+/* Per world: the one accent detail on each food icon (the lid knob, the seeds, the leaf). */
+html[data-theme='americas'] :is(.game, .sheet) {
+  --fg-accent: var(--accent-2);
+}
+html[data-theme='asia'] :is(.game, .sheet) {
+  --fg-accent: var(--accent-2);
+}
+html[data-theme='medi'] :is(.game, .sheet) {
+  --fg-accent: var(--accent-1);
+}
+/* On a solid glaze disc the accent would vanish: keep it in the line color there. */
+.glyph-disc--solid {
+  --fg-accent: currentColor;
+}
+
+/* Dela Gothic One runs wide: step it down so "Vegetable" fits a phone cell. */
+html[data-theme='asia'] .chip__group {
+  font-size: 12px;
+  letter-spacing: -0.01em;
+}
+html[data-theme='medi'] .chip__group {
+  font-size: 16px;
+}
+
+@media (min-width: 960px) {
+  .chips {
+    grid-template-columns: 1fr;
+    padding: 5px;
+  }
+  .chip + .chip::before {
+    left: 14px;
+    right: 14px;
+    top: 0;
+    bottom: auto;
+    width: auto;
+    height: 1px;
+  }
+  .chip__body,
+  .chip--skel {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    justify-items: start;
+    gap: var(--s3);
+    min-height: 0;
+    padding: 9px var(--s3) 9px 9px;
+    text-align: left;
+  }
+  .chip__text {
+    gap: 3px;
+  }
+  .chip__group {
+    font-size: 17px;
+  }
+  html[data-theme='asia'] .chip__group {
+    font-size: 14px;
+  }
+  html[data-theme='medi'] .chip__group {
+    font-size: 18px;
+  }
+  .chip__state {
+    font-size: var(--text-sm);
+    -webkit-line-clamp: 1;
+  }
+  .chip--picked .chip__mark {
+    position: static;
+    width: 24px;
+    height: 24px;
+    box-shadow: none;
+  }
+  .chip--picked .chip__mark svg {
+    width: 14px;
+    height: 14px;
+  }
+  .chip--open .chip__mark {
+    display: grid;
+    color: var(--ink-soft);
+  }
+  .chip--open .chip__mark svg {
+    width: 18px;
+    height: 18px;
+  }
+  .chip--skel {
+    min-height: 58px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chip__body {
+    transition: none;
+  }
 }

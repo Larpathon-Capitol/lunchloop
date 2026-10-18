@@ -7,7 +7,7 @@ import { BrushProgress, isStreakMilestone, useCelebrate } from '../celebrate'
 import { UmeInline, lines, pickLine, ume } from '../mascot'
 import { copy } from '../shared/copy'
 import { fmtLongDay } from '../shared/format'
-import { Skip, foodGroupIcon } from '../shared/icons'
+import { Check, Skip, foodGroupIcon } from '../shared/icons'
 import { press } from '../shared/motion'
 import { sound } from '../shared/sound'
 import { ErrorNotice } from '../shared/ui/Notice'
@@ -96,6 +96,15 @@ function EmptyTray() {
   )
 }
 
+/** A small chevron: this group still needs a choice. */
+function Chevron() {
+  return (
+    <svg viewBox="0 0 24 24" width={24} height={24} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
+      <path d="M9.5 6.5 15 12l-5.5 5.5" />
+    </svg>
+  )
+}
+
 function TraySkeleton() {
   useEffect(() => {
     ume.react('thinking')
@@ -116,7 +125,7 @@ function TraySkeleton() {
         <ul className="chips">
           {[0, 1, 2, 3, 4].map((i) => (
             <li key={i} className="chip chip--skel">
-              <span className="skel skel--disc" />
+              <span className="skel chip__icon" />
               <span className="skel skel--word" />
             </li>
           ))}
@@ -276,10 +285,9 @@ function Packing({ data }: { data: Tray }) {
               <>
                 <motion.span
                   key={`${kind}-${pick ?? ''}`}
-                  className="chip__disc"
-                  style={kind === 'picked' ? { background: GLAZE[g.component] } : { color: GLAZE[g.component] }}
-                  initial={reduce || kind === 'open' || packed ? false : { scale: 0.6 }}
-                  animate={{ scale: 1 }}
+                  className="chip__icon"
+                  initial={reduce || kind === 'open' || packed ? false : { scale: 0.6, rotate: -8 }}
+                  animate={{ scale: 1, rotate: 0 }}
                   transition={popSpring}
                 >
                   {kind === 'skipped' ? <Skip /> : <Icon />}
@@ -287,6 +295,9 @@ function Packing({ data }: { data: Tray }) {
                 <span className="chip__text">
                   <span className="chip__group">{groupName(g.component)}</span>
                   <span className="chip__state">{state}</span>
+                </span>
+                <span className="chip__mark" aria-hidden="true">
+                  {kind === 'picked' ? <Check /> : kind === 'open' && !packed ? <Chevron /> : null}
                 </span>
               </>
             )

@@ -6,7 +6,6 @@
 }
 .fb {
   position: relative;
-  margin-bottom: var(--s4);
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
@@ -90,15 +89,67 @@ html[data-theme='americas'] .lci__title {
   outline-offset: 1px;
 }
 
-/* Check-in card */
+/* Check-in card. A stacked card on phones and in the narrow tabs; when the column is wide
+   (the Tray tab on laptops) the answer moves beside the foods so the card stays short. The
+   container is .game__today (student.css). */
 .lci {
+  --fg-tint: color-mix(in srgb, currentColor 16%, transparent);
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--s3);
-  padding: var(--s5) var(--s4);
+  padding: var(--s4) var(--s4) var(--s4);
   border-radius: var(--radius);
   background: var(--surface);
   border: var(--hairline);
   color: var(--ink);
+}
+@container (min-width: 820px) {
+  .lci {
+    grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+    grid-template-areas:
+      'title answer'
+      'sub answer'
+      'foods answer'
+      'error error';
+    column-gap: var(--s8);
+    align-items: center;
+    padding: var(--s5) var(--s6);
+  }
+  .lci__title { grid-area: title; }
+  .lci__sub { grid-area: sub; }
+  .lci__foods { grid-area: foods; }
+  .lci__error { grid-area: error; }
+  .lci > :is(h2, p, ul) {
+    align-self: end;
+  }
+  .lci__ask,
+  .lci__done {
+    grid-area: answer;
+    grid-row: 1 / span 3;
+    margin-top: 0;
+  }
+  .lci__ask {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .lci .lci__ask .lci__btn {
+    flex: none;
+    width: 100%;
+  }
+  .lci .lci__done {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    gap: 0 var(--s3);
+  }
+  .lci .lci__said {
+    flex: none;
+  }
+  .lci .lci__done .lci__link {
+    grid-column: 2;
+    justify-self: start;
+    min-height: 36px;
+  }
 }
 .lci__title {
   font-family: var(--font-display);
@@ -132,7 +183,12 @@ html[data-theme='americas'] .lci__title {
   background: var(--pink-1);
   border: 1px solid var(--pink-3);
   font-weight: 600;
-  font-size: var(--text-sm);
+  font-size: 13px;
+}
+@container (min-width: 820px) {
+  .lci__food {
+    font-size: var(--text-sm);
+  }
 }
 .lci__food[data-group='meat_alternate'] { --glaze: var(--g-entree); }
 .lci__food[data-group='grain'] { --glaze: var(--g-grain); }
@@ -148,14 +204,34 @@ html[data-theme='americas'] .lci__title {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--s3);
-  margin-top: var(--s2);
+  gap: var(--s2) var(--s3);
+  margin-top: var(--s1);
 }
-.lci__btn {
-  flex: 1 1 180px;
+.lci .lci__btn {
+  flex: 1 1 auto;
+  min-height: 48px;
+  padding-inline: var(--s4);
+  font-size: var(--text-base);
+  white-space: nowrap;
+}
+/* Phones: both answers fit on one row. */
+@container (max-width: 420px) {
+  .lci .lci__btn {
+    padding-inline: var(--s3);
+    font-size: 15px;
+  }
+  .lci__food {
+    padding: 4px 10px 4px 7px;
+  }
+  .lci__title {
+    font-size: var(--text-lg);
+  }
+}
+.lci .lci__btn--quiet {
+  margin-bottom: 5px;
 }
 .lci__btn--quiet {
-  min-height: 54px;
+  min-height: 48px;
   border-radius: var(--radius-pill);
   border: 2px solid var(--pink-4);
   font-size: var(--text-base);

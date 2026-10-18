@@ -166,13 +166,30 @@ function TodayStrip() {
       document.removeEventListener('visibilitychange', check)
     }
   }, [])
+  // The strip can grow or shrink above the tray without changing the tray slot's size, which
+  // the 3D stage would not notice. A synthetic scroll makes every slot measure itself again.
+  const ref = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    let last = el.offsetHeight
+    const ro = new ResizeObserver(() => {
+      if (el.offsetHeight === last) return
+      last = el.offsetHeight
+      window.dispatchEvent(new Event('scroll'))
+    })
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
   return (
-    <>
+    <div ref={ref} className="game__today">
       <FreeBanner free={free ?? me?.free_today ?? []} />
       <LunchCheckIn lunch={me?.today_lunch ?? null} onAnswered={() => void refreshMe()} />
-    </>
+    </div>
   )
 }
+
+const TAB_NAMES = ['tray', 'vote', 'call-it', 'stamps'] as const
 
 function Game() {
   const { me, calendar, tray, hudBump } = useStudent()
@@ -180,8 +197,9 @@ function Game() {
   const today = calendar?.today ?? (tray.state === 'ready' ? tray.data.open_date : null)
   const packed = tray.state === 'ready' && !!tray.data.picks
   const doneToday = !!(me?.packed_today || me?.voted_today || packed)
+  const { pathname } = useLocation()
   return (
-    <div className="game">
+    <div className="game" data-tab={TAB_NAMES[tabIndex(pathname)]}>
       <GameWatermark />
       <div className="game__top">
         <Hud today={today} streak={me?.streak ?? null} xp={me?.xp ?? null} doneToday={doneToday} bump={hudBump} />
