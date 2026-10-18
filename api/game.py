@@ -98,7 +98,7 @@ def correct_guess_count(connection, player_device, current_date, taken, school_i
     return sum(score_guess(guess, current_date, taken) is True for guess in guess_rows)
 
 
-def stats(connection, player_device, current_date, taken, school_id="demo"):
+def stats(connection, player_device, current_date, taken, school_id="demo", counts=None):
     """Return streak, XP, badges, and latest vote date through the current date.
 
     Streaks run across school days ending today or the previous school day.
@@ -130,7 +130,8 @@ def stats(connection, player_device, current_date, taken, school_id="demo"):
         streak += 1
         index -= 1
 
-    counts = player_counts(connection, player_device, current_date, taken, school_id)
+    if counts is None:
+        counts = player_counts(connection, player_device, current_date, taken, school_id)
     correct_guesses = counts["correct_calls"]
     xp = len(vote_rows) * 10 + counts["trays"] * 10 + correct_guesses * 25
 

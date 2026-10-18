@@ -26,7 +26,6 @@ from .db import connect, init_db, load_taken
 from .auth import configured_passwords, make_token, read_token, verify_password, sign_device, verify_device
 from .game import (
     DEVICE_PATTERN,
-    correct_guess_count,
     device,
     ensure_player,
     next_day,
@@ -463,9 +462,13 @@ def create_app(max_requests=None, max_actions=None, body_limit=16 * 1024, reques
                 service = {"date": current_date, "packed": len(packed_devices), "checked_in": len(checked_devices), "got": len(got_devices), "missed": len(missed_devices), "items": service_items}
         return {"school": school, "today": current_date, "vote": vote, "recent_votes": recent, "past_winners": past, "guesses": guesses, "tray": tray, "players": {"total": player_total, "voted_today": voted_today, "voted_last_5_days": voted_last}, "service": service, "free": free, "simulated": True}
 
+    def student_context(request, school):
+        """The day for a student read: a named school gets its own day (the live school ignores X-Demo-Date)."""
+        return request_context(request, school_id(request, school) if school is not None else None)
+
     @application.get("/api/health")
-    def health(request: Request):
-        _, current_date = request_context(request)
+    def health(request: Request, school: str | None = None):
+        _, current_date = student_context(request, school)
         return {"ok": True, "today": current_date, "simulated": True}
 
     @application.post("/api/device")
@@ -874,8 +877,9 @@ def create_app(max_requests=None, max_actions=None, body_limit=16 * 1024, reques
         player_device = parse_player(request, device_id)
         with closing(connect(request_settings["db"])) as connection:
             ensure_player(connection, player_device, selected_school)
+            stamp_counts = player_counts(connection, player_device, current_date, request.app.state.taken, selected_school)
             streak, xp, badges, last_vote_date = stats(
-                connection, player_device, current_date, request.app.state.taken, selected_school
+                connection, player_device, current_date, request.app.state.taken, selected_school, counts=stamp_counts
             )
             guess = connection.execute(
                 "SELECT * FROM guesses WHERE school_id=? AND device=? AND date<=? ORDER BY date DESC LIMIT 1",
@@ -895,8 +899,7 @@ def create_app(max_requests=None, max_actions=None, body_limit=16 * 1024, reques
             connection.commit()
             voted_today = bool(connection.execute("SELECT 1 FROM votes WHERE school_id=? AND device=? AND date=?", (selected_school, player_device, current_date)).fetchone())
             packed_today = bool(connection.execute("SELECT 1 FROM trays WHERE school_id=? AND device=? AND date=?", (selected_school, player_device, current_date)).fetchone())
-            correct_calls = correct_guess_count(connection, player_device, current_date, request.app.state.taken, selected_school)
-            stamp_counts = player_counts(connection, player_device, current_date, request.app.state.taken, selected_school)
+            correct_calls = stamp_counts["correct_calls"]
             lunch = today_lunch(connection, selected_school, player_device, current_date)
             free = free_items(connection, selected_school, current_date, include_component=True)
         response = {
@@ -1003,8 +1006,9 @@ def create_app(max_requests=None, max_actions=None, body_limit=16 * 1024, reques
         request: Request,
         date_value: str | None = Query(None, alias="date"),
         ratio: float = 3.0,
+        school: str | None = None,
     ):
-        request_settings, current_date = request_context(request)
+        request_settings, current_date = student_context(request, school)
         target_date = parse_date(date_value or current_date).isoformat()
         with closing(connect(request_settings["db"])) as connection:
             known_date = connection.execute(
@@ -1048,8 +1052,8 @@ def create_app(max_requests=None, max_actions=None, body_limit=16 * 1024, reques
         )
 
     @application.get("/api/meter")
-    def meter(request: Request):
-        _, current_date = request_context(request)
+    def meter(request: Request, school: str | None = None):
+        _, current_date = student_context(request, school)
         return engine_call(request, "meter", date=current_date)
 
     return application
