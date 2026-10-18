@@ -149,6 +149,9 @@ a.btn {
 /* App shell */
 :root {
   --bar-h: 56px;
+  /* The game bar: one height in every world. Each world's band reserves --bar-hem-top and
+     --bar-hem (tokens.css) and the logo and switcher center between them. */
+  --game-bar-h: 64px;
 }
 /* Layers: page ground, the hero cloth (0), the tray stage (1), the page (2), the header over the
    hero (3). While the noren parts the curtain sits at 3 and the tray rides above it at 4. */
@@ -163,26 +166,26 @@ a.btn {
   height: var(--bar-h);
   display: flex;
   align-items: center;
-  gap: var(--s2);
+  gap: var(--s3);
 }
 .shell__brand {
-  font-family: var(--font-ui);
-  font-weight: 900;
-  font-size: var(--text-md);
-  letter-spacing: -0.01em;
-  color: var(--ink);
+  color: inherit;
   text-decoration: none;
   margin-right: auto;
   display: inline-flex;
   align-items: center;
-  gap: var(--s2);
   min-height: var(--touch);
+  border-radius: var(--radius-sm);
+  transition: transform var(--t-fast) var(--ease);
 }
-.shell__brand .logo-mark {
-  flex: none;
+.shell__brand:active {
+  transform: scale(var(--press-scale));
+}
+.shell__brand--static:active {
+  transform: none;
 }
 
-/* Home: no bar at all, just the mark and the mute on small paper chips, so they read over any world's backdrop. */
+/* Home: no bar at all. The logo sits straight on the hero art with a soft paper halo. */
 .shell__bar--home {
   position: absolute;
   top: 0;
@@ -190,72 +193,84 @@ a.btn {
   right: 0;
   z-index: 3;
   color: var(--ink);
+  pointer-events: none;
 }
 .shell__bar--home .shell__inner {
   max-width: none;
-  padding: var(--s2) max(var(--s4), 4vw) 0;
+  height: auto;
+  padding: max(var(--s4), 2.2vw) max(var(--s4), 4vw) 0;
 }
-.shell__bar--home .shell__brand,
-.shell__bar--home .shell__mute {
-  color: var(--ink);
-  background: color-mix(in srgb, var(--surface) 88%, transparent);
-  border-radius: var(--radius-pill);
-  box-shadow: var(--shadow-contact, none);
+/* Phones: clear the worlds' top hems (noren rail, scalloped trim) before the logo starts. */
+@media (max-width: 480px) {
+  .shell__bar--home .shell__inner {
+    padding-top: 28px;
+  }
 }
 .shell__bar--home .shell__brand {
-  padding: var(--s1) var(--s3) var(--s1) var(--s2);
+  pointer-events: auto;
 }
-.shell__bar--home .shell__mute:hover {
-  color: var(--ink);
-  background: var(--surface);
+.shell__bar--home :focus-visible {
+  box-shadow: 0 0 0 3px var(--surface), 0 0 0 5px var(--ink);
 }
 
-/* Game: a slim bar in the world's deep field color, with the world's own band drawn inside it. */
+/* Game: one bar height in every world, in the world's bar color, with the world's band drawn
+   inside it. The content centers in the space above the hem. */
 .shell__bar--game {
-  background: var(--field, var(--ai));
-  color: var(--on-field, var(--on-ai));
+  height: var(--game-bar-h);
+  background: var(--bar);
+  color: var(--on-bar);
+  --mark-a: var(--bar-mark-a);
+  --mark-b: var(--bar-mark-b);
+  --mark-vein: var(--bar);
+  --word: var(--on-bar);
+  --word-loop: var(--bar-word-loop);
 }
 .shell__band {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  overflow: visible;
+  overflow: hidden;
 }
 .shell__bar--game .shell__inner {
   position: relative;
-  height: 52px;
-}
-.shell__bar--game .shell__brand,
-.shell__bar--game .shell__mute {
-  color: var(--on-field, var(--on-ai));
+  height: 100%;
+  padding-top: var(--bar-hem-top, 0px);
+  padding-bottom: var(--bar-hem, 10px);
 }
 .shell__bar--game .shell__live {
-  color: color-mix(in srgb, var(--on-field, var(--on-ai)) 78%, transparent);
-}
-.shell__bar--game .shell__mute:hover {
-  color: var(--on-field, var(--on-ai));
-  background: color-mix(in srgb, var(--on-field, var(--on-ai)) 12%, transparent);
+  color: var(--on-bar-soft);
+  font-weight: 600;
 }
 .shell__bar--game :focus-visible {
-  box-shadow: 0 0 0 3px var(--field, var(--ai)), 0 0 0 5px var(--on-field, var(--on-ai));
-}
-.shell__bar--home :focus-visible {
-  box-shadow: 0 0 0 3px var(--surface), 0 0 0 5px var(--ink);
+  outline: none;
+  box-shadow: 0 0 0 2px var(--bar), 0 0 0 4.5px var(--on-bar);
 }
 .shell__switch {
   display: inline-flex;
   align-items: center;
+  flex: none;
 }
 
-/* Staff pages: paper bar with the nav. */
+/* Staff pages: a calm paper bar with the logo and the nav. */
 .shell__bar--staff {
-  background: var(--washi);
+  background: color-mix(in srgb, var(--surface) 70%, var(--pink-1));
   border-bottom: var(--hairline);
 }
+.shell__bar--staff .shell__inner {
+  height: 60px;
+}
 
+/* The nav may shrink and, as a last resort on the narrowest phones, scroll inside itself:
+   it never widens the page. */
 .shell__nav {
   display: flex;
   gap: var(--s1);
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.shell__nav::-webkit-scrollbar {
+  display: none;
 }
 .shell__link {
   display: inline-flex;
@@ -284,34 +299,25 @@ a.btn {
   border-radius: 1px;
   background: var(--shu);
 }
-.shell__mute {
-  display: inline-grid;
-  place-items: center;
-  width: var(--touch);
-  height: var(--touch);
-  border: 0;
-  background: transparent;
-  color: var(--nezumi);
-  border-radius: var(--radius-pill);
-  cursor: pointer;
-  transition: color var(--t-fast) var(--ease), background-color var(--t-fast) var(--ease);
-}
-.shell__mute:hover {
-  color: var(--sumi);
-  background: var(--shoji);
-}
-.shell__mute:active {
-  transform: scale(var(--press-scale));
-}
 /* The stripped header on the live page: no links, just a quiet label. */
 .shell__live {
   margin: 0;
   color: var(--nezumi);
   font-size: var(--text-sm);
+  white-space: nowrap;
 }
 
-/* Below ~420px the nav needs the room: the logo stays, the name is read aloud only. */
-@media (max-width: 419px) {
+@media (max-width: 480px) {
+  :root {
+    --game-bar-h: 60px;
+  }
+}
+
+/* Phones: the nav needs the room. The mark stays, the wordmark is read aloud only. */
+@media (max-width: 559px) {
+  .shell__bar--staff .shell__inner {
+    gap: var(--s2);
+  }
   .shell__link {
     padding: 0 var(--s1);
     font-size: var(--text-sm);
@@ -320,7 +326,7 @@ a.btn {
     left: var(--s1);
     right: var(--s1);
   }
-  .shell__bar--staff .shell__brand:not(.shell__brand--static) .shell__brand-name {
+  .shell__bar--staff .shell__brand:not(.shell__brand--static) .ll-logo__word {
     position: absolute;
     width: 1px;
     height: 1px;
@@ -398,4 +404,11 @@ a.btn {
 .shell__main--home {
   max-width: none;
   padding: 0;
+}
+
+/* Phones: the game sits closer under its bar. */
+@media (max-width: 599px) {
+  .shell__main--game {
+    padding-top: var(--s3);
+  }
 }

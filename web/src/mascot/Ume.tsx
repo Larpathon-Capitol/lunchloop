@@ -44,6 +44,9 @@ export type UmeProps = {
   /** Keep the bubble inside this element instead of lifting it above the 3D layer. Only for hosts
    * that already sit above the layer (the dock). */
   bubbleInPlace?: boolean
+  /** For hosts that hold their own bubble space (UmeInline): petted lines go here instead of a
+   * floating bubble over the page. */
+  onLine?: (text: string) => void
   /** Receives the rig handle, for hosts that move the mascot around (the dock). */
   rigRef?: MutableRefObject<MascotHandle | null>
   className?: string
@@ -100,6 +103,7 @@ export function Ume({
   mascotId,
   talking = false,
   bubbleInPlace = false,
+  onLine,
   rigRef,
   className,
 }: UmeProps) {
@@ -141,10 +145,14 @@ export function Ume({
   // ---- Speech bubble
   const bubbleId = useRef(0)
   const showLine = useCallback((text: string) => {
+    if (onLine) {
+      onLine(text)
+      return
+    }
     bubbleId.current += 1
     setBubble({ text, id: bubbleId.current })
     announce(text)
-  }, [])
+  }, [onLine])
   useEffect(() => {
     if (say) showLine(say)
   }, [say, sayKey, showLine])

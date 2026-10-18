@@ -204,10 +204,17 @@
   padding-top: var(--s5);
 }
 
-/* The live group's beacon: a dot with a slow ring, so "real time" reads at a glance */
+/* The presenter card keeps no empty status line at its foot; a message still shows when there is one */
+.hub .demo-bar__status:empty {
+  display: none;
+}
+
+/* The live group's beacon: a dot with a slow ring, so "real time" reads at a glance. It sits after
+   the words, so the heading lines up with the column and the ring has room to grow. */
 .hub-group__pulse {
   position: relative;
   flex: none;
+  margin-left: var(--s1);
   width: 10px;
   height: 10px;
   border-radius: 50%;
@@ -257,4 +264,93 @@
   background: var(--surface);
   color: var(--leaf-deep);
   border: 1px solid var(--leaf-deep);
+}
+
+/* Phones: a presenter may open this on a phone. Tighter type and spacing so more of the list is
+   on screen at once, two equal 44px buttons per row, presenter controls that never run wider
+   than the screen, and the live QR beside its link instead of stacked under it. */
+@media (max-width: 560px) {
+  .hub {
+    gap: var(--s6);
+  }
+  .hub__title {
+    font-size: 32px;
+    line-height: 1.1;
+  }
+  .hub__lead {
+    font-size: 16px;
+  }
+  .hub-group {
+    gap: var(--s4);
+    padding-top: var(--s4);
+  }
+  .hub-group__title {
+    font-size: 21px;
+  }
+  .hub-group__line,
+  .hub-row__line {
+    font-size: 15px;
+  }
+  .hub-row {
+    gap: var(--s3);
+    padding: var(--s4) 0;
+  }
+  .hub-group .hub-row:first-child {
+    padding-top: var(--s4);
+  }
+  .hub-row__name {
+    font-size: 18px;
+  }
+  .hub-row__btn,
+  .hub-row__actions > * {
+    min-width: 0;
+    min-height: 44px;
+  }
+  .hub-qr {
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: var(--s4);
+  }
+  .hub-qr__code {
+    width: 128px;
+    height: 128px;
+  }
+  .hub-qr__side {
+    flex: 1 1 0;
+    gap: var(--s2);
+  }
+  .hub-qr__url {
+    font-size: 17px;
+  }
+  .hub-qr__side .btn {
+    min-height: 44px;
+    padding: 0 var(--s4);
+    font-size: 15px;
+  }
+  /* Presenter controls: everything shrinks to fit instead of pushing past the card. */
+  .hub .demo-bar {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .hub .demo-bar > * {
+    min-width: 0;
+  }
+  .hub .demo-bar__row > *,
+  .hub .demo-bar__day > * {
+    min-width: 0;
+  }
+  .hub .demo-bar__date {
+    font-size: 14px;
+  }
+  .hub .demo-bar__today {
+    margin-left: 4px;
+  }
+  .hub .demo-bar__crowd {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+  }
+  .hub .demo-bar__add {
+    min-width: 0;
+    padding: 0 var(--s3);
+    white-space: nowrap;
+  }
 }

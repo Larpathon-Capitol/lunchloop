@@ -2,6 +2,8 @@
 .demo-bar {
   container-type: inline-size;
   display: grid;
+  /* One column that never grows past the card, whatever the controls' natural width. */
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--s3);
   padding: var(--s4);
   background: var(--surface);
@@ -128,21 +130,124 @@
   box-shadow: var(--focus-ring);
 }
 
-/* Phone: the stepper takes the full width, the add buttons share the next row */
+/* The phone menu: hidden on wider screens, where every control has room on the row. */
+.demo-bar__more {
+  display: none;
+  position: relative;
+  flex: none;
+}
+.demo-bar__more-btn {
+  padding-inline: var(--s4);
+  white-space: nowrap;
+}
+.demo-bar__menu {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 6px);
+  right: 0;
+  display: grid;
+  min-width: 200px;
+  padding: 6px;
+  background: var(--surface);
+  border: var(--hairline);
+  border-radius: var(--radius);
+  box-shadow: var(--lift, 0 10px 24px -12px rgb(58 22 38 / 0.35));
+}
+.demo-bar__menu-item {
+  display: flex;
+  align-items: center;
+  min-height: var(--touch);
+  padding: 0 var(--s3);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+}
+.demo-bar__menu-item:hover:not(:disabled) {
+  background: var(--pink-1);
+}
+.demo-bar__menu-item:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.demo-bar__menu-item--quiet {
+  border-top: var(--hairline);
+  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+
+/* Phones: one compact strip. A small label, then the day stepper and an "Add students" menu on
+   one row (the menu also holds "Back to today"). The status line only takes room when it speaks. */
 @media (max-width: 560px) {
+  .demo-bar {
+    gap: var(--s1);
+    padding: var(--s2) var(--s3) var(--s3);
+    border-radius: var(--radius);
+  }
+  .demo-bar__note {
+    display: none;
+  }
+  .demo-bar__label {
+    font-size: 13px;
+  }
+  .demo-bar__row {
+    flex-wrap: nowrap;
+    gap: var(--s2);
+  }
   .demo-bar__day {
-    flex: 1 1 100%;
+    flex: 1 1 auto;
     justify-content: space-between;
   }
-  .demo-bar__today-btn {
-    flex: 1 1 auto;
+  .demo-bar__date-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
   }
-  .demo-bar__crowd {
-    margin-left: 0;
-    flex: 1 1 100%;
-  }
-  .demo-bar__add--main {
+  .demo-bar__date {
     flex: 1 1 auto;
+    justify-content: center;
+    overflow: hidden;
+  }
+  .demo-bar__date-value {
+    flex: none;
+    min-width: 0;
+  }
+  /* The "today" tag doesn't fit beside the date here; "Back to today" in the menu greys out
+     instead when you're on today. */
+  .demo-bar__today {
+    display: none;
+  }
+  .demo-bar__more-btn {
+    padding-inline: var(--s3);
+    font-size: 15px;
+  }
+  .demo-bar__step {
+    width: 40px;
+  }
+  .demo-bar__date {
+    padding: 0;
+    font-size: 15px;
+  }
+  /* Doubled up so page-level tweaks (hub, school) can't bring the wide controls back. */
+  .demo-bar .demo-bar__row > .demo-bar__today-btn,
+  .demo-bar .demo-bar__row > .demo-bar__crowd {
+    display: none;
+  }
+  .demo-bar .demo-bar__row > .demo-bar__more {
+    display: block;
+  }
+  .demo-bar__status {
+    min-height: 0;
+  }
+  .demo-bar__status:empty {
+    display: none;
   }
 }
 

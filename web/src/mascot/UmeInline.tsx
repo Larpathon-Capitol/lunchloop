@@ -7,7 +7,7 @@ import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useDocked } from './dock'
 import { FloatOver } from './FloatOver'
-import { announce, useUmeState } from './store'
+import { announce, ume, useUmeState } from './store'
 import { Ume } from './Ume'
 import './ume.css'
 
@@ -26,6 +26,9 @@ export type UmeInlineProps = {
 }
 
 type Bubble = { text: string; id: number }
+
+/** Petted lines show in the inline bubble's reserved space, never floating over the page. */
+const sayInline = (text: string) => ume.say(text)
 
 export function UmeInline({ size = 64, children, className }: UmeInlineProps) {
   const px = Math.max(MIN_SIZE, size)
@@ -62,6 +65,11 @@ export function UmeInline({ size = 64, children, className }: UmeInlineProps) {
   }, [bubble])
 
   const ghost = useRef<HTMLParagraphElement>(null)
+  const root = useRef<HTMLDivElement>(null)
+  // Which side Ume stands on (phone headings put it at the end of the row), for the bubble's tail.
+  const markTail = (p: HTMLParagraphElement | null) => {
+    if (p && root.current) p.dataset.tail = getComputedStyle(root.current).flexDirection === 'row-reverse' ? 'end' : 'start'
+  }
   const showing = useRef(bubble)
   useEffect(() => {
     showing.current = bubble
@@ -70,9 +78,9 @@ export function UmeInline({ size = 64, children, className }: UmeInlineProps) {
   if (docked) return children ? <div className={className}>{children}</div> : null
 
   return (
-    <div className={`ume-inline${className ? ` ${className}` : ''}`} style={{ ['--ume-inline-size' as string]: `${px}px` }}>
+    <div ref={root} className={`ume-inline${className ? ` ${className}` : ''}`} style={{ ['--ume-inline-size' as string]: `${px}px` }}>
       <span className="ume-inline__ume">
-        <Ume size={px} mood={state.mood} hopKey={state.hopId} talking={!!bubble} />
+        <Ume size={px} mood={state.mood} hopKey={state.hopId} talking={!!bubble} onLine={sayInline} />
       </span>
       <div className="ume-inline__col">
         <div className="ume-inline__say">
@@ -89,8 +97,9 @@ export function UmeInline({ size = 64, children, className }: UmeInlineProps) {
           {bubble && (
             <motion.p
               key={bubble.id}
+              ref={markTail}
               className="ume-inline__bubble ume-inline__bubble--live"
-              initial={reduce ? { opacity: 0 } : { opacity: 0, scale: 0.85, x: -6 }}
+              initial={reduce ? { opacity: 0 } : { opacity: 0, scale: 0.85 }}
               animate={{ opacity: 1, scale: 1, x: 0 }}
               exit={{ opacity: 0, transition: { duration: 0.16 } }}
               transition={reduce ? { duration: 0.12 } : { type: 'spring', stiffness: 520, damping: 26 }}

@@ -1,7 +1,7 @@
 // Presenter controls for the simulated school: step the simulated calendar and add a crowd of
 // simulated students. The day lives in this browser (shared/demo.ts) and rides along on every
 // request, so any page that listens to useDemoDate refreshes when it changes. Never on live pages.
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { api, ApiError } from '../api'
 import type { DemoCalendar } from '../api'
@@ -42,6 +42,26 @@ export function DemoBar({ school = 'demo', onCrowd, className }: DemoBarProps) {
   // Bumped whenever the school changes or the bar unmounts. A response only lands if the
   // generation it started in is still current, so an old school's answer can't overwrite a newer one.
   const generation = useRef(0)
+  // Phones fold "Back to today" and the add buttons into one small menu beside the day stepper.
+  const [menuOpen, setMenuOpen] = useState(false)
+  const menuRef = useRef<HTMLDivElement>(null)
+  const menuId = useId()
+
+  useEffect(() => {
+    if (!menuOpen) return
+    const away = (e: PointerEvent) => {
+      if (!menuRef.current?.contains(e.target as Node)) setMenuOpen(false)
+    }
+    const esc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setMenuOpen(false)
+    }
+    document.addEventListener('pointerdown', away)
+    document.addEventListener('keydown', esc)
+    return () => {
+      document.removeEventListener('pointerdown', away)
+      document.removeEventListener('keydown', esc)
+    }
+  }, [menuOpen])
 
   useEffect(() => {
     const mine = ++generation.current
@@ -151,6 +171,49 @@ export function DemoBar({ school = 'demo', onCrowd, className }: DemoBarProps) {
           >
             <Back width={20} height={20} />
           </button>
+        </div>
+
+        <div className="demo-bar__more" ref={menuRef}>
+          <button
+            type="button"
+            className="btn btn--primary demo-bar__more-btn"
+            aria-expanded={menuOpen}
+            aria-controls={menuId}
+            onClick={() => setMenuOpen((o) => !o)}
+            disabled={!cal}
+          >
+            {busy ? t.adding : t.menu}
+          </button>
+          {menuOpen && (
+            <div className="demo-bar__menu" id={menuId} role="group" aria-label={t.addLabel}>
+              {SIZES.map((n) => (
+                <button
+                  key={n}
+                  type="button"
+                  className="demo-bar__menu-item"
+                  onClick={() => {
+                    setMenuOpen(false)
+                    void addCrowd(n)
+                  }}
+                  disabled={busy || !cal}
+                >
+                  {t.add(n)}
+                </button>
+              ))}
+              <button
+                type="button"
+                className="demo-bar__menu-item demo-bar__menu-item--quiet"
+                onClick={() => {
+                  setMenuOpen(false)
+                  setDir(-1)
+                  setDemoDate(null)
+                }}
+                disabled={onDefault}
+              >
+                {t.backToToday}
+              </button>
+            </div>
+          )}
         </div>
 
         <button

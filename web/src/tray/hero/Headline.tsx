@@ -1,7 +1,8 @@
-// The hero headline: words rise out of their own masks one after another, then the last word
-// keeps rolling through a few verbs. Screen readers get the plain sentence once.
+// The hero headline: words rise out of their own masks one after another, a marker swash paints
+// in, the last word rises onto it, then keeps rolling through a few verbs while the swash
+// stretches to fit each one. Screen readers get the plain sentence once.
 import { AnimatePresence, motion } from 'framer-motion'
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { heroCopy } from './copy'
 
 const rise = { type: 'spring', stiffness: 260, damping: 30, mass: 1 } as const
@@ -47,20 +48,35 @@ export function Headline({ reduce, delay = 0.15 }: HeadlineProps) {
     }
   }, [reduce, words.length])
   const last = heroCopy.titleStart.length
+  // The swash paints in once the last plain word is on its way; the rolling word lands on it.
+  const swashAt = delay + last * 0.07 + 0.1
+  const landAt = swashAt + 0.22
   // Each word's width, measured off screen, so the swash springs to fit the word on show.
   const sizer = useRef<HTMLSpanElement>(null)
   const [widths, setWidths] = useState<number[]>([])
+  const measure = useCallback(() => {
+    const el = sizer.current
+    if (!el) return
+    const next = Array.from(el.children, (c) => (c as HTMLElement).offsetWidth)
+    setWidths((prev) => (prev.length === next.length && prev.every((w, i) => w === next[i]) ? prev : next))
+  }, [])
   useLayoutEffect(() => {
     const el = sizer.current
     if (!el) return
-    const measure = () => setWidths(Array.from(el.children, (c) => (c as HTMLElement).offsetWidth))
     measure()
     // Watch each word: they change size when the display font arrives or the world switches.
     const ro = new ResizeObserver(measure)
     Array.from(el.children).forEach((c) => ro.observe(c))
-    void document.fonts?.ready.then(measure)
-    return () => ro.disconnect()
-  }, [])
+    const fonts = document.fonts
+    void fonts?.ready.then(measure)
+    fonts?.addEventListener('loadingdone', measure)
+    return () => {
+      ro.disconnect()
+      fonts?.removeEventListener('loadingdone', measure)
+    }
+  }, [measure])
+  // Check again on every roll, so a late font or a world switch never leaves a word off its swash.
+  useLayoutEffect(measure, [n, measure])
   const width = widths[n]
   return (
     <h1 className="hl" aria-label={heroCopy.titleLabel}>
@@ -80,7 +96,7 @@ export function Headline({ reduce, delay = 0.15 }: HeadlineProps) {
             className="hl__swash"
             initial={reduce ? false : { scaleX: 0 }}
             animate={{ scaleX: 1 }}
-            transition={{ duration: 0.6, ease: [0.7, 0, 0.2, 1], delay: delay + last * 0.07 + 0.25 }}
+            transition={{ duration: 0.45, ease: [0.7, 0, 0.2, 1], delay: swashAt }}
           />
           <span className="hl__sizer" ref={sizer}>
             {words.map((w) => (
@@ -103,7 +119,7 @@ export function Headline({ reduce, delay = 0.15 }: HeadlineProps) {
                   className="hl__word-in"
                   initial={reduce || n !== 0 ? false : { y: '112%', rotate: 7 }}
                   animate={{ y: '0%', rotate: 0 }}
-                  transition={{ ...rise, delay: delay + last * 0.07 }}
+                  transition={{ ...rise, delay: landAt }}
                 >
                   {words[n]}
                 </motion.span>

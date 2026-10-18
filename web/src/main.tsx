@@ -34,6 +34,8 @@ createRoot(document.getElementById('root')!).render(
       <Routes>
         <Route element={<Shell />}>
           <Route index element={<Home />} />
+          {/* The live school's front door: the same hero, into /live. Share this one, not /live. */}
+          <Route path="join" element={<Home live />} />
           <Route path="kitchen" element={<Navigate to="/school/kitchen" replace />} />
           <Route path="hub" element={<Hub />} />
           <Route path="school/*" element={<SchoolArea />} />

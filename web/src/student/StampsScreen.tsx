@@ -1,136 +1,156 @@
-// Stamps: a page from a stamp book. Earned stamps carry the world's seal; the rest are a faint
-// silhouette of that seal, filled from the bottom as far as the student has got, with progress
-// under them. Streak and XP live in the HUD, so the page stops there.
+// Stamps: a stamp book in four sections (streaks, packing, voting, calling it). Earned stamps
+// are inked in the world's style and land with its motion; the rest are dashed ghosts filled
+// from the bottom, each with a brush progress bar and "x of y" under it. A stamp earned since
+// the last visit lands with the stamp sound and a burst of petals.
 import { motion, useReducedMotion, type Variants } from 'framer-motion'
-import { BrushProgress } from '../celebrate'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { BrushProgress, burstPetals } from '../celebrate'
 import { UmeInline } from '../mascot'
-import type { Me } from '../shared/api'
 import { copy } from '../shared/copy'
+import { stamps as t } from '../shared/copy/stamps'
+import { sound } from '../shared/sound'
 import { ErrorNotice } from '../shared/ui/Notice'
-import { useKit } from '../theme/registry'
-import { useThemeId } from '../theme/store'
-import type { ThemeId } from '../theme/types'
 import { PanelSkeleton } from './VoteScreen'
 import { useStudent } from './state'
+import { GROUPS, stampsFor, type StampId, type StampView } from './stamps/catalog'
+import { StampArt } from './stamps/StampArt'
 import './stampbook.css'
 
-const t = copy.student.stamps
-type StampId = keyof typeof t.list
-// The week streak is the headline stamp, so it is drawn largest.
-const ORDER: readonly { id: StampId; size: number; tilt: number }[] = [
-  { id: 'streak_7', size: 132, tilt: -4 },
-  { id: 'streak_3', size: 96, tilt: 5 },
-  { id: 'called_it_5', size: 104, tilt: -2 },
-]
+// A hand never stamps perfectly square; each slot leans its own way.
+const TILTS = [-4, 3, -2, 5, -3, 2, -5, 4, -1, 3, -3, 2]
+const STAGGER = 0.07
 
-const pageMotion: Variants = { hidden: {}, shown: { transition: { staggerChildren: 0.06 } } }
-const stampMotion: Variants = {
-  hidden: { opacity: 0, scale: 0.7, y: 10 },
-  shown: { opacity: 1, scale: 1, y: 0, transition: { type: 'spring', stiffness: 380, damping: 22 } },
+const pageMotion: Variants = { hidden: {}, shown: { transition: { staggerChildren: 0.04 } } }
+const cellMotion: Variants = {
+  hidden: { opacity: 0, y: 8 },
+  shown: { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 380, damping: 26 } },
 }
-const stampMotionReduced: Variants = {
-  hidden: { opacity: 0 },
-  shown: { opacity: 1, transition: { duration: 0.15 } },
-}
+const cellMotionReduced: Variants = { hidden: { opacity: 0 }, shown: { opacity: 1, transition: { duration: 0.15 } } }
 
-/** A rounded starburst like the block party sticker, n points between radius r0 and r1. */
-function burst(n: number, r0: number, r1: number) {
-  let d = ''
-  for (let i = 0; i < n * 2; i++) {
-    const a = (i / (n * 2)) * Math.PI * 2 - Math.PI / 2
-    const r = i % 2 ? r0 : r1
-    d += `${i ? 'L' : 'M'}${(50 + Math.cos(a) * r).toFixed(2)} ${(50 + Math.sin(a) * r).toFixed(2)}`
-  }
-  return `${d}Z`
-}
+const seenKey = (device: string) => `lunchloop.stamps.seen.${device}`
 
-/** The courtyard tile medallion: an eight-point star, two squares with one turned 45deg. */
-function star(R: number) {
-  const r = R * 0.7654
-  let d = ''
-  for (let i = 0; i < 16; i++) {
-    const a = ((i * 22.5 - 90) * Math.PI) / 180
-    const k = i % 2 ? r : R
-    d += `${i ? 'L' : 'M'}${(50 + Math.cos(a) * k).toFixed(2)} ${(50 + Math.sin(a) * k).toFixed(2)}`
-  }
-  return `${d}Z`
+/** Earned stamps this device hasn't seen in the book yet. Remembers them once shown. */
+function useNewlyEarned(device: string, earned: readonly StampId[]) {
+  const key = seenKey(device)
+  const [fresh] = useState(() => {
+    try {
+      const seen = new Set<string>(JSON.parse(localStorage.getItem(key) ?? '[]'))
+      return new Set(earned.filter((id) => !seen.has(id)))
+    } catch {
+      return new Set<StampId>()
+    }
+  })
+  const list = earned.join(',')
+  useEffect(() => {
+    try {
+      const seen = new Set<string>(JSON.parse(localStorage.getItem(key) ?? '[]'))
+      for (const id of list.split(',')) if (id) seen.add(id)
+      localStorage.setItem(key, JSON.stringify([...seen]))
+    } catch {
+      /* private mode: every visit just looks like a first one */
+    }
+  }, [key, list])
+  return fresh
 }
 
-// Each world's seal outline, in a 100 by 100 box: the sticker, the hanko and the tile star.
-const OUTLINE: Record<ThemeId, { outer: string; inner: string }> = {
-  americas: { outer: burst(14, 42, 48), inner: burst(14, 36, 42) },
-  asia: { outer: 'M15 5h70a10 10 0 0 1 10 10v70a10 10 0 0 1-10 10H15A10 10 0 0 1 5 85V15A10 10 0 0 1 15 5Z', inner: 'M17 11h66a6 6 0 0 1 6 6v66a6 6 0 0 1-6 6H17a6 6 0 0 1-6-6V17a6 6 0 0 1 6-6Z' },
-  medi: { outer: star(47), inner: star(40) },
-}
-
-/**
- * An unearned stamp: the world's seal as a faint silhouette, filled from the bottom by `progress`
- * (0 to 1) so the page reads as a collection to fill. Decorative; the caption under it says the same.
- */
-function Silhouette({ size, label, progress }: { size: number; label: string; progress: number }) {
-  const world = useThemeId()
+function StampCell({ stamp, index, delay, isNew }: { stamp: StampView; index: number; delay: number; isNew: boolean }) {
+  const info = t.list[stamp.id]
   const reduce = useReducedMotion()
-  const clip = `sbook-clip-${world}-${label.replace(/\W+/g, '')}`
-  const { outer, inner } = OUTLINE[world]
-  const level = 100 - Math.max(0, Math.min(1, progress)) * 100
   return (
-    <span className="sbook__ghost" style={{ width: size, height: size }} aria-hidden="true">
-      <svg viewBox="0 0 100 100">
-        <defs>
-          <clipPath id={clip}>
-            <path d={outer} />
-          </clipPath>
-        </defs>
-        <path d={outer} className="sbook__ghost-base" />
-        {progress > 0 && (
-          <motion.rect
-            x="0"
-            width="100"
-            height="100"
-            className="sbook__ghost-fill"
-            clipPath={`url(#${clip})`}
-            // attrY moves the SVG attribute; a plain y would be a CSS pixel transform.
-            initial={reduce ? false : { attrY: 100 }}
-            animate={{ attrY: level }}
-            transition={reduce ? { duration: 0 } : { type: 'spring', stiffness: 120, damping: 20, delay: 0.2 }}
-          />
+    <motion.li
+      className={`sbook__stamp${stamp.earned ? ' is-earned' : ''}`}
+      data-stamp={stamp.id}
+      variants={reduce ? cellMotionReduced : cellMotion}
+    >
+      <span className="sbook__art">
+        <StampArt
+          shape={stamp.shape}
+          label={info.seal}
+          tone={stamp.tone}
+          tilt={stamp.earned ? TILTS[index % TILTS.length] : 0}
+          earned={stamp.earned}
+          progress={stamp.have / stamp.goal}
+          delay={delay}
+        />
+        {isNew && <span className="sbook__new">{t.newlyEarned}</span>}
+      </span>
+      <span className="sbook__text">
+        <span className="sbook__name">{info.name}</span>
+        {stamp.earned ? (
+          <span className="sbook__state">{t.earned}</span>
+        ) : (
+          <>
+            <span className="sbook__state num">{t.units[stamp.unit](stamp.have, stamp.goal)}</span>
+            <BrushProgress className="sbook__brush" value={stamp.have / stamp.goal} height={11} color="var(--pink-4, #FF8FAB)" label={info.how} />
+          </>
         )}
-        <path d={inner} className="sbook__ghost-line" />
-      </svg>
-      <span className="sbook__ghost-label">{label}</span>
-    </span>
+      </span>
+    </motion.li>
   )
 }
 
-/** How far along an unearned stamp is, 0 to 1. */
-function progressOf(me: Me, days?: number, calls?: number) {
-  if (days) return Math.min(me.streak, days) / days
-  if (calls && typeof me.correct_calls === 'number') return Math.max(0, Math.min(me.correct_calls, calls)) / calls
-  return 0
-}
+function StampBook({ list, device }: { list: StampView[]; device: string }) {
+  const reduce = useReducedMotion()
+  const earnedIds = useMemo(() => list.filter((s) => s.earned).map((s) => s.id), [list])
+  const fresh = useNewlyEarned(device, earnedIds)
+  const book = useRef<HTMLDivElement>(null)
 
-/** What sits under a stamp's name: earned, days so far, calls so far, or nothing. */
-function Progress({ me, earned, days, calls }: { me: Me; earned: boolean; days?: number; calls?: number }) {
-  if (earned) return <span className="sbook__state">{t.earned}</span>
-  if (days) return <span className="sbook__state num">{t.daysOf(Math.min(me.streak, days), days)}</span>
-  if (calls && typeof me.correct_calls === 'number') {
-    const n = Math.max(0, Math.min(me.correct_calls, calls))
-    return (
-      <>
-        <span className="sbook__state num">{t.callsOf(n, calls)}</span>
-        <BrushProgress className="sbook__brush" value={n / calls} height={12} color="var(--pink-4, #FF8FAB)" label={t.callsProgress} />
-      </>
-    )
-  }
-  return null
+  // Each earned stamp lands in turn, in book order.
+  const delays = new Map<StampId, number>()
+  earnedIds.forEach((id, i) => delays.set(id, 0.15 + i * STAGGER))
+
+  // The newest stamp gets the sound and the petals, once, as it lands.
+  const firstFresh = earnedIds.find((id) => fresh.has(id))
+  useEffect(() => {
+    if (!firstFresh) return
+    const wait = reduce ? 0 : ((delays.get(firstFresh) ?? 0) + 0.15) * 1000
+    const id = window.setTimeout(() => {
+      sound.stamp()
+      const el = book.current?.querySelector<HTMLElement>(`[data-stamp="${firstFresh}"] .sbook__art`)
+      if (el) burstPetals(el, { count: 28 })
+    }, wait)
+    return () => window.clearTimeout(id)
+    // Runs once per visit for the stamp that was new when the page opened.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [firstFresh])
+
+  let index = 0
+  return (
+    <div className="sbook" ref={book}>
+      <div className="sbook__summary">
+        <p className="sbook__count num">{t.summary(earnedIds.length, list.length)}</p>
+        <BrushProgress className="sbook__total" value={list.length ? earnedIds.length / list.length : 0} height={14} label={t.summaryProgress} />
+      </div>
+      {GROUPS.map((group) => {
+        const items = list.filter((s) => s.group === group)
+        if (!items.length) return null
+        const got = items.filter((s) => s.earned).length
+        return (
+          <section key={group} className="sbook__group" aria-labelledby={`sbook-${group}`}>
+            <header className="sbook__ghead">
+              <h2 id={`sbook-${group}`} className="sbook__gtitle">
+                {t.groups[group]}
+              </h2>
+              <span className="sbook__gcount num">{t.groupCount(got, items.length)}</span>
+            </header>
+            <motion.ul className="sbook__grid" variants={pageMotion} initial="hidden" animate="shown">
+              {items.map((stamp) => (
+                <StampCell key={stamp.id} stamp={stamp} index={index++} delay={delays.get(stamp.id) ?? 0} isNew={fresh.has(stamp.id)} />
+              ))}
+            </motion.ul>
+          </section>
+        )
+      })}
+      <p className="sbook__rule">{t.rule}</p>
+    </div>
+  )
 }
 
 export function StampsScreen() {
   const { me, meError, refreshMe } = useStudent()
-  const { Seal } = useKit()
-  const reduce = useReducedMotion()
+  const list = useMemo(() => (me ? stampsFor(me) : []), [me])
   return (
-    <div className="tabscreen">
+    <div className="tabscreen tabscreen--stamps">
       <header className="tabscreen__head">
         <h1 className="tabscreen__title">{t.title}</h1>
         <UmeInline size={48} />
@@ -142,32 +162,7 @@ export function StampsScreen() {
           <PanelSkeleton />
         </div>
       )}
-      {me && (
-        <div className="sbook">
-          <motion.ul className="sbook__page" variants={pageMotion} initial="hidden" animate="shown">
-            {ORDER.map(({ id, size, tilt }) => {
-              const earned = me.badges.includes(id)
-              const info = t.list[id]
-              return (
-                <motion.li key={id} className={`sbook__stamp sbook__stamp--${id}${earned ? ' is-earned' : ''}`} variants={reduce ? stampMotionReduced : stampMotion}>
-                  <span className="sbook__art" style={{ width: size, height: size, transform: `rotate(${tilt}deg)` }}>
-                    {earned ? (
-                      <Seal visible silent size={size} label={info.seal} />
-                    ) : (
-                      <Silhouette size={size} label={info.seal} progress={progressOf(me, info.days, info.calls)} />
-                    )}
-                  </span>
-                  <span className="sbook__text">
-                    <span className="sbook__name">{info.name}</span>
-                    <Progress me={me} earned={earned} days={info.days} calls={info.calls} />
-                  </span>
-                </motion.li>
-              )
-            })}
-          </motion.ul>
-          <p className="sbook__rule">{t.rule}</p>
-        </div>
-      )}
+      {me && <StampBook list={list} device={me.device} />}
     </div>
   )
 }

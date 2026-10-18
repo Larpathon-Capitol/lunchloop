@@ -4,14 +4,16 @@ import { StrictMode, useRef } from 'react'
 import { createRoot } from 'react-dom/client'
 import * as THREE from 'three'
 import '../../shared/tokens.css'
-import { FOOD_IDS, FoodDrop, foodGeometry, FoodModel } from './index'
-import type { Component } from './items'
+import { WELL } from './fit'
+import { FOOD_COMPONENT, FOOD_IDS, FoodDrop, foodGeometry, FoodModel } from './index'
+import type { Component, FoodId } from './items'
 import './lab.css'
 
 /*
  * Standalone page for the food models: /foods-lab.html
  * Query options: ?only=cheeseburger,broccoli (subset), ?cols=2, ?stats (triangle counts),
- * ?still (no turntable), ?drop (replay the drop-in animation).
+ * ?still (no turntable), ?drop (replay the drop-in animation), ?bare (no compartment floor).
+ * Each food sits on a plate the size of its compartment's floor, so you can judge the portion.
  */
 
 const NAMES: Record<string, string> = {
@@ -58,7 +60,7 @@ interface Entry {
 const params = new URLSearchParams(window.location.search)
 const only = params.get('only')?.split(',').filter(Boolean)
 const all: Entry[] = [
-  ...FOOD_IDS.map((id) => ({ id, label: NAMES[id] ?? id })),
+  ...FOOD_IDS.map((id) => ({ id, component: FOOD_COMPONENT[id as FoodId], label: NAMES[id] ?? id })),
   ...FALLBACKS.map((c) => ({ id: `unknown_${c}`, component: c, label: `Fallback: ${c.replace('_', ' ')}` })),
 ]
 const entries = only ? all.filter((e) => only.includes(e.id) || only.includes(e.component ?? '')) : all
@@ -67,6 +69,37 @@ const cols = Number(params.get('cols')) || (narrow ? 2 : only ? Math.min(entries
 const showStats = params.has('stats')
 const spin = !params.has('still')
 const drop = params.has('drop')
+const bare = params.has('bare')
+
+const plateMaterial = new THREE.MeshStandardMaterial({ color: '#b9b4bd', roughness: 0.5, metalness: 0.2 })
+const plates = new Map<Component, THREE.BufferGeometry>()
+/** The compartment floor, in model units, as a thin rounded slab whose top is y = 0. */
+function plate(c: Component) {
+  let g = plates.get(c)
+  if (g) return g
+  const { w, d, round } = WELL[c]
+  const r = round ? w / 2 : 0.22
+  const s = new THREE.Shape()
+  if (round) s.absarc(0, 0, r, 0, Math.PI * 2, false)
+  else {
+    const x = -w / 2
+    const y = -d / 2
+    s.moveTo(x + r, y)
+    s.lineTo(x + w - r, y)
+    s.absarc(x + w - r, y + r, r, -Math.PI / 2, 0, false)
+    s.lineTo(x + w, y + d - r)
+    s.absarc(x + w - r, y + d - r, r, 0, Math.PI / 2, false)
+    s.lineTo(x + r, y + d)
+    s.absarc(x + r, y + d - r, r, Math.PI / 2, Math.PI, false)
+    s.lineTo(x, y + r)
+    s.absarc(x + r, y + r, r, Math.PI, Math.PI * 1.5, false)
+  }
+  g = new THREE.ExtrudeGeometry(s, { depth: 0.04, bevelEnabled: false, curveSegments: 16 })
+  g.rotateX(-Math.PI / 2)
+  g.translate(0, -0.04, 0)
+  plates.set(c, g)
+  return g
+}
 
 function Turntable({ index, children }: { index: number; children: React.ReactNode }) {
   const ref = useRef<THREE.Group>(null)
@@ -74,7 +107,7 @@ function Turntable({ index, children }: { index: number; children: React.ReactNo
     if (ref.current && spin) ref.current.rotation.y = state.clock.getElapsedTime() * 0.35 + index * 0.6
   })
   return (
-    <group ref={ref} rotation-y={spin ? 0 : -0.45}>
+    <group ref={ref} >
       {children}
     </group>
   )
@@ -93,9 +126,10 @@ function Studio() {
   )
 }
 
-const elev = THREE.MathUtils.degToRad(34)
+/** About the tray's own camera angle in the game. */
+const elev = THREE.MathUtils.degToRad(52)
 /** Close-ups (?only=...) sit the camera nearer. */
-const DIST = only ? 2.3 : 3.1
+const DIST = only ? 3.4 : 4.4
 
 function Cell({ entry, index }: { entry: Entry; index: number }) {
   const tris = showStats ? Math.round(foodGeometry(entry.id, entry.component).triangles) : 0
@@ -106,12 +140,13 @@ function Cell({ entry, index }: { entry: Entry; index: number }) {
           makeDefault
           fov={24}
           position={[0, 0.3 + Math.sin(elev) * DIST, Math.cos(elev) * DIST]}
-          onUpdate={(c) => c.lookAt(0, 0.22, 0)}
+          onUpdate={(c) => c.lookAt(0, 0.1, 0)}
         />
         <Studio />
         <directionalLight position={[3, 6, 4]} intensity={1.1} color="#fff8ee" />
         <ambientLight intensity={0.2} />
         <Turntable index={index}>
+          {!bare && entry.component && <mesh geometry={plate(entry.component)} material={plateMaterial} />}
           {drop ? (
             <FoodDrop itemId={entry.id} component={entry.component} delay={0.4 + index * 0.08} />
           ) : (

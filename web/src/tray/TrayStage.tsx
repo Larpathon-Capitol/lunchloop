@@ -11,6 +11,7 @@ import { stageBus, useTrayHovered } from './stageBus'
 import { trayEvents, trayProjector, trayStore, useTray, type Component, type TrayState } from './store'
 import { buildShadowTexture, buildStudioEnvironment } from './studio'
 import { TrayModel } from './TrayModel'
+import { HeroFoods } from './hero/HeroFoods'
 import './tray.css'
 
 /*
@@ -38,6 +39,35 @@ const POSE: [number, number] = [80, 16]
 const PRESENCE: [number, number] = [120, 21]
 const TILT: [number, number] = [52, 8.2] // chases the pointer, overshoots a little, settles
 const LIFT: [number, number] = [240, 15]
+
+/**
+ * Pixel budget for the full-screen canvas. A retina laptop would otherwise draw 2880x1800 with
+ * 4x multisampling every frame for a tray that covers a fraction of it.
+ */
+const PIXEL_BUDGET = 3.2e6
+const MAX_DPR = 2
+/**
+ * Touch screens cap lower: the canvas spans the whole phone while the tray fills a quarter of it,
+ * and the multisampled metal edges at 1.5x look the same at arm's length as 2x or 3x.
+ */
+const MAX_DPR_TOUCH = 1.5
+
+function stageDpr() {
+  const native = window.devicePixelRatio || 1
+  const area = Math.max(1, window.innerWidth * window.innerHeight)
+  const cap = window.matchMedia('(pointer: coarse)').matches ? MAX_DPR_TOUCH : MAX_DPR
+  return Math.max(1, Math.min(native, cap, Math.sqrt(PIXEL_BUDGET / area)))
+}
+
+function useStageDpr() {
+  const [dpr, setDpr] = useState(stageDpr)
+  useEffect(() => {
+    const onResize = () => setDpr(stageDpr())
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [])
+  return dpr
+}
 
 type Spring = { x: number; v: number }
 const sp = (x = 0): Spring => ({ x, v: 0 })
@@ -198,6 +228,10 @@ function Rig({ wrap, reduced }: RigProps) {
   const a = useRef({
     slot: { x: sp(), y: sp(), w: sp(1), h: sp(1) },
     lastSlot: null as TrayState['slot'],
+    /** The slot rect seen last frame, to tell a page scroll apart from a real move. */
+    prevSlot: null as TrayState['slot'],
+    opacity: '',
+    visibility: '',
     slotGoneAt: 0,
     presence: sp(0),
     pose: sp(poseTarget(trayStore.get().phase, 0)),
@@ -208,6 +242,8 @@ function Rig({ wrap, reduced }: RigProps) {
     shown: false,
     phase: trayStore.get().phase,
     t: 0,
+    /** Counts the rig's frames, so screen projections can be cached until the tray moves again. */
+    frame: 0,
   })
 
   // Any store change wakes the loop. A vanished slot needs one more look after the grace period.
@@ -271,15 +307,31 @@ function Rig({ wrap, reduced }: RigProps) {
     return () => document.body.classList.remove('tray-pointer')
   }, [pointerCursor])
 
-  // Screen projections for DOM overlays (Ume, the stamp, labels).
+  // Screen projections for DOM overlays (Ume, the stamp, labels). Overlays poll these every
+  // animation frame while the tray may draw at 30 fps or not at all, so each answer is kept until
+  // the tray's next frame: a repeat call between frames costs a map lookup, not a projection.
+  // The canvas covers the viewport from its top left corner, so its size (kept by the canvas,
+  // updated on resize) maps clip space to viewport pixels without reading window sizes per call.
+  const getState = useThree((st) => st.get)
   useEffect(() => {
+    const cache = new Map<string, unknown>()
+    let cachedFrame = -1
+    const memo = <T,>(key: string, compute: () => T): T => {
+      if (cachedFrame !== a.current.frame) {
+        cache.clear()
+        cachedFrame = a.current.frame
+      }
+      if (cache.has(key)) return cache.get(key) as T
+      const v = compute()
+      cache.set(key, v)
+      return v
+    }
     const project = (corners: [number, number, number][]) => {
       const g = tray.current
       if (!g || a.current.presence.x < 0.05) return null
       g.updateWorldMatrix(true, false)
       box.makeEmpty()
-      const w = window.innerWidth
-      const h = window.innerHeight
+      const { width: w, height: h } = getState().size
       for (const [x, y, z] of corners) {
         tmp.set(x, y, z).applyMatrix4(g.matrixWorld).project(camera)
         box.expandByPoint(pt.set(((tmp.x + 1) / 2) * w, ((1 - tmp.y) / 2) * h))
@@ -287,40 +339,43 @@ function Rig({ wrap, reduced }: RigProps) {
       return new DOMRect(box.min.x, box.min.y, box.max.x - box.min.x, box.max.y - box.min.y)
     }
     const top = TRAY.body + TRAY.rimHeight + TRAY.bevel
+    const trayCorners: [number, number, number][] = []
+    for (const x of [-1, 1]) for (const z of [-1, 1]) for (const y of [-0.06, top]) trayCorners.push([(x * TRAY.width) / 2, y, (z * TRAY.depth) / 2])
     trayProjector.register({
-      tray: () => {
-        const c: [number, number, number][] = []
-        for (const x of [-1, 1]) for (const z of [-1, 1]) for (const y of [-0.06, top]) c.push([(x * TRAY.width) / 2, y, (z * TRAY.depth) / 2])
-        return project(c)
-      },
-      compartment: (id: Component) => {
-        const comp = COMPARTMENTS.find((c) => c.id === id)
-        if (!comp) return null
-        const c: [number, number, number][] = []
-        for (const [x, y] of compartmentCorners(comp)) for (const hy of [TRAY.floor, TRAY.body]) c.push([x, hy, -y])
-        return project(c)
-      },
+      tray: () => memo('tray', () => project(trayCorners)),
+      compartment: (id: Component) =>
+        memo(`c:${id}`, () => {
+          const comp = COMPARTMENTS.find((c) => c.id === id)
+          if (!comp) return null
+          const c: [number, number, number][] = []
+          for (const [x, y] of compartmentCorners(comp)) for (const hy of [TRAY.floor, TRAY.body]) c.push([x, hy, -y])
+          return project(c)
+        }),
     })
     stageBus.registerPresence(() => a.current.presence.x)
-    stageBus.registerRim((u, v) => {
-      const g = tray.current
-      if (!g || a.current.presence.x < 0.05) return null
-      g.updateWorldMatrix(true, false)
-      tmp.set(u * (TRAY.width / 2 - TRAY.rim / 2), top, -v * (TRAY.depth / 2 - TRAY.rim / 2))
-      tmp.applyMatrix4(g.matrixWorld).project(camera)
-      return { x: ((tmp.x + 1) / 2) * window.innerWidth, y: ((1 - tmp.y) / 2) * window.innerHeight }
-    })
+    stageBus.registerRim((u, v) =>
+      memo(`r:${u}:${v}`, () => {
+        const g = tray.current
+        if (!g || a.current.presence.x < 0.05) return null
+        g.updateWorldMatrix(true, false)
+        tmp.set(u * (TRAY.width / 2 - TRAY.rim / 2), top, -v * (TRAY.depth / 2 - TRAY.rim / 2))
+        tmp.applyMatrix4(g.matrixWorld).project(camera)
+        const { width: w, height: h } = getState().size
+        return { x: ((tmp.x + 1) / 2) * w, y: ((1 - tmp.y) / 2) * h }
+      }),
+    )
     return () => {
       trayProjector.register(null)
       stageBus.registerRim(null)
       stageBus.registerPresence(null)
     }
-  }, [camera])
+  }, [camera, getState])
 
   useFrame((state, dt) => {
     const g = tray.current
     const st = a.current
     if (!g) return
+    st.frame++
     const store = trayStore.get()
     const now = performance.now()
     let moving = false
@@ -336,6 +391,17 @@ function Rig({ wrap, reduced }: RigProps) {
     const slotLive = !!store.slot || (!!st.lastSlot && now - st.slotGoneAt < grace)
     const want = slotLive && store.phase !== 'away' ? 1 : 0
     const target = st.lastSlot
+
+    // Scrolling and layout shifts: the same slot moving without changing size is the page
+    // carrying it. Move the framing by the same amount in this same frame instead of springing
+    // after it, so the tray stays glued to the page. A new slot or a new size still glides.
+    const prev = st.prevSlot
+    const s = store.slot
+    if (s && prev && s !== prev && s.key !== undefined && s.key === prev.key && Math.abs(s.width - prev.width) < 0.5 && Math.abs(s.height - prev.height) < 0.5) {
+      st.slot.x.x += s.x - prev.x
+      st.slot.y.x += s.y - prev.y
+    }
+    if (store.slot) st.prevSlot = store.slot
 
     // First appearance (or back from hidden): jump straight to the new framing and pose.
     if (want === 1 && st.presence.x < 0.02 && target) {
@@ -375,10 +441,17 @@ function Rig({ wrap, reduced }: RigProps) {
     // Show or hide the whole canvas; nothing to draw means no frames at all.
     const el = wrap.current
     if (el) {
-      el.style.opacity = String(pres)
-      el.style.visibility = pres < 0.003 && want === 0 ? 'hidden' : 'visible'
+      // Only touch the style when it changes, so a still tray costs no style work.
+      const opacity = pres > 0.999 ? '1' : pres.toFixed(3)
+      const visibility = pres < 0.003 && want === 0 ? 'hidden' : 'visible'
+      if (opacity !== st.opacity) el.style.opacity = st.opacity = opacity
+      if (visibility !== st.visibility) el.style.visibility = st.visibility = visibility
     }
-    if (pres < 0.003 && want === 0 && !moving) return
+    if (pres < 0.003 && want === 0 && !moving) {
+      // One last word to the riders, so they hide with the tray.
+      stageBus.frame()
+      return
+    }
 
     // Pointer tilt on a spring: the target follows the pointer, the tray chases it with some lag.
     const hero = store.phase === 'hero'
@@ -423,6 +496,8 @@ function Rig({ wrap, reduced }: RigProps) {
     cam.aspect = aspect
     cam.setViewOffset(W, H, -st.slot.x.x, -st.slot.y.x, size.width, size.height)
     cam.updateProjectionMatrix()
+    // The pose and camera changed: cached projections from earlier in this frame are stale.
+    st.frame++
 
     // Soft contact shadow, following the tray's turn and softening as it rises.
     const sh = shadow.current
@@ -434,8 +509,15 @@ function Rig({ wrap, reduced }: RigProps) {
       ;(sh.material as THREE.MeshBasicMaterial).opacity = (lerp(0.55, 0.32, THREE.MathUtils.clamp(p, 0, 1)) / (spread * spread)) * pres
     }
 
-    const live = !document.hidden && (moving || (hero && !reduced))
-    if (live) state.invalidate()
+    // Riders (the hero mascot) move with this exact pose, in this same frame.
+    stageBus.frame()
+
+    // Next frame: right away while anything springs, at a gentle 30 fps for the idle drift alone,
+    // and nothing at all when the tray is still or the tab is hidden.
+    if (document.hidden) return
+    // The drift moves the tray well under a pixel per frame, so 30 fps looks the same as 60.
+    if (moving) state.invalidate()
+    else if (hero && !reduced) stageBus.idleFrame(state.invalidate)
   })
 
   const over = useCallback((id: GroupId, e: ThreeEvent<PointerEvent> | ThreeEvent<MouseEvent>) => {
@@ -498,6 +580,9 @@ function Rig({ wrap, reduced }: RigProps) {
             position={[0, 0.1, 0]}
             onPointerOver={(e) => {
               e.stopPropagation()
+              // A finger resting on the hero (or starting a swipe) is not a hover: no lift, so a
+              // touch does not wake the tray at full frame rate. A tap still opens the game.
+              if (e.pointerType === 'touch') return
               if (!fromUi(e)) stageBus.setHovered(true)
             }}
             onPointerOut={() => stageBus.setHovered(false)}
@@ -573,6 +658,7 @@ function StageControls() {
  */
 export default function TrayStage() {
   const reduced = usePrefersReducedMotion()
+  const dpr = useStageDpr()
   const raised = useNoren() !== 0
   const wrap = useRef<HTMLDivElement>(null)
 
@@ -586,7 +672,7 @@ export default function TrayStage() {
     <div ref={wrap} className={raised ? 'tray-stage is-raised' : 'tray-stage'} style={{ opacity: 0, visibility: 'hidden' }}>
       <Canvas
         frameloop="demand"
-        dpr={[1, 2]}
+        dpr={dpr}
         eventSource={document.body}
         eventPrefix="client"
         camera={{ fov: FOV, near: 0.1, far: 60, position: [0, 2, 9] }}
@@ -601,6 +687,7 @@ export default function TrayStage() {
         <directionalLight position={[-3, 2, 4]} intensity={0.35} color="#ffd6e0" />
         <ambientLight intensity={0.22} />
         <Rig wrap={wrap} reduced={reduced} />
+        <HeroFoods />
       </Canvas>
       <StageControls />
     </div>

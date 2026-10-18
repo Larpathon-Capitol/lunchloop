@@ -1,0 +1,524 @@
+/* The Vote tab. Moved out of student.css so it can change on its own. */
+
+/* ---------- Vote ---------- */
+
+/* The vote is for a future day: the heading names it and a small chip says how far off it is. */
+.vote-day {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s2) var(--s3);
+}
+.vote-day .section-title {
+  margin: 0;
+}
+.vote-day__when {
+  padding: 2px var(--s3);
+  border-radius: var(--radius-pill);
+  background: var(--pink-2);
+  color: var(--ink);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  white-space: nowrap;
+}
+/* The panel: the day and lead read as one block, the reel and its caption as another. */
+.vote-panel {
+  gap: var(--s5);
+}
+.vote-intro {
+  display: grid;
+  gap: var(--s2);
+}
+.vote-machine {
+  display: grid;
+  gap: var(--s2);
+}
+.vote-served {
+  margin: 0;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--leaf-deep);
+}
+
+.lacquer {
+  padding: 8px;
+  border-radius: var(--radius);
+  background: var(--sumi);
+  box-shadow: inset 0 0 0 1px var(--ai), 0 0 0 1px var(--ai-deep);
+}
+.reel {
+  /* Matches ROW in Reel.tsx: each window is one row tall while spinning. */
+  --reel-row: 60px;
+  position: relative;
+  height: calc(var(--reel-row) * 4);
+  overflow: hidden;
+  border-radius: var(--radius-sm);
+  background: var(--shoji);
+}
+.reel--slots:not(.reel--open) {
+  cursor: pointer;
+}
+/* Before the spin: the four windows sit empty (a dashed disc and a blank line each), with one
+   line over the middle saying what lands there. Tapping it spins. */
+.reel--idle {
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.reel__slot--idle {
+  background: var(--shoji);
+}
+.reel__slot--idle::after {
+  opacity: 0;
+}
+.reel__blank {
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1.5px dashed var(--line);
+}
+.reel__line {
+  width: 38%;
+  height: 10px;
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--sumi) 8%, transparent);
+}
+.reel--idle .reel__slot:nth-last-child(2) {
+  border-bottom: 0;
+}
+.reel__slot--idle:nth-child(2n) .reel__line {
+  width: 52%;
+}
+.reel__idle-text {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  margin: 0;
+  padding: var(--s2) var(--s4);
+  border-radius: var(--radius-pill);
+  background: var(--shoji);
+  box-shadow: 0 0 0 1px var(--line);
+  color: var(--nezumi);
+  font-weight: 600;
+  white-space: nowrap;
+  transform: translate(-50%, -50%);
+}
+
+/* One slot window per option. While it rolls it sits a touch darker, shaded top and bottom
+   like a drum; when it stops it brightens and the shading lifts. */
+.reel__slot {
+  position: relative;
+  height: var(--reel-row);
+  overflow: hidden;
+  border-bottom: 1px solid var(--line);
+  background: color-mix(in srgb, var(--sumi) 5%, var(--shoji));
+  transition: background-color 0.25s var(--ease);
+}
+.reel__slot:last-child {
+  border-bottom: 0;
+}
+.reel__slot::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  box-shadow: inset 0 12px 10px -9px color-mix(in srgb, var(--sumi) 30%, transparent), inset 0 -12px 10px -9px color-mix(in srgb, var(--sumi) 30%, transparent);
+  transition: opacity 0.3s var(--ease);
+}
+.reel__slot--landed {
+  background: var(--shoji);
+}
+.reel__slot--landed::after {
+  opacity: 0;
+}
+.reel__strip {
+  will-change: transform;
+}
+.reel__row {
+  height: var(--reel-row);
+}
+.reel__ghost {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  height: 100%;
+  padding: 0 var(--s4);
+  color: var(--nezumi);
+}
+.reel__ghost > svg {
+  flex: none;
+  width: 26px;
+  height: 26px;
+  margin: 0 7px;
+}
+.reel__name {
+  font-weight: 700;
+  color: var(--sumi);
+}
+.reel__disc {
+  width: 40px;
+  height: 40px;
+  background: var(--washi);
+}
+.reel__row--final .reel__ghost {
+  padding: 0 var(--s3);
+}
+.reel__row--final .reel__name {
+  font-size: var(--text-md);
+}
+
+/* The landing, by world. Every world gets a squash-and-bounce; each adds its own touch. */
+.reel__slot--landed .reel__row--final {
+  animation: reel-thunk 0.36s cubic-bezier(0.3, 0.7, 0.4, 1) both;
+  transform-origin: 50% 100%;
+}
+@keyframes reel-thunk {
+  0% {
+    transform: translateY(-5px) scale(1.02, 1.06);
+  }
+  35% {
+    transform: translateY(2px) scale(1.03, 0.92);
+  }
+  65% {
+    transform: translateY(-1px) scale(0.99, 1.02);
+  }
+  100% {
+    transform: none;
+  }
+}
+/* Americas: a loteria card slapped down, a little crooked, then squared up. */
+html[data-theme='americas'] .reel__slot--landed .reel__row--final {
+  animation-name: reel-slap;
+}
+@keyframes reel-slap {
+  0% {
+    transform: translateY(-6px) rotate(-1.4deg) scale(1.04);
+  }
+  40% {
+    transform: translateY(2px) rotate(0.6deg) scale(1.02, 0.93);
+  }
+  70% {
+    transform: translateY(-1px) rotate(-0.2deg) scale(0.99, 1.02);
+  }
+  100% {
+    transform: none;
+  }
+}
+/* East Asia: the disc lands like a hanko, leaving a red ring that fades. */
+html[data-theme='asia'] .reel__slot--landed .reel__disc {
+  animation: reel-hanko 0.6s cubic-bezier(0.3, 0.7, 0.4, 1) both;
+}
+@keyframes reel-hanko {
+  0% {
+    transform: scale(1.35);
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--shu) 70%, transparent);
+  }
+  30% {
+    transform: scale(0.9);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--shu) 60%, transparent);
+  }
+  60% {
+    transform: scale(1.03);
+  }
+  100% {
+    transform: none;
+    box-shadow: 0 0 0 7px transparent;
+  }
+}
+/* Mediterranean: a glazed tile set down, with a glint across it. */
+html[data-theme='medi'] .reel__slot--landed::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background: linear-gradient(100deg, transparent 30%, color-mix(in srgb, white 70%, transparent) 50%, transparent 70%);
+  transform: translateX(-110%);
+  animation: reel-glint 0.55s 0.05s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@keyframes reel-glint {
+  to {
+    transform: translateX(110%);
+  }
+}
+
+/* Reduced motion: no rolling, no bounce. Each option fades in when its turn comes. */
+.reel--calm .reel__row--final {
+  opacity: 0;
+  transition: opacity 0.15s linear;
+}
+.reel--calm .reel__slot--landed .reel__row--final {
+  opacity: 1;
+}
+@media (prefers-reduced-motion: reduce) {
+  .reel__slot--landed .reel__row--final,
+  .reel__slot--landed .reel__disc,
+  .reel__slot--landed::before {
+    animation: none;
+  }
+}
+
+.reel__choices .choice {
+  min-height: var(--reel-row);
+  border-radius: 0;
+  border-bottom: 1px solid var(--line);
+}
+.reel__choices .choice:last-child {
+  border-bottom: 0;
+}
+.reel__choices .choice__main {
+  min-height: var(--reel-row);
+}
+
+.choices {
+  display: grid;
+  gap: var(--s2);
+}
+.choice {
+  display: flex;
+  align-items: center;
+  border-radius: var(--radius);
+  background: var(--washi);
+  box-shadow: inset 0 0 0 1.5px transparent;
+  transition: box-shadow var(--t-fast) var(--ease), background-color var(--t-fast) var(--ease);
+}
+.reel__choices .choice {
+  background: var(--shoji);
+}
+.choice--on,
+.reel__choices .choice--on {
+  background: var(--shoji);
+  box-shadow: inset 0 0 0 2px var(--shu);
+}
+.choice__main {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  flex: 1;
+  min-width: 0;
+  min-height: 64px;
+  padding: 0 var(--s3);
+  border: 0;
+  background: transparent;
+  border-radius: inherit;
+  text-align: left;
+  font-weight: 700;
+  font-size: var(--text-md);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.choice__main:disabled {
+  cursor: default;
+}
+.choice__main .glyph-disc {
+  background: var(--shoji);
+  width: 40px;
+  height: 40px;
+}
+.choice--on .choice__main .glyph-disc,
+.reel__choices .choice__main .glyph-disc {
+  background: var(--washi);
+}
+.choice__name {
+  flex: 1;
+  min-width: 0;
+}
+.choice__mark {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1.5px var(--line);
+}
+.choice--on .choice__mark {
+  box-shadow: none;
+}
+.choice__check {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--shu);
+  color: var(--on-shu);
+}
+.choice__check svg {
+  width: 17px;
+  height: 17px;
+  stroke-width: 2.4;
+}
+
+.done-seal {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 9px;
+  background: var(--shu);
+  color: var(--on-shu);
+  transform: rotate(-6deg);
+}
+.done-seal svg {
+  width: 28px;
+  height: 28px;
+  stroke-width: 2.4;
+}
+.voted__top {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+}
+.voted__toast {
+  position: absolute;
+  left: 60px;
+  top: 10px;
+}
+.tally {
+  display: grid;
+  gap: var(--s3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.tally__row {
+  display: grid;
+  gap: var(--s1);
+}
+
+/* Phone and desktop versions of a line: only one shows. */
+.vote-phone {
+  display: none;
+}
+
+/* ---------- Phones and tablets: the tab bar is at the bottom ---------- */
+
+@media (max-width: 959px) {
+  /* Spin and Vote ride just above the tab bar, so the next step is never off screen. */
+  .vote-cta {
+    position: sticky;
+    bottom: calc(var(--tabbar-h, 64px) + 3px + env(safe-area-inset-bottom, 0px) + var(--s3));
+    z-index: 6;
+  }
+  /* The outlined "next" link needs a solid back once things scroll under it. */
+  .btn-ink.vote-cta {
+    background: var(--shoji);
+    box-shadow: var(--lift);
+  }
+}
+
+/* Short screens (a phone on its side): no room to pin a button over the reel, so it stays in the
+   flow, sized to its words at the right. Tapping the reel spins too. */
+@media (max-width: 959px) and (max-height: 520px) {
+  .vote-cta {
+    position: relative;
+    justify-self: end;
+  }
+  .paper__action.vote-cta {
+    justify-items: end;
+  }
+  .vote-panel .btn-press--big {
+    width: auto;
+    min-width: 200px;
+    padding-inline: var(--s8);
+  }
+}
+
+/* ---------- Phones ---------- */
+
+@media (max-width: 559px) {
+  .vote-wide {
+    display: none;
+  }
+  .vote-phone {
+    display: inline;
+  }
+  .vote-panel {
+    gap: var(--s4);
+  }
+  .vote-day {
+    flex-wrap: nowrap;
+    justify-content: space-between;
+  }
+  .vote-day .section-title {
+    min-width: 0;
+  }
+  .vote-day__when {
+    flex: none;
+    font-size: 13px;
+  }
+  .vote-panel .paper__lead {
+    font-size: 15px;
+    line-height: 1.4;
+  }
+  .reel {
+    /* Matches ROW_PHONE in Reel.tsx. */
+    --reel-row: 52px;
+  }
+  .lacquer {
+    padding: 6px;
+  }
+  .reel__ghost {
+    padding: 0 var(--s3);
+  }
+  .reel__disc,
+  .reel__blank {
+    width: 36px;
+    height: 36px;
+  }
+  .reel__row--final .reel__name {
+    font-size: var(--text-base, 16px);
+  }
+  .reel__idle-text {
+    font-size: 15px;
+  }
+  .choice__main .glyph-disc {
+    width: 36px;
+    height: 36px;
+  }
+
+  /* Voted: the seal sits beside "Vote counted" instead of on its own row. */
+  .voted {
+    grid-template-columns: auto minmax(0, 1fr);
+    column-gap: var(--s3);
+    row-gap: var(--s3);
+    align-items: center;
+  }
+  .voted > * {
+    grid-column: 1 / -1;
+  }
+  .voted > .voted__top,
+  .voted > .done-seal {
+    grid-column: 1;
+  }
+  .voted > .section-title {
+    grid-column: 2;
+  }
+  .voted .done-seal {
+    width: 40px;
+    height: 40px;
+  }
+  .voted .done-seal svg {
+    width: 24px;
+    height: 24px;
+  }
+  /* The +XP toast floats at the right end of the heading row. */
+  .voted {
+    position: relative;
+  }
+  .voted .voted__top {
+    position: static;
+  }
+  .voted__toast {
+    left: auto;
+    right: 0;
+    top: 6px;
+  }
+  .voted .paper__lead {
+    font-size: 15px;
+  }
+  .voted .tally {
+    gap: var(--s2);
+  }
+}

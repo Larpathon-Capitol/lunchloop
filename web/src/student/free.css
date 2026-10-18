@@ -6,7 +6,6 @@
 }
 .fb {
   position: relative;
-  margin-bottom: var(--s4);
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
@@ -90,15 +89,76 @@ html[data-theme='americas'] .lci__title {
   outline-offset: 1px;
 }
 
-/* Check-in card */
+/* Check-in card. A stacked card on phones and in the narrow tabs; when the column is wide
+   (the Tray tab on laptops) the answer moves beside the foods so the card stays short. The
+   container is .game__today (student.css). */
 .lci {
+  --fg-tint: color-mix(in srgb, currentColor 16%, transparent);
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--s3);
-  padding: var(--s5) var(--s4);
+  padding: var(--s4) var(--s4) var(--s4);
   border-radius: var(--radius);
   background: var(--surface);
   border: var(--hairline);
   color: var(--ink);
+}
+@container (min-width: 820px) {
+  .lci {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      'title answer'
+      'foods answer'
+      'error error';
+    gap: var(--s2) var(--s8);
+    align-items: center;
+    padding: var(--s4) var(--s6);
+  }
+  /* Wide screens: one short band, so the tray below still fits the first screen. The chips
+     keep "You packed" as their accessible name. */
+  .lci .lci__sub {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+  .lci__title { grid-area: title; }
+  .lci__sub { grid-area: sub; }
+  .lci__foods { grid-area: foods; }
+  .lci__error { grid-area: error; }
+  .lci > :is(h2, p, ul) {
+    align-self: end;
+  }
+  .lci__ask,
+  .lci__done {
+    grid-area: answer;
+    grid-row: 1 / span 2;
+    margin-top: 0;
+  }
+  .lci__ask {
+    flex-wrap: nowrap;
+    align-items: center;
+  }
+  .lci .lci__ask .lci__btn {
+    flex: none;
+    min-width: 168px;
+  }
+  .lci .lci__done {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    gap: 0 var(--s3);
+  }
+  .lci .lci__said {
+    flex: none;
+  }
+  .lci .lci__done .lci__link {
+    grid-column: 2;
+    justify-self: start;
+    min-height: 36px;
+  }
 }
 .lci__title {
   font-family: var(--font-display);
@@ -132,7 +192,12 @@ html[data-theme='americas'] .lci__title {
   background: var(--pink-1);
   border: 1px solid var(--pink-3);
   font-weight: 600;
-  font-size: var(--text-sm);
+  font-size: 13px;
+}
+@container (min-width: 820px) {
+  .lci__food {
+    font-size: var(--text-sm);
+  }
 }
 .lci__food[data-group='meat_alternate'] { --glaze: var(--g-entree); }
 .lci__food[data-group='grain'] { --glaze: var(--g-grain); }
@@ -148,14 +213,34 @@ html[data-theme='americas'] .lci__title {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--s3);
-  margin-top: var(--s2);
+  gap: var(--s2) var(--s3);
+  margin-top: var(--s1);
 }
-.lci__btn {
-  flex: 1 1 180px;
+.lci .lci__btn {
+  flex: 1 1 auto;
+  min-height: 48px;
+  padding-inline: var(--s4);
+  font-size: var(--text-base);
+  white-space: nowrap;
+}
+/* Phones: both answers fit on one row. */
+@container (max-width: 420px) {
+  .lci .lci__btn {
+    padding-inline: var(--s3);
+    font-size: 15px;
+  }
+  .lci__food {
+    padding: 4px 10px 4px 7px;
+  }
+  .lci__title {
+    font-size: var(--text-lg);
+  }
+}
+.lci .lci__btn--quiet {
+  margin-bottom: 5px;
 }
 .lci__btn--quiet {
-  min-height: 54px;
+  min-height: 48px;
   border-radius: var(--radius-pill);
   border: 2px solid var(--pink-4);
   font-size: var(--text-base);
@@ -233,4 +318,108 @@ html[data-theme='asia'] .lci__title {
 }
 html[data-theme='asia'] .fb__word {
   font-size: 1.3em;
+}
+
+/* Phones: a compact check-in. Smaller title and food tags, both answers on one row, and once
+   answered it folds down to a single line (the answer and "Change"). */
+@container (max-width: 599px) {
+  .lci {
+    gap: var(--s2);
+    padding: var(--s3) var(--s4) var(--s4);
+  }
+  .lci__title,
+  html[data-theme='asia'] .lci__title {
+    font-size: 21px;
+  }
+  .lci__sub {
+    font-size: 13px;
+    margin-bottom: 0;
+  }
+  /* One row of food tags that scrolls sideways instead of stacking three rows deep. */
+  .lci__foods {
+    flex-wrap: nowrap;
+    gap: 6px;
+    margin-inline: calc(var(--s4) * -1);
+    padding-inline: var(--s4);
+    overflow-x: auto;
+    scrollbar-width: none;
+    overscroll-behavior-x: contain;
+    mask-image: linear-gradient(90deg, transparent, #000 var(--s4), #000 calc(100% - var(--s6)), transparent);
+  }
+  .lci__foods::-webkit-scrollbar {
+    display: none;
+  }
+  .lci__food {
+    flex: none;
+    white-space: nowrap;
+    gap: 4px;
+    padding: 3px 9px 3px 6px;
+    font-size: 12.5px;
+  }
+  .lci__icon {
+    width: 15px;
+    height: 15px;
+  }
+  .lci__ask {
+    flex-wrap: nowrap;
+    gap: var(--s2);
+    margin-top: var(--s1);
+  }
+  .lci .lci__btn,
+  .lci .lci__btn--quiet {
+    flex: 1 1 0;
+    min-width: 0;
+    min-height: 46px;
+    padding-inline: var(--s2);
+    font-size: 15px;
+  }
+  .lci .lci__ask .lci__link {
+    flex: none;
+  }
+  .lci:has(.lci__done) {
+    padding: var(--s1) var(--s2) var(--s1) var(--s3);
+  }
+  .lci:has(.lci__done) :is(.lci__title, .lci__sub, .lci__foods) {
+    display: none;
+  }
+  .lci:has(.lci__done) .lci__done {
+    flex-wrap: nowrap;
+    gap: var(--s2);
+    margin-top: 0;
+    min-width: 0;
+  }
+  .lci:has(.lci__done) .lci__mark {
+    width: 28px;
+    height: 28px;
+  }
+  .lci:has(.lci__done) .lci__said {
+    flex: 1 1 auto;
+    min-width: 0;
+    font-size: 14px;
+    line-height: 1.25;
+  }
+  .lci:has(.lci__done) .lci__link {
+    flex: none;
+    padding: 0 var(--s2);
+  }
+
+  /* The free food banner: slimmer badge and text. */
+  .fb {
+    gap: var(--s2);
+    padding: var(--s2) var(--s1) var(--s2) var(--s3);
+  }
+  .fb__badge {
+    width: 38px;
+    height: 38px;
+  }
+  .fb__badge svg {
+    width: 22px;
+    height: 22px;
+  }
+  .fb__main {
+    font-size: 15px;
+  }
+  .fb__hint {
+    font-size: 13px;
+  }
 }

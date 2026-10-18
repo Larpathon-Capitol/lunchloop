@@ -28,7 +28,18 @@ export interface TrayState {
   /** Compartment highlighted because its picker sheet is open. */
   focus: Component | null
   /** Where on screen the tray should be framed, in viewport pixels. Set by <TraySlot>. */
-  slot: { x: number; y: number; width: number; height: number } | null
+  slot: {
+    x: number
+    y: number
+    width: number
+    height: number
+    /**
+     * Which mounted <TraySlot> measured this rect. The same slot moving without changing size
+     * (page scroll, content above it growing) is followed in the same frame; a new slot or a
+     * new size is glided to.
+     */
+    key?: number
+  } | null
   /**
    * True while the tray sits still and visible in the current slot. Goes false the moment it
    * starts flying to a new slot (the hero to game glide) and true again once it has landed.
@@ -37,6 +48,8 @@ export interface TrayState {
    */
   landed: boolean
 }
+
+let slotKeys = 0
 
 let state: TrayState = {
   phase: 'hero',
@@ -113,13 +126,20 @@ export function TraySlot({ className, style }: { className?: string; style?: CSS
   useEffect(() => {
     const el = ref.current
     if (!el) return
+    const key = ++slotKeys
     const measure = () => {
       const r = el.getBoundingClientRect()
-      trayStore.set({ slot: { x: r.left, y: r.top, width: r.width, height: r.height } })
+      const prev = trayStore.get().slot
+      // Nothing moved (a resize elsewhere, a scroll that changed nothing): no update.
+      if (prev && prev.key === key && prev.x === r.left && prev.y === r.top && prev.width === r.width && prev.height === r.height) return
+      trayStore.set({ slot: { x: r.left, y: r.top, width: r.width, height: r.height, key } })
     }
     measure()
+    // The slot moves when it scrolls, and when content above it changes height. Watching the
+    // slot and every box it sits in catches the second: anything that grows above the slot grows
+    // one of its ancestors too (the body at the latest).
     const ro = new ResizeObserver(measure)
-    ro.observe(el)
+    for (let n: Element | null = el; n && n !== document.documentElement; n = n.parentElement) ro.observe(n)
     window.addEventListener('scroll', measure, { passive: true })
     window.addEventListener('resize', measure)
     return () => {

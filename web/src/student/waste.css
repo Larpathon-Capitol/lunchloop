@@ -1,0 +1,218 @@
+/* The leftovers-avoided card at the end of the Tray tab: a ticket stub with a perforated edge.
+   The big number counts up once; the torn-off stub holds a stack of saved plates. */
+
+.leftovers {
+  --stub: clamp(140px, 26%, 250px);
+  --notch: 11px;
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--stub);
+  min-width: 0;
+  overflow: hidden;
+  border-radius: var(--radius, 18px);
+  background: var(--surface, #fff4f7);
+  border: 1.5px solid var(--hairline-color, #f4a3b9);
+  color: var(--ink, #3a1626);
+  /* Two half-height masks, each with a round bite where the perforation meets the edge. */
+  -webkit-mask:
+    radial-gradient(circle var(--notch) at calc(100% - var(--stub)) 0, #0000 97%, #000) top / 100% 51% no-repeat,
+    radial-gradient(circle var(--notch) at calc(100% - var(--stub)) 100%, #0000 97%, #000) bottom / 100% 51% no-repeat;
+  mask:
+    radial-gradient(circle var(--notch) at calc(100% - var(--stub)) 0, #0000 97%, #000) top / 100% 51% no-repeat,
+    radial-gradient(circle var(--notch) at calc(100% - var(--stub)) 100%, #0000 97%, #000) bottom / 100% 51% no-repeat;
+}
+
+.leftovers__main {
+  display: grid;
+  align-content: start;
+  gap: var(--s2, 8px);
+  min-width: 0;
+  padding: var(--s5, 20px) var(--s6, 24px) var(--s6, 24px);
+}
+
+.leftovers__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--s1, 4px) var(--s3, 12px);
+}
+.leftovers__title {
+  margin: 0;
+  font-family: var(--font-ui, 'Gabarito', system-ui, sans-serif);
+  font-size: var(--text-sm, 14px);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink, #3a1626);
+}
+.leftovers__week {
+  margin: 0;
+  font-size: var(--text-sm, 14px);
+  color: var(--ink-soft, #7a3f58);
+}
+
+.leftovers__stat {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--s2, 8px) var(--s6, 24px);
+  margin: var(--s2, 8px) 0 0;
+}
+.leftovers__words {
+  display: grid;
+  gap: var(--s1, 4px);
+  flex: 1 1 16rem;
+  min-width: 0;
+  padding-bottom: 6px;
+}
+/* The number with its brush underline painted beneath it. */
+.leftovers__figure {
+  position: relative;
+  display: inline-block;
+  padding-bottom: 8px;
+  white-space: nowrap;
+}
+.leftovers__big {
+  position: relative;
+  z-index: 1;
+  font-family: var(--font-display, 'Gabarito', system-ui, sans-serif);
+  font-weight: var(--display-weight, 400);
+  font-size: clamp(3.25rem, 2rem + 4.4vw, 6rem);
+  line-height: 0.95;
+  font-variant-numeric: tabular-nums;
+  color: var(--field, #3a1626);
+}
+.leftovers__underline {
+  position: absolute;
+  left: -2px;
+  right: -8px;
+  bottom: -2px;
+  pointer-events: none;
+}
+.leftovers__unit {
+  margin: 0;
+  max-width: 22ch;
+  font-size: var(--text-md, 18px);
+  font-weight: 700;
+  line-height: 1.25;
+  color: var(--ink, #3a1626);
+}
+
+.leftovers__note {
+  margin: 0;
+  max-width: 46ch;
+  font-size: var(--text-sm, 14px);
+  line-height: 1.5;
+  color: var(--ink-soft, #7a3f58);
+}
+
+/* ---------- The stub ---------- */
+
+.leftovers__stub {
+  display: grid;
+  place-items: center;
+  padding: var(--s4, 16px) var(--s3, 12px);
+  border-left: 2px dashed var(--hairline-color, #f4a3b9);
+  background-color: color-mix(in srgb, var(--field, #3a1626) 7%, var(--surface, #fff4f7));
+  /* The world's own ground tile, faint, like the printed back of a ticket. */
+  background-image: linear-gradient(color-mix(in srgb, var(--surface, #fff4f7) 55%, transparent), color-mix(in srgb, var(--surface, #fff4f7) 55%, transparent)), var(--pattern, none);
+  background-size: auto, var(--pattern-size, 48px 48px);
+}
+
+.plates {
+  width: 100%;
+  max-width: 180px;
+  height: auto;
+  overflow: visible;
+}
+.plates__shadow {
+  fill: rgb(58 22 38 / 0.08);
+}
+.plates__side {
+  fill: #f2c3d1;
+  stroke: var(--hairline-color, #f4a3b9);
+  stroke-width: 1;
+}
+.plates__rim {
+  fill: #fffafc;
+  stroke: #eba2b7;
+  stroke-width: 1.2;
+}
+.plates__well {
+  fill: #fff1f5;
+}
+.plates__band {
+  fill: none;
+  stroke: var(--field, #3a1626);
+  stroke-width: 1.6;
+}
+.plates__spark {
+  fill: var(--xp, #ffc72c);
+}
+
+/* Each world paints its own rim. */
+html[data-theme='americas'] .plates__band {
+  stroke: #1d3fae;
+  stroke-width: 2.4;
+  stroke-dasharray: 0.1 5;
+  stroke-linecap: round;
+}
+html[data-theme='asia'] .plates__band {
+  stroke: #232a5c;
+  stroke-width: 1.4;
+}
+html[data-theme='medi'] .plates__band {
+  stroke: #0a6c70;
+  stroke-width: 2;
+  stroke-dasharray: 5 3;
+}
+html[data-theme='medi'] .plates__spark {
+  fill: #e0a43a;
+}
+
+@media (max-width: 560px) {
+  .leftovers {
+    --stub: 112px;
+  }
+  .leftovers__main {
+    padding: var(--s4, 16px) var(--s4, 16px) var(--s5, 20px);
+  }
+  .leftovers__stub {
+    padding: var(--s3, 12px) var(--s2, 8px);
+  }
+}
+/* Phones: a shorter ticket. Smaller figure and copy, a narrower stub. */
+@media (max-width: 599px) {
+  .leftovers {
+    --stub: 92px;
+    --notch: 9px;
+  }
+  .leftovers__main {
+    gap: var(--s1, 4px);
+    padding: var(--s3, 12px) var(--s4, 16px) var(--s4, 16px);
+  }
+  .leftovers__title,
+  .leftovers__week {
+    font-size: 12.5px;
+  }
+  .leftovers__stat {
+    gap: var(--s1, 4px) var(--s4, 16px);
+    margin-top: var(--s1, 4px);
+  }
+  .leftovers__big {
+    font-size: 46px;
+  }
+  .leftovers__figure {
+    padding-bottom: 6px;
+  }
+  .leftovers__unit {
+    font-size: 16px;
+  }
+  .leftovers__note {
+    font-size: 13px;
+    line-height: 1.4;
+  }
+  .plates {
+    max-width: 76px;
+  }
+}

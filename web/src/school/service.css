@@ -1,154 +1,34 @@
-/* Lunch service: today's check-ins and free leftovers. One raised sheet like Tomorrow's trays. */
+/* Lunch service: today's check-ins and free leftovers, built to be read in a few seconds.
+   One raised sheet: a check-in summary bar, then a short ranked list of foods. */
 .s-svc {
+  --svc-got: var(--leaf);
+  --svc-missed: color-mix(in srgb, var(--bad) 82%, #ffffff);
   background: var(--surface);
   border: var(--hairline);
   border-radius: var(--radius);
-  padding: var(--s5) var(--s4);
+  padding: var(--s4);
   display: grid;
-  gap: var(--s5);
+  gap: var(--s4);
+  min-width: 0;
+}
+.s-svc .s-sec-sub {
+  font-size: var(--text-sm);
 }
 .s-svc__none {
   margin: 0;
   min-height: 0;
 }
 
-.s-svc__status {
-  display: grid;
-  gap: var(--s2);
-}
-.s-svc__line {
-  font-size: var(--text-md);
-  line-height: 1.4;
-  max-width: 76ch;
-}
-.s-svc__line strong {
-  font-weight: 700;
-}
-.s-svc__brush {
-  max-width: 420px;
-}
-.s-svc__left {
-  color: var(--ink-soft);
-  font-size: var(--text-sm);
-}
-
-.s-svc__groups {
-  display: grid;
-  gap: var(--s6) var(--s10);
-  grid-template-columns: minmax(0, 1fr);
-}
-.s-svc__rows {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-.s-svc__row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: var(--s2) var(--s3);
-  align-items: center;
-  padding: var(--s3) 0;
-}
-.s-svc__row + .s-svc__row {
-  border-top: var(--hairline);
-}
-/* A free food sits on a soft leaf wash that bleeds a little past the column. */
-.s-svc__row[data-free] {
-  margin: 0 calc(var(--s2) * -1);
-  padding-left: var(--s2);
-  padding-right: var(--s2);
-  border-radius: var(--radius-sm);
-  background: color-mix(in srgb, var(--leaf) 16%, #ffffff);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--leaf) 45%, #ffffff);
-  border-top-color: transparent;
-}
-.s-svc__row[data-free] + .s-svc__row {
-  border-top-color: transparent;
-}
-.s-svc__main {
-  min-width: 0;
-  display: grid;
-  gap: var(--s1);
-}
-.s-svc__title {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--s1) var(--s2);
-}
-.s-svc__name {
-  font-weight: 700;
-  overflow-wrap: anywhere;
-}
-.s-svc__pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 2px 10px 2px 8px;
-  border-radius: var(--radius-pill);
-  background: var(--leaf);
-  color: var(--ink);
-  font-size: var(--text-sm);
-  font-weight: 700;
-  white-space: nowrap;
-}
-.s-svc__pill::before {
-  content: '';
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--surface);
-}
-
-/* Figures double as the bar's legend: each one wears its segment's color as a dot. */
-.s-svc__figs {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 2px var(--s3);
-  color: var(--ink-soft);
-  font-size: var(--text-sm);
-  font-variant-numeric: tabular-nums;
-}
-.s-svc__figs--none {
-  font-style: italic;
-}
-.s-svc__fig {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-}
-.s-svc__fig::before {
-  content: '';
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--seg);
-  box-shadow: inset 0 0 0 1px var(--seg-edge, transparent);
-}
-.s-svc__fig[data-k='waiting'] {
-  color: var(--ink);
-  font-weight: 700;
-}
+/* Series colors, shared by bars, legend dots and figures. */
 .s-svc [data-k='got'] {
-  --seg: var(--leaf);
+  --seg: var(--svc-got);
 }
 .s-svc [data-k='missed'] {
-  --seg: var(--pink-5);
+  --seg: var(--svc-missed);
 }
 .s-svc [data-k='waiting'] {
   --seg: var(--pink-2);
   --seg-edge: var(--pink-4);
-}
-
-.s-svc__bar {
-  display: flex;
-  height: 8px;
-  margin-top: var(--s1);
-  max-width: 300px;
-  border-radius: var(--radius-pill);
-  background: var(--pink-1);
-  box-shadow: inset 0 0 0 1px var(--hairline-color);
-  overflow: hidden;
 }
 .s-svc__seg {
   display: block;
@@ -159,48 +39,352 @@
 .s-svc__seg[data-k='waiting'] {
   background: repeating-linear-gradient(-45deg, var(--pink-2) 0 4px, var(--pink-3) 4px 8px);
 }
-.s-svc__since {
-  color: var(--leaf-deep);
-  font-size: var(--text-sm);
-  font-weight: 600;
+/* A hairline of surface between segments so neighbors stay apart. */
+.s-svc__seg + .s-svc__seg {
+  box-shadow: inset 2px 0 0 var(--surface);
 }
 
+/* Summary: big "10 of 14 checked in", then the takeaway, one stacked bar and its legend. */
+.s-svc__sum {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--s4);
+  align-items: center;
+  padding: var(--s3) var(--s4);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--pink-1) 70%, var(--surface));
+}
+.s-svc__kpi {
+  display: grid;
+  grid-template-columns: auto auto;
+  align-items: baseline;
+  column-gap: 6px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+.s-svc__kpi-num {
+  font-size: 36px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+.s-svc__kpi-of {
+  color: var(--ink-soft);
+  font-size: var(--text-base);
+  font-weight: 700;
+}
+.s-svc__kpi-label {
+  grid-column: 1 / -1;
+  margin-top: 6px;
+  color: var(--ink-soft);
+  font-size: var(--text-sm);
+}
+.s-svc__sum-chart {
+  min-width: 0;
+  display: grid;
+  gap: 6px;
+}
+.s-svc__takeaway {
+  font-weight: 700;
+  font-size: var(--text-base);
+  line-height: 1.3;
+}
+.s-svc__stack {
+  display: flex;
+  height: 12px;
+  max-width: 560px;
+  border-radius: 6px;
+  background: var(--pink-1);
+  box-shadow: inset 0 0 0 1px var(--hairline-color);
+  overflow: hidden;
+}
+.s-svc__legend {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px var(--s4);
+  color: var(--ink-soft);
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+}
+.s-svc__key,
+.s-svc__fig {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.s-svc__key::before,
+.s-svc__fig[data-k]::before {
+  content: '';
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--seg);
+  box-shadow: inset 0 0 0 1px var(--seg-edge, transparent);
+}
+
+/* Food list */
+.s-svc__foods {
+  display: grid;
+  gap: 6px;
+}
+.s-svc__caption {
+  color: var(--ink-soft);
+  font-size: 13px;
+}
+/* Foods that ran out: information only, one wrapping line */
+.s-svc__ranout {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px var(--s2);
+  margin: 0 0 var(--s2);
+  font-size: 13px;
+  color: var(--ink-soft);
+}
+.s-svc__ranout-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--bad);
+  font-weight: 700;
+}
+.s-svc__ranout-label::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--seg);
+}
+.s-svc__ranout-item b {
+  color: var(--bad);
+  font-weight: 700;
+}
+.s-svc__rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  column-gap: var(--s8);
+}
+.s-svc__row {
+  --glaze: var(--nezumi);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    'who act'
+    'data act';
+  gap: 4px var(--s3);
+  align-items: center;
+  min-width: 0;
+  padding: 10px 0;
+  border-top: var(--hairline);
+}
+.s-svc__row[data-group='meat_alternate'] { --glaze: var(--g-entree); }
+.s-svc__row[data-group='grain'] { --glaze: var(--g-grain); }
+.s-svc__row[data-group='vegetable'] { --glaze: var(--g-vegetable); }
+.s-svc__row[data-group='fruit'] { --glaze: var(--g-fruit); }
+.s-svc__row[data-group='milk'] { --glaze: var(--g-milk); }
+
+.s-svc__who {
+  grid-area: who;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.s-svc__icon {
+  flex: none;
+  color: var(--glaze);
+}
+.s-svc__name {
+  min-width: 0;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.s-svc__group {
+  flex: none;
+  color: var(--ink-soft);
+  font-size: 13px;
+}
+.s-svc__group::before {
+  content: '·';
+  margin-right: 6px;
+}
+.s-svc__data {
+  grid-area: data;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  padding-left: 24px;
+}
+/* The faint track is the scale: a full track is the most-wanted food today. */
+.s-svc__track {
+  flex: none;
+  display: block;
+  width: 96px;
+  height: 8px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--pink-2) 45%, var(--surface));
+}
+.s-svc__fill {
+  display: flex;
+  height: 100%;
+  min-width: 8px;
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--pink-1);
+}
+.s-svc__wanted {
+  flex: none;
+  min-width: 2ch;
+  margin-left: calc(var(--s3) * -1 + 6px);
+  font-size: 13px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.s-svc__figs {
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 var(--s3);
+  color: var(--ink-soft);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+.s-svc__fig[data-k='missed'] {
+  color: var(--bad);
+  font-weight: 700;
+}
+.s-svc__nobody {
+  color: var(--ink-soft);
+  font-size: 13px;
+  font-style: italic;
+}
+.s-svc__row[data-nobody] .s-svc__name {
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+
+/* A free food: a leaf pill on the figures line and a soft leaf edge on the row. */
+.s-svc__row[data-free] {
+  box-shadow: inset 3px 0 0 var(--leaf);
+  padding-left: var(--s3);
+  background: linear-gradient(90deg, color-mix(in srgb, var(--leaf) 12%, transparent), transparent 70%);
+}
+.s-svc__pill {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 1px 8px 1px 7px;
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--leaf) 26%, #ffffff);
+  color: var(--leaf-deep);
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.s-svc__pill-short {
+  display: none;
+}
+@media (max-width: 599px) {
+  .s-svc__pill-short {
+    display: inline;
+  }
+}
+.s-svc__pill::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--leaf);
+}
+
+/* The per-row action: a small secondary chip, 44px tall on touch screens. */
 .s-svc__act {
+  grid-area: act;
   display: flex;
   justify-content: flex-end;
 }
-.s-svc__btn {
-  min-height: var(--touch);
-  padding: 0 var(--s4);
+.s-svc__chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 36px;
+  min-width: 36px;
+  padding: 0 var(--s3);
   border-radius: var(--radius-pill);
-  border: 1.5px solid var(--pink-4);
-  background: var(--pink-1);
+  border: 1px solid var(--pink-3);
+  background: transparent;
   color: var(--ink);
   font: inherit;
   font-weight: 700;
-  font-size: var(--text-sm);
+  font-size: 13px;
   white-space: nowrap;
   cursor: pointer;
   transition: background-color var(--t-fast) var(--ease), border-color var(--t-fast) var(--ease);
 }
-.s-svc__btn:hover:not(:disabled) {
-  background: var(--pink-2);
+.s-svc__chip-icon {
+  flex: none;
+  color: var(--leaf-deep);
 }
-.s-svc__btn:focus-visible {
+.s-svc__chip:hover:not([aria-disabled]) {
+  background: var(--pink-1);
+  border-color: var(--pink-4);
+}
+.s-svc__chip:focus-visible,
+.s-svc__more:focus-visible {
   outline: 3px solid var(--ink);
   outline-offset: 2px;
 }
-.s-svc__btn:disabled {
+.s-svc__chip[aria-disabled] {
   cursor: progress;
   opacity: 0.6;
 }
-.s-svc__btn--end {
-  border-color: var(--leaf-deep);
-  background: transparent;
+.s-svc__chip--undo {
+  border-color: transparent;
   color: var(--leaf-deep);
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
-.s-svc__btn--end:hover:not(:disabled) {
+.s-svc__chip--undo:hover:not([aria-disabled]) {
+  background: color-mix(in srgb, var(--leaf) 14%, transparent);
+  border-color: transparent;
+}
+
+.s-svc__more {
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 0 var(--s2);
+  margin-left: calc(var(--s2) * -1);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-weight: 700;
+  font-size: var(--text-sm);
+  cursor: pointer;
+}
+.s-svc__more:hover {
   background: var(--pink-1);
+}
+.s-svc__more-icon {
+  transition: transform var(--t-fast) var(--ease);
+}
+.s-svc__more[aria-expanded='true'] .s-svc__more-icon {
+  transform: rotate(180deg);
 }
 
 .s-svc__note {
@@ -262,19 +446,85 @@
   outline-offset: 2px;
 }
 
+/* Touch screens get full 44px targets. */
+@media (pointer: coarse) {
+  .s-svc__chip,
+  .s-svc__more {
+    min-height: var(--touch);
+  }
+  .s-svc__chip {
+    min-width: var(--touch);
+  }
+}
+
+/* Phones: the figures line runs under the button too, so each food stays two short lines. */
+@media (max-width: 599px) {
+  .s-svc {
+    gap: var(--s3);
+  }
+  .s-svc__sum {
+    gap: var(--s3);
+    padding: var(--s3);
+  }
+  .s-svc__kpi-num {
+    font-size: 30px;
+  }
+  .s-svc__takeaway {
+    font-size: 15px;
+  }
+  .s-svc__legend {
+    font-size: 13px;
+    column-gap: var(--s3);
+  }
+  .s-svc__row {
+    grid-template-areas:
+      'who act'
+      'data data';
+    row-gap: 2px;
+    padding: 8px 0;
+  }
+  .s-svc__group {
+    display: none;
+  }
+  .s-svc__name {
+    white-space: normal;
+  }
+  .s-svc__pill-long {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  .s-svc__data {
+    padding-left: 0;
+    gap: 10px;
+  }
+  .s-svc__wanted {
+    margin-left: -4px;
+  }
+  .s-svc__track {
+    width: 56px;
+  }
+  .s-svc__figs {
+    column-gap: var(--s2);
+  }
+}
+
 @media (min-width: 900px) {
   .s-svc {
-    padding: var(--s6);
+    padding: var(--s5) var(--s6);
   }
-  .s-svc__groups {
+  .s-svc__rows {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    align-items: start;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .s-svc__seg,
-  .s-svc__btn {
+  .s-svc__chip,
+  .s-svc__more-icon {
     transition: none;
   }
 }

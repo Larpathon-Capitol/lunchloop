@@ -6,6 +6,7 @@ import { useReducedMotion } from '../shared/motion'
 import { Loading } from '../shared/ui/Notice'
 import { SignIn } from './SignIn'
 import { Wants } from './Wants'
+import { ServiceTab } from './parts/ServiceTab'
 import { DEMO_SCHOOL, LIVE_SCHOOL } from '../shared/studentSchool'
 import { useDemoDate } from '../shared/demo'
 import { DemoBar } from '../shared/ui/DemoBar'
@@ -38,7 +39,8 @@ function SubLink({ to, label, end, reduce }: { to: string; label: string; end?: 
 }
 
 /**
- * Everything under /school: the sign-in, or the signed-in panel with its two sections.
+ * Everything under /school: the sign-in, or the signed-in panel with its sections
+ * (What students want, Lunch service, Kitchen) behind a sub-nav that sticks to the top.
  * With lockedSchool (the live demo at /live/admin) there is no picker, no demo shortcut and
  * no Kitchen section.
  */
@@ -82,16 +84,18 @@ export function SchoolArea({ lockedSchool, base = '/school' }: { lockedSchool?: 
           {t.signOut}
         </button>
       </div>
-      {!lockedSchool && (
-        <nav className="s-tabs" aria-label={t.subNavLabel}>
+      <nav className="s-tabs" aria-label={t.subNavLabel}>
+        <div className="s-tabs__row">
           <SubLink to={base} end label={t.navWants} reduce={reduce} />
-          <SubLink to={`${base}/kitchen`} label={t.navKitchen} reduce={reduce} />
-        </nav>
-      )}
-      {demo && <DemoBar school={DEMO_SCHOOL} className="s-demo" />}
+          <SubLink to={`${base}/service`} label={t.navService} reduce={reduce} />
+          {!lockedSchool && <SubLink to={`${base}/kitchen`} label={t.navKitchen} reduce={reduce} />}
+        </div>
+      </nav>
+      {demo && <DemoBar school={DEMO_SCHOOL} className="s-demobar" />}
       {/* A new simulated day remounts the section, so it loads that day's numbers. */}
       <Routes key={demo ? (demoDate ?? 'today') : 'fixed'}>
         <Route index element={<Wants session={session} onExpired={ranOut} />} />
+        <Route path="service" element={<ServiceTab session={session} onExpired={ranOut} />} />
         {!lockedSchool && (
           <Route
             path="kitchen"

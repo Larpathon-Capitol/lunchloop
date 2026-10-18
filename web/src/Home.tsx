@@ -9,24 +9,25 @@ import { deviceId } from './shared/device'
 import { Tray as TrayIcon } from './shared/icons'
 import { useReducedMotion } from './shared/motion'
 import { sound } from './shared/sound'
-import { applyStudentSchool, schoolForStudentUrl } from './shared/studentSchool'
+import { applyStudentSchool, LIVE_SCHOOL, schoolForStudentUrl } from './shared/studentSchool'
 import { noren } from './shared/ui/norenStore'
 import { useKit } from './theme/registry'
-import { ThemeSwitcher } from './theme/ThemeSwitcher'
 import { heroCopy } from './tray/hero/copy'
 import { Countdown } from './tray/hero/Countdown'
 import { Headline } from './tray/hero/Headline'
-import { HeroCta, StreakChip } from './tray/hero/HeroCta'
-import { Marquee } from './tray/hero/Marquee'
-import { StickerField } from './tray/hero/StickerField'
+import { HeroCta } from './tray/hero/HeroCta'
 import { stageBus, useTrayHovered } from './tray/stageBus'
 import { trayEvents, trayProjector, trayStore, TraySlot } from './tray/store'
 import './home.css'
 
 /*
  * The home hero: one full screen, no scroll. The world's backdrop behind, the steel tray floating
- * in it with the mascot riding the rim, food stickers around it, and the words and the button.
+ * in it with the mascot riding the rim, 3D foods along the bottom, and the words and the button.
  * Tapping the tray or the button sends the tray gliding into the game behind the world's curtain.
+ * The bottom band of the screen is left free of words: the tray canvas draws foods along it.
+ *
+ * Two doors use it: / for the simulated school (into /student) and /join for the live school,
+ * where every vote is real (into /live).
  */
 
 const loadGame = () => import('./student/StudentView')
@@ -34,14 +35,14 @@ const loadGame = () => import('./student/StudentView')
 /**
  * Warms the game the moment the student shows intent (hover, focus, press): its code, and the
  * student's own record and tomorrow's tray, so the server has them hot when the game asks.
- * Runs once per page load.
+ * Runs once per school per page load.
  */
-let warmed = false
-function warmGame(search: string) {
+const warmed = new Set<string>()
+function warmGame(school: string) {
   void loadGame()
-  if (warmed) return
-  warmed = true
-  applyStudentSchool(schoolForStudentUrl(search))
+  if (warmed.has(school)) return
+  warmed.add(school)
+  applyStudentSchool(school)
   const device = deviceId()
   void api.me(device).catch(() => undefined)
   void api.getTray(device).catch(() => undefined)
@@ -52,13 +53,17 @@ const leave = { duration: 0.24, ease: [0.4, 0, 1, 1] as const }
 const HANDOFF_MS = 240
 const drift = { stiffness: 120, damping: 20, mass: 1 }
 const settle = { type: 'spring', stiffness: 260, damping: 30, mass: 1 } as const
+/** The hanging clock drops in and swings once on its cords before it settles. */
+const swing = { type: 'spring', stiffness: 170, damping: 11, mass: 1 } as const
 
 const coarsePointer = () => window.matchMedia('(pointer: coarse)').matches
+/** Touch screens: how often the backdrop drifts to a new resting point. */
+const WANDER_MS = 3800
 
 /**
  * Pointer offset from the viewport center, -0.5 to 0.5 on each axis, through Drift springs.
- * On touch screens there is no pointer to follow, so it wanders slowly on its own instead.
- * Still under reduced motion. The idle loop pauses while the tab is hidden.
+ * On touch screens there is no pointer to follow, so it drifts to a new spot every few seconds
+ * instead. Still under reduced motion. The drift skips while the tab is hidden.
  */
 function useHeroPointer(reduce: boolean) {
   const rx = useMotionValue(0)
@@ -72,17 +77,18 @@ function useHeroPointer(reduce: boolean) {
       return
     }
     if (coarsePointer()) {
-      let raf = 0
+      // A new resting point every few seconds; the springs glide there and then stop, so the
+      // backdrop layers are still most of the time instead of restyling on every frame.
       const t0 = performance.now()
-      const tick = (now: number) => {
-        raf = requestAnimationFrame(tick)
+      const wander = () => {
         if (document.hidden) return
-        const t = (now - t0) / 1000
+        const t = (performance.now() - t0) / 1000 + 4
         rx.set(Math.sin(t * 0.21) * 0.22 + Math.sin(t * 0.07) * 0.08)
         ry.set(Math.sin(t * 0.17 + 1.3) * 0.14)
       }
-      raf = requestAnimationFrame(tick)
-      return () => cancelAnimationFrame(raf)
+      wander()
+      const id = window.setInterval(wander, WANDER_MS)
+      return () => window.clearInterval(id)
     }
     const onMove = (e: PointerEvent) => {
       if (e.pointerType === 'touch') return
@@ -104,16 +110,15 @@ function useHeroPointer(reduce: boolean) {
 }
 
 /**
- * The world's backdrop and the far stickers, on <body> behind the tray stage (which sits one
- * layer up), so the tray floats in front of them.
+ * The world's backdrop, on <body> behind the tray stage (which sits one layer up), so the tray
+ * floats in front of it. The only foods on the hero are the tray canvas's 3D ones.
  */
-function Backdrop({ px, py, reduce, leaving }: { px: MotionValue<number>; py: MotionValue<number>; reduce: boolean; leaving: boolean }) {
+function Backdrop({ px, py }: { px: MotionValue<number>; py: MotionValue<number> }) {
   const kit = useKit()
   const Art = kit.HeroBackdrop
   return createPortal(
     <div className="home-field" aria-hidden="true">
       <Art px={px} py={py} />
-      <StickerField px={px} py={py} reduce={reduce} leaving={leaving} layer="far" />
     </div>,
     document.body,
   )
@@ -179,16 +184,23 @@ function MascotOnTray({ show, reduce, wide }: { show: boolean; reduce: boolean; 
     return () => window.clearTimeout(t)
   }, [hovered, reduce])
 
+  // Ride the rim. The stage tells riders when it draws a frame (stageBus.onFrame), so the mascot
+  // moves exactly when the tray does, at the tray's own pace (full rate while it springs, about
+  // 30 fps for the idle drift, nothing while it is still) instead of running a loop of its own.
+  // It only touches the DOM when the mascot moves by a device pixel or more, or fades.
   useEffect(() => {
-    let raf = 0
-    const tick = () => {
-      raf = requestAnimationFrame(tick)
+    let lastX = NaN
+    let lastY = NaN
+    let lastOpacity = ''
+    const px = 1 / Math.max(1, window.devicePixelRatio || 1)
+    const snap = (v: number) => Math.round(v / px) * px
+    const follow = () => {
       const el = ref.current
       if (!el) return
       const p = stageBus.rimPoint(RIM_U, RIM_V)
-      const rect = trayProjector.tray()
+      const rect = p ? trayProjector.tray() : null
       if (!p || !rect) {
-        el.style.opacity = '0'
+        if (lastOpacity !== '0') el.style.opacity = lastOpacity = '0'
         return
       }
       const want = rimSize(rect.width, wideRef.current)
@@ -197,12 +209,25 @@ function MascotOnTray({ show, reduce, wide }: { show: boolean; reduce: boolean; 
         setSize(want)
       }
       const s = sizeRef.current
-      el.style.opacity = String(Math.min(1, stageBus.presence()))
+      const opacity = String(Math.min(1, Math.round(stageBus.presence() * 100) / 100))
+      if (opacity !== lastOpacity) el.style.opacity = lastOpacity = opacity
       // Feet right on the rim line, so it stands on the steel.
-      el.style.transform = `translate3d(${p.x - s / 2}px, ${p.y - s * FEET}px, 0)`
+      const x = snap(p.x - s / 2)
+      const y = snap(p.y - s * FEET)
+      // NaN on the first frame, so the first position is always written.
+      if (x !== lastX || y !== lastY) {
+        el.style.transform = `translate3d(${x}px, ${y}px, 0)`
+        lastX = x
+        lastY = y
+      }
     }
-    raf = requestAnimationFrame(tick)
-    return () => cancelAnimationFrame(raf)
+    // The tray may already be standing still when the hero mounts: place the mascot once anyway.
+    const first = requestAnimationFrame(follow)
+    const off = stageBus.onFrame(follow)
+    return () => {
+      cancelAnimationFrame(first)
+      off()
+    }
   }, [])
 
   return (
@@ -210,35 +235,6 @@ function MascotOnTray({ show, reduce, wide }: { show: boolean; reduce: boolean; 
       <Ume mood={mood} size={size} hopKey={hop} bubbleAlign="start" rigRef={rig} />
     </div>
   )
-}
-
-/** Tomorrow's menu names and the student's streak, for the tape and the chip. Quiet on failure. */
-function useHeroData(search: string) {
-  const [items, setItems] = useState<string[]>([])
-  const [streak, setStreak] = useState(0)
-  useEffect(() => {
-    let alive = true
-    applyStudentSchool(schoolForStudentUrl(search))
-    const device = deviceId()
-    api
-      .getTray(device)
-      .then((t) => {
-        if (!alive) return
-        const names = t.groups.flatMap((g) => g.items.map((i) => i.name))
-        setItems([...new Set(names)])
-      })
-      .catch(() => undefined)
-    api
-      .me(device)
-      .then((me) => {
-        if (alive) setStreak(me.streak)
-      })
-      .catch(() => undefined)
-    return () => {
-      alive = false
-    }
-  }, [search])
-  return { items, streak }
 }
 
 const WIDE_QUERY = '(min-width: 900px)'
@@ -256,19 +252,30 @@ function useWide() {
   )
 }
 
-export function Home() {
+/** Props for the hero. */
+export interface HomeProps {
+  /** The live school's door (/join): real votes, straight into /live, no demo links. */
+  live?: boolean
+}
+
+export function Home({ live = false }: HomeProps) {
   const reduce = !!useReducedMotion()
   const navigate = useNavigate()
   const { search } = useLocation()
+  const school = live ? LIVE_SCHOOL : schoolForStudentUrl(search)
   const hovered = useTrayHovered()
   const [leaving, setLeaving] = useState(false)
   const leavingRef = useRef(false)
   // The handoff's pending timer and frame, so leaving home mid-transition cancels them.
   const handoff = useRef<{ timer: number; frame: number }>({ timer: 0, frame: 0 })
   const { px, py } = useHeroPointer(reduce)
-  const { items, streak } = useHeroData(search)
   const wide = useWide()
   const [paused, setPaused] = useState(false)
+
+  // Every request from here on (the warm-up, then the game) goes to this door's school.
+  useEffect(() => {
+    applyStudentSchool(school)
+  }, [school])
 
   useEffect(() => {
     trayStore.set({ phase: 'hero', focus: null })
@@ -281,14 +288,14 @@ export function Home() {
     }
   }, [])
 
-  // CSS loops (stickers, tape) stop while the tab is hidden.
+  // CSS loops (the button's shine, the world's art) stop while the tab is hidden.
   useEffect(() => {
     const onVis = () => setPaused(document.hidden)
     document.addEventListener('visibilitychange', onVis)
     return () => document.removeEventListener('visibilitychange', onVis)
   }, [])
 
-  const warm = useCallback(() => warmGame(search), [search])
+  const warm = useCallback(() => warmGame(school), [school])
   // Hovering or focusing the tray is intent too.
   useEffect(() => {
     if (hovered) warm()
@@ -302,7 +309,7 @@ export function Home() {
     sound.tap()
     stageBus.setHovered(false)
     trayStore.set({ phase: 'entering' })
-    const to = { pathname: '/student', search }
+    const to = live ? { pathname: '/live', search: '' } : { pathname: '/student', search }
     if (reduce) {
       navigate(to)
       return
@@ -313,7 +320,7 @@ export function Home() {
       noren.part()
       h.frame = requestAnimationFrame(() => navigate(to))
     }, HANDOFF_MS)
-  }, [navigate, search, reduce, warm])
+  }, [navigate, search, reduce, warm, live])
 
   useEffect(() => trayEvents.on((e) => e.type === 'enter' && go()), [go])
 
@@ -321,41 +328,26 @@ export function Home() {
 
   return (
     <div className={paused ? 'home is-paused' : 'home'}>
-      <Backdrop px={px} py={py} reduce={reduce} leaving={leaving} />
+      <Backdrop px={px} py={py} />
       <TraySlot className="home__slot" />
-      <StickerField px={px} py={py} reduce={reduce} leaving={leaving} layer="near" />
       <MascotOnTray show={!leaving} reduce={reduce} wide={wide} />
 
+      {/* The lock-in clock hangs at the top center, where the eye lands first. */}
       <motion.div
-        className="home__switch"
-        initial={reduce ? false : { opacity: 0, y: -18 }}
-        animate={leaving ? { opacity: 0, y: -12 } : { opacity: 1, y: 0 }}
-        transition={leaving ? leave : { ...settle, delay: reduce ? 0 : 0.6 }}
+        className="home__clock"
+        initial={reduce ? false : { opacity: 0, y: -40, rotate: -5 }}
+        animate={leaving ? { opacity: 0, y: -24 } : { opacity: 1, y: 0, rotate: 0 }}
+        transition={leaving ? leave : { ...swing, delay: reduce ? 0 : 0.45 }}
       >
-        <ThemeSwitcher />
+        <Countdown reduce={reduce} />
       </motion.div>
 
       <motion.div
-        className="home__copy"
+        className={live ? 'home__copy home__copy--live' : 'home__copy'}
         initial={reduce ? false : { opacity: 0, y: 48 }}
         animate={out}
         transition={leaving ? leave : { ...settle, delay: 0.05 }}
       >
-        {!wide && (
-          <div className="home__tape">
-            <Marquee items={items} rows={1} reduce={reduce} />
-          </div>
-        )}
-        <div className="home__meta">
-          {streak > 0 && <StreakChip streak={streak} reduce={reduce} delay={0.7} />}
-          <motion.div
-            initial={reduce ? false : { opacity: 0, x: 16 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ ...settle, delay: reduce ? 0 : 0.8 }}
-          >
-            <Countdown reduce={reduce} />
-          </motion.div>
-        </div>
         <Headline reduce={reduce} delay={0.15} />
         <motion.p
           className="home__lead"
@@ -370,24 +362,20 @@ export function Home() {
             {heroCopy.cta}
           </HeroCta>
         </div>
-        <motion.p
-          className="home__quiet"
-          initial={reduce ? false : { opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.5, delay: reduce ? 0 : 1.1 }}
-        >
-          <Link to="/hub" className="home__staff">
-            {heroCopy.staff}
-          </Link>
-          <span className="home__sim">{heroCopy.simulated}</span>
-        </motion.p>
+        {!live && (
+          <motion.p
+            className="home__quiet"
+            initial={reduce ? false : { opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.5, delay: reduce ? 0 : 1.1 }}
+          >
+            <Link to="/hub" className="home__staff">
+              {heroCopy.staff}
+            </Link>
+            <span className="home__sim">{heroCopy.simulated}</span>
+          </motion.p>
+        )}
       </motion.div>
-
-      {wide && (
-        <motion.div className="home__tape" animate={out} transition={leaving ? leave : { duration: 0 }}>
-          <Marquee items={items} rows={2} reduce={reduce} />
-        </motion.div>
-      )}
 
       <p className={hovered && !leaving ? 'home__hint is-on' : 'home__hint'} aria-hidden="true">
         <TrayIcon width={20} height={20} />

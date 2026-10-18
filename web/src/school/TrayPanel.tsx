@@ -1,92 +1,79 @@
-import { motion } from 'framer-motion'
 import { createElement } from 'react'
 import { copy } from '../shared/copy'
 import { fmtDay } from '../shared/format'
 import { foodGroupIcon, type FoodGroupComponent } from '../shared/icons'
+import { BarList, type Bar } from './charts/BarList'
 import { LiveCount } from './LiveCount'
+import { CopyLink } from './parts/CopyLink'
+import { leaders } from './parts/leaders'
 import { TRAY_ORDER, type TrayGroupTally, type TraySummary } from './trayTypes'
 
-const t = copy.school.wants.tray
-const barSpring = { type: 'spring', stiffness: 170, damping: 24, mass: 0.9 } as const
+const tw = copy.school.wants
+const t = tw.tray
+const shortDay = { weekday: 'short', month: 'short', day: 'numeric' } as const
 
 function GroupIcon({ component }: { component: FoodGroupComponent }) {
-  return createElement(foodGroupIcon(component), { className: 's-tg__icon', width: 22, height: 22 })
+  return createElement(foodGroupIcon(component), { className: 's-tg__icon', width: 20, height: 20, 'aria-hidden': true })
 }
 
-function GroupRows({ group, reduce }: { group: TrayGroupTally; reduce: boolean }) {
-  const top = Math.max(0, ...group.items.map((i) => i.picks))
+/** One small multiple: a food group's picks as bars in the group's color, skips in grey. */
+function Group({ group, total, reduce }: { group: TrayGroupTally; total: number; reduce: boolean }) {
+  const top = leaders(group.items, (i) => i.picks)
   const headId = `s-tray-${group.component}`
+  const bars: Bar[] = group.items.map((item) => ({
+    id: item.item_id,
+    label: item.name,
+    fraction: item.share,
+    value: <LiveCount value={item.picks} />,
+    sub: <LiveCount value={Math.round(item.share * 100)} format={(n) => `${Math.round(n)}%`} />,
+    lead: top.includes(item),
+  }))
+  if (group.skips > 0) {
+    bars.push({
+      id: 'skip',
+      label: tw.skippedRow,
+      muted: true,
+      fraction: total > 0 ? group.skips / total : 0,
+      value: <LiveCount value={group.skips} />,
+      sub: <LiveCount value={total > 0 ? Math.round((group.skips / total) * 100) : 0} format={(n) => `${Math.round(n)}%`} />,
+    })
+  }
   return (
     <section className="s-tg" data-group={group.component} aria-labelledby={headId}>
-      <div className="s-tg__head">
+      <h3 id={headId} className="s-tg__head">
         <GroupIcon component={group.component} />
-        <h3 id={headId} className="s-tg__name">
-          {t.groups[group.component]}
-        </h3>
-        {group.skips > 0 && (
-          <span className="s-tg__skips">
-            <LiveCount value={group.skips} format={(n) => t.skipped(Math.round(n))} />
-          </span>
-        )}
-      </div>
-      <ul className="s-tg__rows">
-        {group.items.map((item) => {
-          const lead = top > 0 && item.picks === top
-          return (
-            <li key={item.item_id} className="s-tr" data-lead={lead || undefined}>
-              <span className="s-tr__name">{item.name}</span>
-              <span className="s-tr__pct">
-                <LiveCount value={Math.round(item.share * 100)} format={(n) => `${Math.round(n)}%`} />
-              </span>
-              <span className="s-tr__picks">
-                <LiveCount value={item.picks} format={(n) => t.picked(Math.round(n))} />
-              </span>
-              <span className="s-tr__bar" aria-hidden="true">
-                <motion.span
-                  className="s-tr__fill"
-                  initial={{ scaleX: reduce ? item.share : 0 }}
-                  animate={{ scaleX: item.share }}
-                  transition={reduce ? { duration: 0 } : barSpring}
-                />
-              </span>
-            </li>
-          )
-        })}
-      </ul>
+        <span className="s-tg__name">{t.groups[group.component]}</span>
+      </h3>
+      <BarList reduce={reduce} dense bars={bars} className="s-tg__bars" />
     </section>
   )
 }
 
-export function TrayPanel({ tray, reduce }: { tray: TraySummary | null; reduce: boolean }) {
-  const groups = tray
-    ? TRAY_ORDER.flatMap((c) => tray.groups.filter((g) => g.component === c))
-    : []
+/** Tomorrow's trays: one small chart per food group, so the kitchen sees what to cook. */
+export function TrayPanel({ tray, reduce, schoolId }: { tray: TraySummary | null; reduce: boolean; schoolId: string }) {
+  const groups = tray ? TRAY_ORDER.flatMap((c) => tray.groups.filter((g) => g.component === c)) : []
+  const has = !!tray && tray.total > 0
   return (
-    <section className="s-tray" aria-labelledby="s-tray-h">
-      <div className="s-tray__head">
-        <div>
-          <h2 id="s-tray-h" className="s-sec-title">
-            {t.heading}
+    <section className="s-card s-tray" aria-labelledby="s-tray-h">
+      <div className="s-card__head">
+        <div className="s-card__titles">
+          <p className="s-card__kicker">{t.heading}</p>
+          <h2 id="s-tray-h" className="s-card__title">
+            {has ? tw.trayTitle(tray.total, fmtDay(tray.target_date, shortDay)) : tw.trayEmptyTitle}
           </h2>
-          {tray && <p className="s-sec-sub">{t.sub(fmtDay(tray.target_date))}</p>}
         </div>
-        {tray && (
-          <p className="s-tray__total">
-            <span className="s-tray__big">
-              <LiveCount value={tray.total} />
-            </span>
-            <span className="s-tray__unit">{t.packed(tray.total)}</span>
-          </p>
-        )}
       </div>
-      {tray && tray.total > 0 ? (
+      {has ? (
         <div className="s-tray__groups">
           {groups.map((g) => (
-            <GroupRows key={g.component} group={g} reduce={reduce} />
+            <Group key={g.component} group={g} total={tray.total} reduce={reduce} />
           ))}
         </div>
       ) : (
-        <p className="s-hint s-hint--empty s-tray__empty">{t.empty}</p>
+        <div className="s-empty-cta">
+          <p className="s-empty-cta__text">{t.empty}</p>
+          <CopyLink schoolId={schoolId} />
+        </div>
       )}
     </section>
   )

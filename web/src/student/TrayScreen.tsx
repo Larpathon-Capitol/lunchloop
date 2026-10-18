@@ -7,7 +7,7 @@ import { BrushProgress, isStreakMilestone, useCelebrate } from '../celebrate'
 import { UmeInline, lines, pickLine, ume } from '../mascot'
 import { copy } from '../shared/copy'
 import { fmtLongDay } from '../shared/format'
-import { Skip, foodGroupIcon } from '../shared/icons'
+import { Check, Skip, foodGroupIcon } from '../shared/icons'
 import { press } from '../shared/motion'
 import { sound } from '../shared/sound'
 import { ErrorNotice } from '../shared/ui/Notice'
@@ -96,6 +96,15 @@ function EmptyTray() {
   )
 }
 
+/** A small chevron: this group still needs a choice. */
+function Chevron() {
+  return (
+    <svg viewBox="0 0 24 24" width={24} height={24} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
+      <path d="M9.5 6.5 15 12l-5.5 5.5" />
+    </svg>
+  )
+}
+
 function TraySkeleton() {
   useEffect(() => {
     ume.react('thinking')
@@ -116,7 +125,7 @@ function TraySkeleton() {
         <ul className="chips">
           {[0, 1, 2, 3, 4].map((i) => (
             <li key={i} className="chip chip--skel">
-              <span className="skel skel--disc" />
+              <span className="skel chip__icon" />
               <span className="skel skel--word" />
             </li>
           ))}
@@ -154,8 +163,10 @@ function Packing({ data }: { data: Tray }) {
   const left = groups.length - decided
   const ready = !packed && left === 0 && pickedCount > 0
   const openGroup = open ? (groups.find((g) => g.component === open) ?? null) : null
+  // The next group still to decide: the dock's button opens it.
+  const next = packed ? null : (groups.find((g) => picks[g.component] === undefined)?.component ?? null)
   // The soft pill rests on the open group, or on the next one still to decide.
-  const pillOn = packed ? null : (open ?? groups.find((g) => picks[g.component] === undefined)?.component ?? null)
+  const pillOn = packed ? null : (open ?? next)
 
   // The tray's own taps open the picker for that compartment.
   useEffect(
@@ -248,8 +259,10 @@ function Packing({ data }: { data: Tray }) {
   return (
     <div className={packed ? 'pack pack--packed' : 'pack'}>
       <header className="pack__head">
-        <h1 className="pack__title">{packed ? t.headingPacked : t.heading}</h1>
-        <p className="pack__day">{t.forDay(fmtLongDay(data.target_date))}</p>
+        <div className="pack__titles">
+          <h1 className="pack__title">{packed ? t.headingPacked : t.heading}</h1>
+          <p className="pack__day">{t.forDay(fmtLongDay(data.target_date))}</p>
+        </div>
         <NeedsButton className="pack__needs" />
         <Corner className="pack__plum" />
       </header>
@@ -276,10 +289,9 @@ function Packing({ data }: { data: Tray }) {
               <>
                 <motion.span
                   key={`${kind}-${pick ?? ''}`}
-                  className="chip__disc"
-                  style={kind === 'picked' ? { background: GLAZE[g.component] } : { color: GLAZE[g.component] }}
-                  initial={reduce || kind === 'open' || packed ? false : { scale: 0.6 }}
-                  animate={{ scale: 1 }}
+                  className="chip__icon"
+                  initial={reduce || kind === 'open' || packed ? false : { scale: 0.6, rotate: -8 }}
+                  animate={{ scale: 1, rotate: 0 }}
                   transition={popSpring}
                 >
                   {kind === 'skipped' ? <Skip /> : <Icon />}
@@ -287,6 +299,9 @@ function Packing({ data }: { data: Tray }) {
                 <span className="chip__text">
                   <span className="chip__group">{groupName(g.component)}</span>
                   <span className="chip__state">{state}</span>
+                </span>
+                <span className="chip__mark" aria-hidden="true">
+                  {kind === 'picked' ? <Check /> : kind === 'open' && !packed ? <Chevron /> : null}
                 </span>
               </>
             )
@@ -331,15 +346,8 @@ function Packing({ data }: { data: Tray }) {
         </ul>
         </LayoutGroup>
 
-        {/* The mascot sits in the layout here, beside the progress line, with room above it for a line. */}
-        <UmeInline size={56} className="pack__ume">
-          {!packed && (
-            <div className="pack__progress">
-              <BrushProgress value={groups.length ? decided / groups.length : 0} height={16} label={t.progress} />
-              <p className="pack__count num">{t.progressText(decided, groups.length)}</p>
-            </div>
-          )}
-        </UmeInline>
+        {/* Once packed the mascot sits under the food groups; before that it rides in the dock. */}
+        {packed && <UmeInline size={56} className="pack__ume" />}
 
         {error && (
           <p className="pack__error" role="alert">
@@ -347,30 +355,59 @@ function Packing({ data }: { data: Tray }) {
           </p>
         )}
 
+        {/* Progress and the one next step. On phones this dock sticks just above the tab bar. */}
         {!packed && (
-          <div className="pack__action">
-            <AnimatePresence mode="popLayout" initial={false}>
-              {ready ? (
-                <motion.button
-                  key="pack"
-                  type="button"
-                  className="btn-press btn-press--big"
-                  onClick={pack}
-                  disabled={busy}
-                  initial={reduce ? { opacity: 0 } : { scale: 0.7, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  transition={reduce ? { duration: 0.12 } : popSpring}
-                  whileTap={press}
-                >
-                  {busy ? t.packing : t.pack}
-                </motion.button>
-              ) : (
-                <motion.p key="hint" className="pack__hint" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                  {left > 0 ? t.left(left) : t.needOne}
-                </motion.p>
-              )}
-            </AnimatePresence>
+          <div className="pack__dock">
+            {/* The mascot, with its line above and the progress beside it. */}
+            <UmeInline size={56} className="pack__ume">
+              <div className="pack__progress">
+                <BrushProgress value={groups.length ? decided / groups.length : 0} height={12} label={t.progress} />
+                <p className="pack__count num">{t.progressText(decided, groups.length)}</p>
+              </div>
+            </UmeInline>
+            <div className="pack__action">
+              <AnimatePresence mode="popLayout" initial={false}>
+                {ready ? (
+                  <motion.button
+                    key="pack"
+                    type="button"
+                    className="btn-press btn-press--big"
+                    onClick={pack}
+                    disabled={busy}
+                    initial={reduce ? { opacity: 0 } : { scale: 0.7, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={reduce ? { duration: 0.12 } : popSpring}
+                    whileTap={press}
+                  >
+                    {busy ? t.packing : t.pack}
+                  </motion.button>
+                ) : next ? (
+                  <motion.button
+                    key="next"
+                    type="button"
+                    className="btn-press btn-press--big pack__next"
+                    onClick={() => {
+                      sound.tap()
+                      setOpen(next)
+                    }}
+                    aria-haspopup="dialog"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.15 }}
+                    whileTap={press}
+                  >
+                    {t.next(groupName(next))}
+                    <Chevron />
+                  </motion.button>
+                ) : (
+                  <motion.p key="hint" className="pack__hint" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                    {t.needOne}
+                  </motion.p>
+                )}
+              </AnimatePresence>
+            </div>
           </div>
         )}
       </div>

@@ -21,6 +21,46 @@ const FOV = 20
 const SPACING = 40
 /** How long the canvas lingers after the last mascot leaves, so a route change does not rebuild it. */
 const LINGER_MS = 3000
+/**
+ * Frame pacing. The canvas only draws on demand: at full rate while a mascot hops, wiggles,
+ * looks around, talks or blinks; at 30 fps while it only breathes and sways (a few pixels over
+ * seconds, so the eye cannot tell); and not at all while no mascot is on screen.
+ */
+const CALM_FRAME_MS_FINE = 1000 / 30 - 5
+/**
+ * Phones and tablets: 20 fps for the calm breathing, the same pace as the tray's idle drift there
+ * (see stageBus), so the hero mascot riding the rim moves in step with it and the phone's GPU
+ * draws the full-screen canvas a third less often. Quick moves still get full rate.
+ */
+const CALM_FRAME_MS_TOUCH = 1000 / 20 - 5
+const CALM_FRAME_MS = typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches ? CALM_FRAME_MS_TOUCH : CALM_FRAME_MS_FINE
+/** Tiny mascots (the header badge) breathe well under a pixel per frame: 12 fps looks the same. */
+const TINY_CALM_FRAME_MS = 1000 / 12 - 5
+const TINY_SIZE = 40
+/** While nothing is on screen, how often to look again (a stage shown by CSS, a queued move). */
+const ASLEEP_POLL_MS = 250
+/** Moods whose own loops (wing flaps, flutters) are quick enough to want full frame rate. */
+const LIVELY = new Set(['happy', 'excited', 'petted', 'surprised'])
+/** Mood poses ease in over about half a second; keep full rate a little longer than that. */
+const MOOD_EASE_S = 0.8
+
+/** What this frame drew and asked for. Reset by Clear, filled by each Instance, acted on by Pace. */
+type Plan = {
+  cleared: boolean
+  drew: boolean
+  drewLast: boolean
+  fast: boolean
+  calm: boolean
+  calmMs: number
+  timer: number
+  hidden: boolean
+  /** The phone tab bar's box this frame (null: none), measured by the first mascot that needs it. */
+  bar?: DOMRect | null
+}
+/** One canvas exists at a time, so one plan. */
+const plan: Plan = { cleared: false, drew: false, drewLast: false, fast: false, calm: false, calmMs: CALM_FRAME_MS, timer: 0, hidden: false }
+/** Last mood each handle's rig has acted on, so the asleep poll can spot a change. */
+const seenMood = new Map<number, string>()
 
 type Spring = { x: number; v: number }
 const sp = (x: number): Spring => ({ x, v: 0 })
@@ -83,6 +123,7 @@ function makeSim() {
     visibleCheck: 0,
     visible: true,
     swapping: false,
+    moodAt: 0,
   }
 }
 type Sim = ReturnType<typeof makeSim>
@@ -211,7 +252,7 @@ function Ready({ onReady }: { onReady: () => void }) {
 }
 
 function Instance({ h, shadowMap }: { h: MascotHandle; shadowMap: THREE.Texture }) {
-  const { gl, size: canvas } = useThree()
+  const { gl, size: canvas, invalidate } = useThree()
   const [shown, setShown] = useState<MascotId>(h.mascot)
   const body = useRef<THREE.Group>(null)
   const shadow = useRef<THREE.Mesh>(null)
@@ -247,8 +288,9 @@ function Instance({ h, shadowMap }: { h: MascotHandle; shadowMap: THREE.Texture 
           queueHop(sim, 0.24, 1, 0.1)
         } else sim.scale.x = 1
       }
+      invalidate()
     },
-    [h],
+    [h, invalidate],
   )
 
   useFrame((state, dt) => {
@@ -289,6 +331,8 @@ function Instance({ h, shadowMap }: { h: MascotHandle; shadowMap: THREE.Texture 
     i.mood = mood
     const entered = mood !== sim.lastMood
     sim.lastMood = mood
+    seenMood.set(h.id, mood)
+    if (entered) sim.moodAt = t
     if (!reduced) {
       moodTick(sim, mood, dt, entered, t)
       if (mood === 'idle' || mood === 'sleepy' || mood === 'curious') {
@@ -441,6 +485,44 @@ function Instance({ h, shadowMap }: { h: MascotHandle; shadowMap: THREE.Texture 
       ;(sh.material as THREE.MeshBasicMaterial).opacity = 0.3 * (1 - lift * 0.55) * Math.min(1, s * 1.5)
     }
 
+    // ---- Pacing: anything quicker than breathing asks for the next frame right away.
+    if (onScreen) {
+      const settling = (s: Spring, to: number) => Math.abs(s.v) > 0.05 || Math.abs(s.x - to) > 0.004
+      const fast =
+        !!sim.jump ||
+        sim.queue.length > 0 ||
+        leaving ||
+        sim.swapping ||
+        sim.wiggle > 0 ||
+        pet > 0.005 ||
+        sim.blinkT >= 0 ||
+        i.talk > 0.005 ||
+        chatter > 0 ||
+        i.bounce > 0 ||
+        LIVELY.has(mood) ||
+        t - sim.moodAt < MOOD_EASE_S ||
+        Math.abs(i.look.x - lx) > 0.01 ||
+        Math.abs(i.look.y - ly) > 0.01 ||
+        settling(sim.sy, syTarget) ||
+        settling(sim.scale, scaleTarget) ||
+        Math.abs(sim.turn.v) > 0.05 ||
+        Math.abs(sim.nod.v) > 0.05 ||
+        Math.abs(sim.back.v) > 0.05 ||
+        Math.abs(sim.back.x) > 0.004 ||
+        Math.abs(sim.tilt.v) > 0.15
+      // Tiny mascots (the header faces) blink and wiggle under a pixel per frame at 30 fps, so their
+      // quick moves get 30 fps instead of every frame. Three of them blinking out of step would
+      // otherwise keep the whole canvas at full rate most of the time.
+      if (fast && S <= TINY_SIZE) {
+        plan.calm = true
+        plan.calmMs = Math.min(plan.calmMs, CALM_FRAME_MS_FINE)
+      } else if (fast) plan.fast = true
+      else {
+        plan.calm = true
+        plan.calmMs = Math.min(plan.calmMs, S <= TINY_SIZE ? TINY_CALM_FRAME_MS : CALM_FRAME_MS)
+      }
+    }
+
     // ---- Draw into this mascot's own patch of the canvas.
     if (!onScreen || !loaded.current && !leaving) return
     const u = UNITS_PER_SLOT / S
@@ -457,9 +539,17 @@ function Instance({ h, shadowMap }: { h: MascotHandle; shadowMap: THREE.Texture 
     gl.setViewport(r.left, bottom, r.width, r.height)
     // The phone tab bar sits inside the page's stacking context, under this canvas, so stop
     // drawing at its top edge instead of painting over it.
-    const bar = document.querySelector('.tabbar')?.getBoundingClientRect()
+    // Measured once per frame for every mascot on the canvas, not once per mascot.
+    if (plan.bar === undefined) plan.bar = document.querySelector('.tabbar')?.getBoundingClientRect() ?? null
+    const bar = plan.bar
     const clipBottom = bar && bar.height > 0 && bar.top < r.bottom ? Math.max(r.top, bar.top) : r.bottom
     if (clipBottom <= r.top) return
+    if (!plan.cleared) {
+      gl.setScissorTest(false)
+      gl.clear(true, true, false)
+      plan.cleared = true
+    }
+    plan.drew = true
     gl.setScissor(r.left, canvas.height - clipBottom, r.width, clipBottom - r.top)
     gl.setScissorTest(true)
     gl.render(state.scene, camera)
@@ -483,13 +573,84 @@ function Instance({ h, shadowMap }: { h: MascotHandle; shadowMap: THREE.Texture 
   )
 }
 
-/** Clears the canvas once per frame before the mascots draw their patches. */
+/** True when a stage box is visible and inside the viewport. */
+function onScreen(stage: HTMLElement) {
+  const r = stage.getBoundingClientRect()
+  if (r.width <= 2 || r.bottom <= 0 || r.right <= 0 || r.top >= window.innerHeight || r.left >= window.innerWidth) return false
+  const el = stage as HTMLElement & { checkVisibility?: (o: object) => boolean }
+  return el.checkVisibility ? el.checkVisibility({ opacityProperty: true, visibilityProperty: true }) : true
+}
+
+/** Starts each frame's plan. The canvas is cleared lazily, by the first mascot that draws. */
 function Clear() {
   useFrame(({ gl }) => {
     gl.autoClear = false
-    gl.setScissorTest(false)
-    gl.clear(true, true, false)
+    plan.cleared = false
+    plan.drew = false
+    plan.bar = undefined
+    plan.fast = false
+    plan.calm = false
+    plan.calmMs = TINY_CALM_FRAME_MS
   }, 1)
+  return null
+}
+
+/**
+ * Ends each frame: wipes a canvas that showed a mascot last frame but none now, hides the canvas
+ * while it is empty (so the browser stops compositing a full-screen layer), and books the next
+ * frame at the rate the mascots asked for.
+ */
+function Pace() {
+  const invalidate = useThree((s) => s.invalidate)
+  useFrame((state) => {
+    const gl = state.gl
+    if (!plan.drew && plan.drewLast && !plan.cleared) {
+      gl.setScissorTest(false)
+      gl.clear(true, true, false)
+    }
+    plan.drewLast = plan.drew
+    const hide = !plan.drew
+    if (hide !== plan.hidden) {
+      plan.hidden = hide
+      gl.domElement.style.visibility = hide ? 'hidden' : 'visible'
+    }
+    if (document.hidden) return
+    if (plan.fast) state.invalidate()
+    else if (plan.calm && !plan.timer) {
+      plan.timer = window.setTimeout(() => {
+        plan.timer = 0
+        invalidate()
+      }, plan.calmMs)
+    }
+  }, 3)
+
+  // Wake-ups for a sleeping canvas: scrolling and resizing move the stage boxes, mascots come and
+  // go, and a slow poll catches anything else (a stage shown by CSS, a hop queued off screen).
+  useEffect(() => {
+    const wake = () => invalidate()
+    const poll = window.setInterval(() => {
+      if (document.hidden || plan.fast || plan.calm) return
+      for (const h of rigBus.all().values()) {
+        if (h.commands.length || h.petKick || seenMood.get(h.id) !== h.mood || onScreen(h.stage)) {
+          invalidate()
+          return
+        }
+      }
+    }, ASLEEP_POLL_MS)
+    window.addEventListener('scroll', wake, { passive: true, capture: true })
+    window.addEventListener('resize', wake)
+    document.addEventListener('visibilitychange', wake)
+    const off = rigBus.subscribe(wake)
+    return () => {
+      window.clearInterval(poll)
+      window.clearTimeout(plan.timer)
+      plan.timer = 0
+      window.removeEventListener('scroll', wake, { capture: true })
+      window.removeEventListener('resize', wake)
+      document.removeEventListener('visibilitychange', wake)
+      off()
+    }
+  }, [invalidate])
   return null
 }
 
@@ -514,6 +675,7 @@ function Scene({ list }: { list: MascotHandle[] }) {
       {list.map((h) => (
         <Instance key={h.id} h={h} shadowMap={shadowMap} />
       ))}
+      <Pace />
     </>
   )
 }
@@ -550,6 +712,7 @@ export function MascotLayer() {
     <NoCanvas>
       <Canvas
         className="mascot-layer__canvas"
+        frameloop="demand"
         dpr={[1, 2]}
         gl={{ alpha: true, antialias: true, powerPreference: 'low-power' }}
         camera={{ fov: FOV, position: [0, 0.5, 6] }}

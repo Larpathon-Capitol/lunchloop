@@ -1,183 +1,370 @@
-/* Stamps page and the leftovers sentence. Mobile first at 375px; nothing here is interactive. */
-
-/* ---------- Stamps ---------- */
+/* Stamp book. Mobile first at 375px; nothing here is interactive. */
 
 .sbook {
+  --stamp-size: 76px;
   display: grid;
   gap: var(--s5, 20px);
   min-width: 0;
 }
-.sbook__page {
+
+/* "5 of 12 stamps" and the whole book's brush bar. */
+.sbook__summary {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--s6, 24px) var(--s4, 16px);
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: var(--s2, 8px) var(--s4, 16px);
+}
+.sbook__count {
   margin: 0;
-  padding: var(--s5, 20px) 0;
-  list-style: none;
+  font-family: var(--font-ui, 'Gabarito', system-ui, sans-serif);
+  font-size: var(--text-md, 18px);
+  font-weight: 700;
+  color: var(--ink, #3a1626);
+}
+.sbook__total {
+  width: 100%;
+  max-width: 280px;
+}
+
+/* One section of the book: a ruled heading, then its stamps. */
+.sbook__group {
+  display: grid;
+  gap: var(--s4, 16px);
+  padding-top: var(--s4, 16px);
   border-top: var(--hairline, 1px solid #f4a3b9);
-  border-bottom: var(--hairline, 1px solid #f4a3b9);
+}
+.sbook__ghead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--s3, 12px);
+}
+.sbook__gtitle {
+  margin: 0;
+  font-family: var(--font-display, 'Gabarito', system-ui, sans-serif);
+  font-size: var(--text-md, 18px);
+  font-weight: 400;
+  font-synthesis: none;
+  line-height: 1.2;
+  color: var(--accent-2, var(--ink, #3a1626));
+}
+html[data-theme='americas'] .sbook__gtitle {
+  font-weight: 900;
+}
+html[data-theme='asia'] .sbook__gtitle {
+  color: var(--accent-1, var(--ink, #3a1626));
+}
+.sbook__gcount {
+  font-size: var(--text-sm, 14px);
+  font-weight: 600;
+  color: var(--ink-soft, #7a3f58);
+}
+
+.sbook__grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--s5, 20px) var(--s2, 8px);
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
 .sbook__stamp {
   display: grid;
   justify-items: center;
   align-content: start;
-  gap: var(--s3, 12px);
+  gap: var(--s2, 8px);
   min-width: 0;
   text-align: center;
 }
-/* The week streak leads the page on its own row. */
-.sbook__stamp--streak_7 {
-  grid-column: 1 / -1;
-}
 .sbook__art {
+  position: relative;
   display: grid;
   place-items: center;
+  width: var(--stamp-size);
+  height: var(--stamp-size);
   line-height: 0;
+}
+.sbook__new {
+  position: absolute;
+  top: -4px;
+  right: -10px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: var(--ink, #3a1626);
+  color: var(--pink-1, #ffe5ec);
+  font-family: var(--font-ui, 'Gabarito', system-ui, sans-serif);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.4;
+  letter-spacing: 0.02em;
 }
 .sbook__text {
   display: grid;
   justify-items: center;
-  gap: var(--s1, 4px);
+  gap: 2px;
   width: 100%;
-  max-width: 160px;
+  max-width: 150px;
 }
 .sbook__name {
   font-family: var(--font-ui, 'Gabarito', system-ui, sans-serif);
+  font-size: var(--text-sm, 14px);
   font-weight: 700;
+  line-height: 1.25;
   color: var(--ink, #3a1626);
+  text-wrap: balance;
 }
 .sbook__state {
   font-family: var(--font-ui, 'Gabarito', system-ui, sans-serif);
-  font-size: var(--text-sm, 14px);
+  font-size: 13px;
   color: var(--ink-soft, #7a3f58);
   font-variant-numeric: tabular-nums;
 }
 .sbook__stamp.is-earned .sbook__state {
   color: var(--leaf-deep, #1f5a3a);
-  font-weight: 600;
+  font-weight: 700;
 }
 .sbook__brush {
   width: 100%;
-  max-width: 112px;
+  max-width: 96px;
   margin-top: 2px;
-}
-/* An unearned stamp: the world's seal as a faint shape, filled from the bottom by progress. */
-.sbook__ghost {
-  position: relative;
-  display: grid;
-  place-items: center;
-}
-.sbook__ghost svg {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  overflow: visible;
-}
-.sbook__ghost-base {
-  fill: var(--pink-2, #ffc2d1);
-  opacity: 0.55;
-}
-.sbook__ghost-fill {
-  fill: var(--pink-3, #ffb3c6);
-}
-.sbook__ghost-line {
-  fill: none;
-  stroke: var(--pink-4, #ff8fab);
-  stroke-width: 1.2;
-  stroke-dasharray: 3 3;
-  stroke-linejoin: round;
-}
-.sbook__ghost-label {
-  position: relative;
-  font-family: var(--font-display, 'Gabarito', system-ui, sans-serif);
-  font-size: var(--text-base, 16px);
-  line-height: 1.1;
-  color: var(--ink-soft, #7a3f58);
 }
 .sbook__rule {
   margin: 0;
+  padding-top: var(--s4, 16px);
+  border-top: var(--hairline, 1px solid #f4a3b9);
   font-size: var(--text-sm, 14px);
   color: var(--ink-soft, #7a3f58);
   text-align: center;
 }
 
-/* Wider screens: all three stamps share one row, the headline one a little wider. */
-@media (min-width: 560px) {
-  .sbook__page {
-    grid-template-columns: 1.3fr 1fr 1fr;
-    align-items: end;
-    padding: var(--s8, 32px) 0;
-  }
-  .sbook__stamp--streak_7 {
-    grid-column: auto;
-  }
-}
+/* ---------- The stamp art ---------- */
 
-/* ---------- Leftovers avoided ---------- */
-
-.leftovers {
-  display: grid;
-  gap: var(--s3, 12px);
-  min-width: 0;
-  padding: var(--s5, 20px);
-  border-radius: var(--radius, 18px);
-  background: var(--surface, #fff4f7);
-  border: var(--hairline, 1px solid #f4a3b9);
-  color: var(--ink, #3a1626);
+.stamp-art {
+  display: block;
+  width: 100%;
+  height: 100%;
 }
-.leftovers__head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--s1, 4px) var(--s3, 12px);
+.stamp-art svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
 }
-.leftovers__title {
-  margin: 0;
-  font-family: var(--font-ui, 'Gabarito', system-ui, sans-serif);
-  font-size: var(--text-base, 16px);
-  font-weight: 700;
-  color: var(--ink, #3a1626);
+.stamp-ghost__base {
+  fill: var(--pink-2, #ffc2d1);
+  opacity: 0.55;
 }
-.leftovers__week {
-  margin: 0;
-  font-size: var(--text-sm, 14px);
-  color: var(--ink-soft, #7a3f58);
+.stamp-ghost__fill {
+  fill: var(--pink-3, #ffb3c6);
 }
-.leftovers__sentence {
-  margin: 0;
-  max-width: 34ch;
-  font-family: var(--font-ui, 'Gabarito', system-ui, sans-serif);
-  font-size: var(--text-md, 18px);
-  line-height: 1.55;
-  color: var(--ink, #3a1626);
-  overflow-wrap: anywhere;
+.stamp-ghost__line {
+  fill: none;
+  stroke: var(--pink-4, #ff8fab);
+  stroke-width: 1.4;
+  stroke-dasharray: 3 3;
+  stroke-linejoin: round;
 }
-/* The number sits inline in the sentence with its brush underline painted beneath it. */
-.leftovers__figure {
-  position: relative;
-  display: inline-block;
-  padding-bottom: 6px;
-  white-space: nowrap;
-}
-.leftovers__big {
-  position: relative;
-  z-index: 1;
+.stamp-ghost__text,
+.stamp-face__text {
   font-family: var(--font-display, 'Gabarito', system-ui, sans-serif);
-  font-size: var(--text-xl, 28px);
-  line-height: 1;
-  font-variant-numeric: tabular-nums;
-  color: var(--ink, #3a1626);
+  font-weight: 400;
+  font-synthesis: none;
 }
-.leftovers__underline {
-  position: absolute;
-  left: -2px;
-  right: -6px;
-  bottom: -2px;
-  pointer-events: none;
+html[data-theme='americas'] .stamp-ghost__text,
+html[data-theme='americas'] .stamp-face__text {
+  font-weight: 900;
 }
-.leftovers__money {
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
+.stamp-ghost__text {
+  fill: var(--ink-soft, #7a3f58);
+}
+/* The check that replaces the label on phones (shown in the phone block below). */
+.stamp-face__mark {
+  display: none;
+  fill: none;
+  stroke: #fff;
+  stroke-width: 7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+html[data-theme='americas'] .stamp-face__mark {
+  stroke: var(--st-text);
+}
+html[data-theme='asia'] .stamp-face__mark {
+  stroke: var(--surface, #fff4f7);
+}
+
+/* Earned faces share one structure: rim, body, inner line, label. Each world inks it its own way. */
+.stamp-face__shadow {
+  fill: rgb(58 22 38 / 0.16);
+}
+.stamp-face__rim,
+.stamp-face__body,
+.stamp-face__line {
+  stroke-linejoin: round;
+}
+.stamp-face__line {
+  fill: none;
+  stroke-width: 1.2;
+}
+.stamp-face__glint {
+  fill: #fff;
+}
+
+/* Americas: a die-cut sticker. White cut border, a bright body, a stitched ring. */
+html[data-theme='americas'] .stamp-art--earned {
+  --st-body: var(--accent-1, #ffc72c);
+  --st-text: var(--ink, #3a1626);
+  --st-line: rgb(58 22 38 / 0.5);
+}
+html[data-theme='americas'] .stamp-tone-1 {
+  --st-body: var(--pink-5, #fb6f92);
+}
+html[data-theme='americas'] .stamp-tone-2 {
+  --st-body: var(--accent-2, #1d3fae);
+  --st-text: #fff;
+  --st-line: rgb(255 255 255 / 0.6);
+}
+html[data-theme='americas'] .stamp-face__rim {
+  fill: #fff;
+  stroke: rgb(58 22 38 / 0.18);
+  stroke-width: 0.8;
+}
+html[data-theme='americas'] .stamp-face__body {
+  fill: var(--st-body);
+}
+html[data-theme='americas'] .stamp-face__line {
+  stroke: var(--st-line);
+  stroke-dasharray: 2.2 2.4;
+}
+html[data-theme='americas'] .stamp-face__text {
+  fill: var(--st-text);
+}
+html[data-theme='americas'] .stamp-face__tails {
+  fill: var(--accent-2, #1d3fae);
+}
+
+/* Asia: a hanko impression. One ink, a paper line pressed in, paper specks where the ink skipped. */
+html[data-theme='asia'] .stamp-art--earned {
+  --st-ink: var(--accent-2, #be2b1a);
+}
+html[data-theme='asia'] .stamp-tone-2 {
+  --st-ink: var(--accent-1, #232a5c);
+}
+html[data-theme='asia'] .stamp-face__rim,
+html[data-theme='asia'] .stamp-face__body {
+  fill: var(--st-ink);
+}
+html[data-theme='asia'] .stamp-face__body {
+  opacity: 0.94;
+}
+html[data-theme='asia'] .stamp-face__line {
+  stroke: var(--surface, #fff4f7);
+  stroke-width: 1.8;
+}
+html[data-theme='asia'] .stamp-face__specks {
+  fill: var(--surface, #fff4f7);
+  opacity: 0.55;
+}
+html[data-theme='asia'] .stamp-face__text {
+  fill: var(--surface, #fff4f7);
+}
+html[data-theme='asia'] .stamp-face__tails {
+  fill: var(--st-ink);
+  opacity: 0.85;
+}
+
+/* Medi: a courtyard tile. Aubergine rim, turquoise glaze, a gold inlay line and two studs. */
+html[data-theme='medi'] .stamp-art--earned {
+  --st-rim: var(--accent-2, #6b2145);
+  --st-body: var(--accent-1, #0a6c70);
+}
+html[data-theme='medi'] .stamp-tone-1 {
+  --st-rim: var(--accent-1, #0a6c70);
+  --st-body: var(--accent-2, #6b2145);
+}
+html[data-theme='medi'] .stamp-face__rim {
+  fill: var(--st-rim);
+}
+html[data-theme='medi'] .stamp-face__body {
+  fill: var(--st-body);
+}
+html[data-theme='medi'] .stamp-face__line {
+  stroke: #e9b44c;
+  stroke-width: 1.4;
+}
+html[data-theme='medi'] .stamp-face__studs {
+  fill: #e9b44c;
+}
+html[data-theme='medi'] .stamp-face__text {
+  fill: #fff;
+}
+html[data-theme='medi'] .stamp-face__tails {
+  fill: #e9b44c;
+}
+
+/* Phones: four small stamps to a row, so every section (none has more than four) is one tidy
+   row with no stamp left on its own, and the columns line up from section to section. */
+@media (max-width: 559px) {
+  .sbook {
+    --stamp-size: 62px;
+    gap: var(--s4, 16px);
+  }
+  /* At this size the word on the stamp lands around 8px. The caption below already says it,
+     so the ghost shows only its shape and progress, and an earned stamp shows a check. */
+  .stamp-ghost__text,
+  .stamp-face__text {
+    display: none;
+  }
+  .stamp-face__mark {
+    display: inline;
+  }
+  .sbook__summary {
+    gap: var(--s2, 8px) var(--s3, 12px);
+  }
+  .sbook__total {
+    max-width: none;
+  }
+  .sbook__group {
+    gap: var(--s3, 12px);
+    padding-top: var(--s3, 12px);
+  }
+  .sbook__grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: var(--s4, 16px) 6px;
+  }
+  .sbook__stamp {
+    gap: 6px;
+  }
+  .sbook__name {
+    font-size: 13px;
+    line-height: 1.2;
+  }
+  .sbook__state {
+    font-size: 12px;
+    line-height: 1.25;
+  }
+  .sbook__brush {
+    max-width: 64px;
+  }
+  .sbook__new {
+    right: -6px;
+    font-size: 10px;
+  }
+  .sbook__rule {
+    padding-top: var(--s3, 12px);
+  }
+}
+
+/* Wider screens: bigger stamps, four to a row. */
+@media (min-width: 560px) {
+  .sbook {
+    --stamp-size: 92px;
+  }
+  .sbook__grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: var(--s6, 24px) var(--s4, 16px);
+  }
+  .sbook__name {
+    font-size: var(--text-base, 16px);
+  }
 }

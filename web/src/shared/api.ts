@@ -137,6 +137,17 @@ export interface TodayLunch {
   checked_in: boolean | null
 }
 
+/** Per-stamp progress counts on /api/me (api/game.py player_counts). Missing on older servers. */
+export interface StampCounts {
+  trays: number
+  entrees: number
+  checkins: number
+  votes: number
+  calls: number
+  correct_calls: number
+  longest_streak: number
+}
+
 export interface Me {
   device: string
   streak: number
@@ -151,6 +162,8 @@ export interface Me {
   packed_today: boolean
   today_lunch: TodayLunch | null
   free_today: FreeItem[]
+  /** Progress toward each stamp. */
+  stamp_counts?: StampCounts
   simulated: true
 }
 
@@ -435,8 +448,8 @@ function signed(device: string): Promise<string> {
 }
 
 export const api = {
-  health: () => request<Health>('/health'),
-  prep: (date?: string, ratio?: number) => request<PrepList>(`/prep${query({ date, ratio })}`),
+  health: () => request<Health>(`/health${query({ school: school() })}`),
+  prep: (date?: string, ratio?: number) => request<PrepList>(`/prep${query({ date, ratio, school: school() })}`),
   savings: (weeks?: number, ratio?: number) => request<Savings>(`/savings${query({ weeks, ratio })}`),
   simulate: (body: { date?: string; attendance_multiplier: number; price_multiplier: number; ratio: number }) =>
     request<SimulateResult>('/simulate', post(body)),
@@ -448,7 +461,7 @@ export const api = {
   /** Pack today's tray. 400 with a plain message for bad picks, 409 when already packed today. */
   postTray: async (device: string, picks: TrayPicks) => request<TrayResult>('/tray', post({ device: await signed(device), picks, school: school() })),
   me: async (device: string) => request<Me>(`/me${query({ device: await signed(device), school: school() })}`),
-  meter: () => request<Meter>('/meter'),
+  meter: () => request<Meter>(`/meter${query({ school: school() })}`),
   schools: () => request<Schools>('/schools'),
   adminLogin: (school_id: string, password: string) => request<AdminLogin>('/admin/login', post({ school_id, password })),
   adminSummary: (token: string) => request<AdminSummary>('/admin/summary', bearer(token)),

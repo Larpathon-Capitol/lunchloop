@@ -22,6 +22,7 @@ import { FreeBanner } from './FreeBanner'
 import { LunchCheckIn } from './LunchCheckIn'
 import { TrayScreen } from './TrayScreen'
 import { VoteScreen } from './VoteScreen'
+import { GameWatermark } from '../theme/Watermark'
 import './student.css'
 
 const t = copy.student.tabs
@@ -166,12 +167,14 @@ function TodayStrip() {
     }
   }, [])
   return (
-    <>
+    <div className="game__today">
       <FreeBanner free={free ?? me?.free_today ?? []} />
       <LunchCheckIn lunch={me?.today_lunch ?? null} onAnswered={() => void refreshMe()} />
-    </>
+    </div>
   )
 }
+
+const TAB_NAMES = ['tray', 'vote', 'call-it', 'stamps'] as const
 
 function Game() {
   const { me, calendar, tray, hudBump } = useStudent()
@@ -179,8 +182,10 @@ function Game() {
   const today = calendar?.today ?? (tray.state === 'ready' ? tray.data.open_date : null)
   const packed = tray.state === 'ready' && !!tray.data.picks
   const doneToday = !!(me?.packed_today || me?.voted_today || packed)
+  const { pathname } = useLocation()
   return (
-    <div className="game">
+    <div className="game" data-tab={TAB_NAMES[tabIndex(pathname)]}>
+      <GameWatermark />
       <div className="game__top">
         <Hud today={today} streak={me?.streak ?? null} xp={me?.xp ?? null} doneToday={doneToday} bump={hudBump} />
         <Tabs variant="segment" />

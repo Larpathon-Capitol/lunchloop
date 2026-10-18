@@ -33,7 +33,15 @@ export function FloatOver({ anchor, active, children, className }: FloatOverProp
       const b = box.current
       if (el && b) {
         // The visibility walk is the pricey part, so it runs every few frames.
-        if (frame++ % 6 === 0) visible = el.checkVisibility ? el.checkVisibility({ opacityProperty: true, visibilityProperty: true }) : true
+        // The anchor may be an invisible placeholder (UmeInline's ghost bubble is visibility:
+        // hidden on purpose), so its own visibility is ignored; the parent's still counts, so a
+        // mascot hidden by its screen keeps its bubble hidden too.
+        if (frame++ % 6 === 0) {
+          const parent = (el.parentElement ?? el) as VisibleCheck
+          visible = el.checkVisibility
+            ? el.checkVisibility({ opacityProperty: true }) && !!parent.checkVisibility?.({ opacityProperty: true, visibilityProperty: true })
+            : true
+        }
         const r = el.getBoundingClientRect()
         const show = visible && r.width > 0
         b.style.visibility = show ? 'visible' : 'hidden'

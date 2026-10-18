@@ -5,7 +5,7 @@ import { motion, useReducedMotion, useTransform, type MotionValue } from 'framer
 import { useEffect, useId, useRef, useState } from 'react'
 import type { HeroBackdropProps } from '../../types'
 import { LoteriaCard } from './Loteria'
-import { Banner } from './shapes'
+import { HtmlBanner } from './shapes'
 import { sparklePath, usePageHidden } from './util'
 import './americas.css'
 
@@ -75,12 +75,19 @@ export function HeroBackdrop({ px, py, className }: HeroBackdropProps) {
 
   // Flags are sized in real pixels so they read the same on a phone and a laptop.
   const wide = w > 720
-  const scale = wide ? 1.05 : 0.78
-  const gap = 62 * scale + (wide ? 22 : 6)
-  const count = Math.max(4, Math.round((w + 40) / gap))
-  const garH = Math.min(h * 0.42, wide ? 300 : 230)
-  const yA = wide ? 10 : 6
-  const yB = wide ? garH - 70 : garH - 95
+  // Phones (and phones on their side): one string of small flags along the very top edge,
+  // above the logo, instead of two big strings crossing through the logo and the clock.
+  const compact = !wide || h < 520
+  const scale = compact ? 0.6 : 1.05
+  const gap = 62 * scale + (compact ? 8 : 22)
+  const garH = compact ? 44 : Math.min(h * 0.42, 300)
+  const yA = compact ? -5 : 10
+  const yB = compact ? -5 : garH - 70
+  // Wide screens: both strings are tied at one point just right of the logo (340px at 1440 wide)
+  // and fan out to the right, so the logo sits on calm sunburst instead of flags.
+  const tieX = compact ? -0.08 * w : w * (340 / 1440)
+  const endX = w * 1.08
+  const count = Math.max(4, Math.round((compact ? w + 40 : endX - tieX) / gap))
 
   return (
     <div
@@ -104,13 +111,25 @@ export function HeroBackdrop({ px, py, className }: HeroBackdropProps) {
       </motion.div>
 
       <motion.div className="amx-layer" style={{ x: sparkX }}>
-        <svg className="amx-sparkles" viewBox={`0 0 ${w} ${h}`}>
-          {SPARKS.map(([x, y, r, cls, d]) => (
-            <g key={`${x}-${y}`} transform={`translate(${x * w} ${y * h})`}>
-              <path d={sparklePath(r * (wide ? 1.4 : 1))} className={`${cls} amx-twinkle`} style={{ animationDelay: `${-d}s` }} />
-            </g>
-          ))}
-        </svg>
+        {/* Each sparkle is its own <svg>, so its twinkle runs on the compositor instead of
+            repainting a full-screen <svg> every frame. */}
+        <div className="amx-sparkles">
+          {SPARKS.map(([x, y, r, cls, d]) => {
+            const R = r * (wide ? 1.4 : 1)
+            return (
+              <svg
+                key={`${x}-${y}`}
+                className="amx-spark amx-twinkle"
+                viewBox={`${-R} ${-R} ${2 * R} ${2 * R}`}
+                width={2 * R}
+                height={2 * R}
+                style={{ left: `${x * 100}%`, top: `${y * 100}%`, animationDelay: `${-d}s` }}
+              >
+                <path d={sparklePath(R)} className={cls} />
+              </svg>
+            )
+          })}
+        </div>
       </motion.div>
 
       <motion.div className="amx-layer" style={{ x: tableX }}>
@@ -128,10 +147,14 @@ export function HeroBackdrop({ px, py, className }: HeroBackdropProps) {
       </motion.div>
 
       <motion.div className="amx-layer" style={{ x: garX, y: garY }}>
-        <svg className="amx-hero-svg amx-garland" viewBox={`${-0.06 * w} 0 ${w * 1.12} ${garH}`} style={{ height: garH }}>
-          <Banner x0={-0.08 * w} y0={yA} x1={w * 1.08} y1={yB} sag={wide ? 30 : 18} count={count} scale={scale} />
-          <Banner x0={-0.08 * w} y0={yB + 6} x1={w * 1.08} y1={yA + 4} sag={wide ? 30 : 18} count={count} scale={scale} shift={2} />
-        </svg>
+        {/* Box pixels match the string coordinates (it starts 6% left of the hero), so every
+            flag can be its own small layer that sways without repainting the rest. */}
+        <div className="amx-hero-svg amx-garland" style={{ height: garH }}>
+          <HtmlBanner originX={-0.06 * w} width={w * 1.12} height={garH} x0={tieX} y0={yA} x1={endX} y1={yB} sag={compact ? 5 : 30} count={count} scale={scale} />
+          {!compact && (
+            <HtmlBanner originX={-0.06 * w} width={w * 1.12} height={garH} x0={tieX} y0={yA + 4} x1={endX} y1={yA + 4} sag={30} count={count} scale={scale} shift={2} />
+          )}
+        </div>
       </motion.div>
     </div>
   )

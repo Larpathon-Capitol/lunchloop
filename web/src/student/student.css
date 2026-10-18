@@ -208,6 +208,34 @@
 .game__sim--top {
   display: none;
 }
+
+/* ---------- The game column ----------
+   One column holds today's strip (free food, the check-in) and the current tab, so their
+   edges always line up. The Tray tab uses the full width (tray plus its panel); the other
+   tabs read best narrower, and the strip narrows with them. */
+.game {
+  --game-col: 1400px;
+  --strip-gap: var(--s6);
+}
+.game:not([data-tab='tray']) {
+  --game-col: 680px;
+}
+.game__today,
+.game__screen {
+  width: 100%;
+  max-width: var(--game-col);
+  margin-inline: auto;
+}
+.game__today {
+  container-type: inline-size;
+  display: grid;
+  gap: var(--s3);
+  transition: max-width 360ms var(--ease-out);
+}
+/* Only take space when something is showing. */
+.game__today:has(.fb, .lci) {
+  margin-bottom: var(--strip-gap);
+}
 .game__sim--foot {
   display: flex;
   justify-content: center;
@@ -444,8 +472,6 @@
 .tabscreen {
   display: grid;
   gap: var(--s5);
-  max-width: 640px;
-  margin: 0 auto;
 }
 .tabscreen__head {
   display: flex;
@@ -487,7 +513,7 @@
 .pack__plum {
   position: absolute;
   z-index: -1;
-  top: calc(var(--s2) * -1);
+  top: 0;
   right: calc(var(--s4) * -1);
   width: 104px;
   height: auto;
@@ -527,136 +553,6 @@
   display: grid;
   gap: var(--s4);
   align-content: start;
-}
-
-/* The five food groups as one bento strip: a single paper box divided by hairlines like tray
-   compartments. A row of cells on phones, a column beside the tray on laptops. A picked group
-   gets a short glaze mark at its foot; the open group gets a vermilion one. */
-.chips {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  border: var(--hairline);
-  border-radius: var(--radius);
-  background: var(--shoji);
-}
-.chip {
-  position: relative;
-  display: grid;
-  min-width: 0;
-}
-.chip + .chip {
-  border-left: var(--hairline);
-}
-.chip--picked::after,
-.chip--focus::after {
-  content: '';
-  position: absolute;
-  left: 30%;
-  right: 30%;
-  bottom: 6px;
-  height: 3px;
-  border-radius: var(--radius-pill);
-  background: var(--glaze);
-  pointer-events: none;
-}
-.chip--focus::after {
-  background: var(--shu);
-}
-.chip__body {
-  display: grid;
-  justify-items: center;
-  align-content: start;
-  gap: 6px;
-  width: 100%;
-  min-height: 104px;
-  padding: var(--s3) 2px var(--s4);
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  text-align: center;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  transition: background-color var(--t-fast) var(--ease);
-}
-.chip:first-child .chip__body {
-  border-radius: var(--radius) 0 0 var(--radius);
-}
-.chip:last-child .chip__body {
-  border-radius: 0 var(--radius) var(--radius) 0;
-}
-button.chip__body:hover {
-  background: var(--washi);
-}
-.chip__body:focus-visible {
-  position: relative;
-  z-index: 1;
-  outline: none;
-  box-shadow: var(--focus-ring);
-}
-span.chip__body {
-  cursor: default;
-}
-.chip__disc {
-  display: grid;
-  place-items: center;
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  background: var(--washi);
-  box-shadow: inset 0 0 0 1.5px currentColor;
-}
-.chip__disc svg {
-  width: 24px;
-  height: 24px;
-}
-.chip--picked .chip__disc {
-  color: var(--on-shu);
-  box-shadow: none;
-}
-.chip--skipped .chip__disc {
-  color: var(--nezumi);
-  box-shadow: inset 0 0 0 1.5px var(--line);
-}
-.chip__text {
-  display: grid;
-  gap: 1px;
-  min-width: 0;
-  width: 100%;
-}
-.chip__group {
-  font-size: 11px;
-  color: var(--nezumi);
-}
-.chip__state {
-  font-size: 13px;
-  font-weight: 700;
-  line-height: 1.2;
-  color: var(--sumi);
-  overflow-wrap: anywhere;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-.chip--open .chip__state {
-  color: var(--ink);
-}
-.chip--skipped .chip__state {
-  color: var(--nezumi);
-  font-weight: 500;
-}
-.chip--skel {
-  display: grid;
-  justify-items: center;
-  align-content: start;
-  gap: var(--s2);
-  min-height: 104px;
-  padding-top: var(--s3);
 }
 
 .pack__progress {
@@ -1084,280 +980,6 @@ span.chip__body {
   stroke-width: 2.4;
 }
 
-/* ---------- Vote ---------- */
-
-/* The vote is for a future day: the heading names it and a small chip says how far off it is. */
-.vote-day {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--s2) var(--s3);
-}
-.vote-day .section-title {
-  margin: 0;
-}
-.vote-day__when {
-  padding: 2px var(--s3);
-  border-radius: var(--radius-pill);
-  background: var(--pink-2);
-  color: var(--ink);
-  font-size: var(--text-sm);
-  font-weight: 600;
-  white-space: nowrap;
-}
-.vote-served {
-  margin: var(--s3) 0 0;
-  font-size: var(--text-sm);
-  font-weight: 600;
-  color: var(--leaf-deep);
-}
-
-.lacquer {
-  padding: 8px;
-  border-radius: var(--radius);
-  background: var(--sumi);
-  box-shadow: inset 0 0 0 1px var(--ai), 0 0 0 1px var(--ai-deep);
-}
-.reel {
-  /* Matches ROW in Reel.tsx. The window shows four rows while spinning. */
-  --reel-row: 60px;
-  position: relative;
-  height: calc(var(--reel-row) * 4);
-  overflow: hidden;
-  border-radius: var(--radius-sm);
-  background: var(--shoji);
-}
-/* The paper strip's top and bottom rows sit under the lacquer frame's shadow. */
-.reel:not(.reel--live)::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  box-shadow: inset 0 14px 12px -10px color-mix(in srgb, var(--sumi) 28%, transparent), inset 0 -14px 12px -10px color-mix(in srgb, var(--sumi) 28%, transparent);
-}
-.reel--idle {
-  display: grid;
-  place-items: center;
-  background: repeating-linear-gradient(var(--shoji) 0 59px, var(--line) 59px 60px);
-}
-.reel__idle-text {
-  padding: var(--s2) var(--s4);
-  border-radius: var(--radius-pill);
-  background: var(--shoji);
-  color: var(--nezumi);
-}
-.reel__strip {
-  will-change: transform;
-}
-.reel__row {
-  height: var(--reel-row);
-  border-bottom: 1px solid var(--line);
-}
-.reel__ghost {
-  display: flex;
-  align-items: center;
-  gap: var(--s3);
-  height: 100%;
-  padding: 0 var(--s4);
-  color: var(--nezumi);
-}
-.reel__name {
-  font-weight: 700;
-  color: var(--sumi);
-}
-.reel__choices .choice {
-  min-height: var(--reel-row);
-  border-radius: 0;
-  border-bottom: 1px solid var(--line);
-}
-.reel__choices .choice:last-child {
-  border-bottom: 0;
-}
-.reel__choices .choice__main {
-  min-height: var(--reel-row);
-}
-
-.choices {
-  display: grid;
-  gap: var(--s2);
-}
-.choice {
-  display: flex;
-  align-items: center;
-  border-radius: var(--radius);
-  background: var(--washi);
-  box-shadow: inset 0 0 0 1.5px transparent;
-  transition: box-shadow var(--t-fast) var(--ease), background-color var(--t-fast) var(--ease);
-}
-.reel__choices .choice {
-  background: var(--shoji);
-}
-.choice--on,
-.reel__choices .choice--on {
-  background: var(--shoji);
-  box-shadow: inset 0 0 0 2px var(--shu);
-}
-.choice__main {
-  display: flex;
-  align-items: center;
-  gap: var(--s3);
-  flex: 1;
-  min-width: 0;
-  min-height: 64px;
-  padding: 0 var(--s3);
-  border: 0;
-  background: transparent;
-  border-radius: inherit;
-  text-align: left;
-  font-weight: 700;
-  font-size: var(--text-md);
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-}
-.choice__main:disabled {
-  cursor: default;
-}
-.choice__main .glyph-disc {
-  background: var(--shoji);
-  width: 40px;
-  height: 40px;
-}
-.choice--on .choice__main .glyph-disc,
-.reel__choices .choice__main .glyph-disc {
-  background: var(--washi);
-}
-.choice__name {
-  flex: 1;
-  min-width: 0;
-}
-.choice__mark {
-  display: grid;
-  place-items: center;
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  box-shadow: inset 0 0 0 1.5px var(--line);
-}
-.choice--on .choice__mark {
-  box-shadow: none;
-}
-.choice__check {
-  display: grid;
-  place-items: center;
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  background: var(--shu);
-  color: var(--on-shu);
-}
-.choice__check svg {
-  width: 17px;
-  height: 17px;
-  stroke-width: 2.4;
-}
-
-.done-seal {
-  display: grid;
-  place-items: center;
-  width: 48px;
-  height: 48px;
-  border-radius: 9px;
-  background: var(--shu);
-  color: var(--on-shu);
-  transform: rotate(-6deg);
-}
-.done-seal svg {
-  width: 28px;
-  height: 28px;
-  stroke-width: 2.4;
-}
-.voted__top {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: var(--s3);
-}
-.voted__toast {
-  position: absolute;
-  left: 60px;
-  top: 10px;
-}
-.tally {
-  display: grid;
-  gap: var(--s3);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-.tally__row {
-  display: grid;
-  gap: var(--s1);
-}
-
-/* ---------- Call it ---------- */
-
-.result-seal {
-  position: relative;
-  display: grid;
-  place-items: center;
-  width: 92px;
-  height: 92px;
-  flex: none;
-  transform: rotate(-8deg);
-}
-.result-seal svg {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-}
-.result-seal__label {
-  position: relative;
-  max-width: 64px;
-  text-align: center;
-  font-family: var(--font-display);
-  font-weight: 800;
-  font-size: 14px;
-  line-height: 1.1;
-}
-.result-seal--right .result-seal__ring {
-  fill: var(--kin);
-}
-.result-seal--right .result-seal__inner {
-  fill: none;
-  stroke: var(--kin-light);
-  stroke-width: 2;
-}
-.result-seal--right .result-seal__label {
-  color: var(--on-shu);
-}
-.result-seal--wrong .result-seal__ring,
-.result-seal--pending .result-seal__ring {
-  fill: none;
-  stroke: var(--nezumi);
-  stroke-width: 2;
-}
-.result-seal--wrong .result-seal__inner,
-.result-seal--pending .result-seal__inner {
-  fill: none;
-  stroke: var(--line);
-  stroke-width: 1.5;
-  stroke-dasharray: 3 4;
-}
-.result-seal--wrong .result-seal__label,
-.result-seal--pending .result-seal__label {
-  color: var(--nezumi);
-}
-.gold-tag {
-  padding: 0 var(--s3);
-  border-radius: var(--radius-pill);
-  background: var(--kin-light);
-  color: var(--sumi);
-  font-weight: 700;
-  font-size: var(--text-sm);
-  line-height: 26px;
-}
-
 /* Narrow phones: tighten the HUD so the week strip never runs off the edge. */
 @media (max-width: 419px) {
   .hud {
@@ -1408,18 +1030,24 @@ span.chip__body {
     display: none;
   }
   .pack__plum {
-    top: calc(var(--s3) * -1);
     right: var(--s4);
     width: 200px;
   }
+  .game {
+    --strip-gap: var(--s8);
+  }
 
+  /* The heading rides at the top of the side column, so the tray starts right under the HUD and
+     the whole tray, the food groups and the next step share the first screen, with or without
+     the check-in card above. */
   .pack {
     grid-template-columns: minmax(0, 1fr) 340px;
+    grid-template-rows: auto 1fr auto;
     grid-template-areas:
-      'head head'
+      'stage head'
       'stage side'
       'after after';
-    gap: var(--s5) var(--s8);
+    gap: var(--s4) var(--s8);
   }
   .pack__head {
     grid-area: head;
@@ -1427,14 +1055,27 @@ span.chip__body {
   .pack__title {
     font-size: var(--text-2xl);
   }
+  /* Dela Gothic runs wide: two lines at most in the side column. */
+  html[data-theme='asia'] .pack__title {
+    font-size: var(--text-xl);
+  }
+  /* The side column is too narrow to hang the corner art beside the heading (it covered the
+     title); the backdrop and the header band carry the world here, as on phones. */
+  .pack__plum {
+    display: none;
+  }
   .pack__stage {
     grid-area: stage;
-    height: min(56vh, 520px);
+    align-self: start;
+    height: clamp(360px, calc(100svh - 290px), 540px);
     margin: 0;
+  }
+  .game:has(.lci) .pack__stage {
+    height: clamp(320px, calc(100svh - 430px), 500px);
   }
   .pack__side {
     grid-area: side;
-    align-self: center;
+    align-self: start;
   }
   .pack__after {
     grid-area: after;
@@ -1446,48 +1087,12 @@ span.chip__body {
     grid-template-columns: 1fr 1fr;
     gap: var(--s5) var(--s6);
   }
-  .chips {
-    grid-template-columns: 1fr;
-  }
-  .chip + .chip {
-    border-left: 0;
-    border-top: var(--hairline);
-  }
-  .chip--picked::after,
-  .chip--focus::after {
-    left: calc(var(--s5) + 40px + var(--s3));
-    right: auto;
-    bottom: 10px;
-    width: 28px;
-  }
-  .chip__body,
-  .chip--skel {
-    display: flex;
-    align-items: center;
-    justify-items: start;
-    gap: var(--s3);
-    min-height: 64px;
-    padding: var(--s2) var(--s4) var(--s2) var(--s5);
-    text-align: left;
-  }
-  .chip:first-child .chip__body {
-    border-radius: var(--radius) var(--radius) 0 0;
-  }
-  .chip:last-child .chip__body {
-    border-radius: 0 0 var(--radius) var(--radius);
-  }
-  .chip__group {
-    font-size: var(--text-sm);
-  }
-  .chip__state {
-    font-size: var(--text-base);
-  }
-  .tabscreen {
-    max-width: 680px;
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .game__today {
+    transition: none;
+  }
   .skel,
   .week__dot--waiting {
     animation: none;
@@ -1524,22 +1129,6 @@ html[data-theme='asia'] .tabscreen__title {
   color: var(--accent-1, var(--ink));
 }
 
-/* The sliding pill under the open (or next) food group. */
-.chip__pill {
-  position: absolute;
-  inset: 4px;
-  z-index: 0;
-  border-radius: calc(var(--radius) - 2px);
-  background: var(--pink-2, #ffc2d1);
-  pointer-events: none;
-}
-.chip__body {
-  position: relative;
-  z-index: 1;
-}
-.chip--picked .chip__disc {
-  color: var(--surface, #fff);
-}
 
 /* Desktop: hold the columns beside the tray back until the tray has landed from the hero. */
 .traytab .pack__side,
@@ -1603,14 +1192,7 @@ html[data-theme='asia'] .tabscreen__title {
     right: calc(var(--s2) * -1);
   }
 }
-/* "Choose" sits on pink: ink keeps it readable on the pill and the panel. */
-.chip--open .chip__state {
-  color: var(--ink, var(--sumi));
-  text-decoration: underline;
-  text-decoration-color: var(--pink-5, #fb6f92);
-  text-decoration-thickness: 2px;
-  text-underline-offset: 3px;
-}
+
 
 /* Sheet top edge: a soft grab handle; East Asia keeps its noren panels in the field color. */
 html:not([data-theme='asia']) .sheet__noren {
@@ -1875,4 +1457,710 @@ html[data-theme='asia'] .hud__value {
 .needs__clear:disabled {
   opacity: 0.45;
   cursor: default;
+}
+
+/* ---------- Food group list (Tray tab) ---------- */
+
+/* Five tray compartments as one paper card split by hairlines: a row of five cells on phones,
+   a compact list beside the tray on laptops. Group names use the world's display face; the
+   pick stays in the UI face so long food names read easily. */
+.chips {
+  display: grid;
+  /* Equal cells, except a cell whose group name needs more room ("Vegetable" in a wide display
+     face) takes exactly that, so a name never runs over the dividers. */
+  grid-template-columns: repeat(5, minmax(min-content, 1fr));
+  align-content: start;
+  margin: 0;
+  padding: 4px;
+  list-style: none;
+  border: var(--hairline);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+.chip {
+  position: relative;
+  display: grid;
+  min-width: 0;
+}
+/* Hairlines between cells, inset so they stop short of the card edge like tray dividers. */
+.chip + .chip::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 14px;
+  bottom: 14px;
+  width: 1px;
+  background: var(--hairline-color);
+  pointer-events: none;
+}
+/* The sliding pill under the open (or next) food group. */
+.chip__pill {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: calc(var(--radius) - 5px);
+  background: var(--pink-2);
+  pointer-events: none;
+}
+/* The pill hides the dividers on either side of it. */
+.chip:has(> .chip__pill)::before,
+.chip:has(> .chip__pill) + .chip::before {
+  opacity: 0;
+}
+.chip__body {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  justify-items: center;
+  align-content: start;
+  gap: 6px;
+  width: 100%;
+  padding: var(--s3) 4px var(--s3);
+  border: 0;
+  border-radius: calc(var(--radius) - 5px);
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  text-align: center;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background-color var(--t-fast) var(--ease);
+}
+button.chip__body:hover {
+  background: color-mix(in srgb, var(--pink-2) 55%, transparent);
+}
+.chip__body:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+span.chip__body {
+  cursor: default;
+}
+
+/* The icon tile: a soft rounded square washed in the group's color. */
+.chip__icon {
+  position: relative;
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: color-mix(in oklab, var(--glaze) 13%, var(--surface));
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--glaze) 26%, transparent);
+  color: var(--glaze);
+}
+.chip__icon svg {
+  width: 26px;
+  height: 26px;
+}
+.chip--skipped .chip__icon {
+  background: transparent;
+  box-shadow: inset 0 0 0 1.5px var(--hairline-color);
+  color: var(--ink-soft);
+}
+.chip--skipped .chip__icon svg {
+  width: 20px;
+  height: 20px;
+}
+.chip--skel .chip__icon {
+  background: var(--pink-2);
+  box-shadow: none;
+}
+
+.chip__text {
+  display: grid;
+  gap: 2px;
+  /* No min-width: 0 here: the group name's width has to count when the columns are sized. */
+  width: 100%;
+}
+.chip__group {
+  font-family: var(--font-display);
+  font-weight: var(--display-weight, 400);
+  font-synthesis: none;
+  font-size: 15px;
+  line-height: 1.05;
+  color: var(--accent-2, var(--ink));
+}
+.chip__state {
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.25;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.chip--open .chip__state {
+  color: var(--ink-soft);
+  font-weight: 500;
+}
+.chip--skipped .chip__group,
+.chip--skipped .chip__state {
+  color: var(--ink-soft);
+}
+.chip--skipped .chip__state {
+  font-weight: 500;
+}
+
+/* Picked: a small glaze seal with a check. On phones it sits on the tile's corner. */
+.chip__mark {
+  display: grid;
+  place-items: center;
+  flex: none;
+}
+.chip__mark:empty {
+  display: none;
+}
+.chip--picked .chip__mark {
+  position: absolute;
+  z-index: 2;
+  top: 6px;
+  left: calc(50% + 12px);
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--glaze);
+  color: #fff;
+  box-shadow: 0 0 0 2px var(--surface);
+}
+.chip--picked .chip__mark svg {
+  width: 12px;
+  height: 12px;
+  stroke-width: 3;
+}
+.chip--open .chip__mark {
+  display: none;
+}
+
+.chip--skel {
+  display: grid;
+  justify-items: center;
+  align-content: start;
+  gap: var(--s2);
+  min-height: 92px;
+  padding-top: var(--s3);
+}
+
+/* Per world: the one accent detail on each food icon (the lid knob, the seeds, the leaf). */
+html[data-theme='americas'] :is(.game, .sheet) {
+  --fg-accent: var(--accent-2);
+}
+html[data-theme='asia'] :is(.game, .sheet) {
+  --fg-accent: var(--accent-2);
+}
+html[data-theme='medi'] :is(.game, .sheet) {
+  --fg-accent: var(--accent-1);
+}
+/* On a solid glaze disc the accent would vanish: keep it in the line color there. */
+.glyph-disc--solid {
+  --fg-accent: currentColor;
+}
+
+/* Dela Gothic One runs wide: step it down so "Vegetable" fits a phone cell. */
+html[data-theme='asia'] .chip__group {
+  font-size: 12px;
+  letter-spacing: -0.01em;
+}
+html[data-theme='medi'] .chip__group {
+  font-size: 16px;
+}
+
+@media (min-width: 960px) {
+  .chips {
+    grid-template-columns: 1fr;
+    padding: 5px;
+  }
+  .chip + .chip::before {
+    left: 14px;
+    right: 14px;
+    top: 0;
+    bottom: auto;
+    width: auto;
+    height: 1px;
+  }
+  .chip__body,
+  .chip--skel {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    justify-items: start;
+    gap: var(--s3);
+    min-height: 0;
+    padding: 9px var(--s3) 9px 9px;
+    text-align: left;
+  }
+  .chip__text {
+    gap: 3px;
+  }
+  .chip__group {
+    font-size: 17px;
+  }
+  html[data-theme='asia'] .chip__group {
+    font-size: 14px;
+  }
+  html[data-theme='medi'] .chip__group {
+    font-size: 18px;
+  }
+  .chip__state {
+    font-size: var(--text-sm);
+    -webkit-line-clamp: 1;
+  }
+  .chip--picked .chip__mark {
+    position: static;
+    width: 24px;
+    height: 24px;
+    box-shadow: none;
+  }
+  .chip--picked .chip__mark svg {
+    width: 14px;
+    height: 14px;
+  }
+  .chip--open .chip__mark {
+    display: grid;
+    color: var(--ink-soft);
+  }
+  .chip--open .chip__mark svg {
+    width: 18px;
+    height: 18px;
+  }
+  .chip--skel {
+    min-height: 58px;
+  }
+}
+/* Laptop screens (1280x800 and shorter): slimmer food-group rows, so the list and the next
+   step stay on the first screen beside the tray. */
+@media (min-width: 960px) and (max-height: 860px) {
+  .chip__body,
+  .chip--skel {
+    padding-block: 6px;
+  }
+  .chip--skel {
+    min-height: 52px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chip__body {
+    transition: none;
+  }
+}
+
+/* ---------- Tray tab: header row, progress dock ---------- */
+
+.pack__titles {
+  display: grid;
+  gap: var(--s1);
+  min-width: 0;
+}
+.pack__dock {
+  display: grid;
+  gap: var(--s3);
+}
+.pack__next svg {
+  width: 20px;
+  height: 20px;
+  margin-right: -6px;
+}
+
+/* ---------- Phones and small tablets (tab bar at the bottom) ---------- */
+
+@media (max-width: 959px) {
+  /* Just clear the tab bar at the end of the page. The negative margin cancels the shell's own
+     bottom padding, which would otherwise stack on top of this. */
+  .game {
+    --tabbar-h: 60px;
+    padding-bottom: calc(var(--tabbar-h) + var(--s4) + env(safe-area-inset-bottom, 0px));
+    margin-bottom: calc(var(--s16) * -1);
+  }
+
+  /* The tab bar: paper, a hairline and a soft lift instead of a heavy rule. */
+  .tabbar {
+    border-top: var(--hairline);
+    box-shadow: 0 -6px 18px -10px color-mix(in srgb, var(--ink, #3a1626) 28%, transparent);
+  }
+  .tabbar__link {
+    min-height: 48px;
+    gap: 3px;
+    font-size: 12px;
+    letter-spacing: 0.01em;
+    touch-action: manipulation;
+  }
+  .tabbar__link:focus-visible {
+    outline: none;
+  }
+  .tabbar__link:focus-visible .tab__icon {
+    box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--ink);
+    border-radius: var(--radius-pill);
+  }
+  .tabbar__mark {
+    top: 7px;
+    width: 56px;
+    height: 30px;
+    margin-left: -28px;
+    border-radius: var(--radius-pill);
+    background: var(--pink-5, var(--shu));
+  }
+  .tabbar__link .tab__icon {
+    width: 56px;
+    height: 30px;
+  }
+  .tabbar__link .tab__icon svg {
+    width: 22px;
+    height: 22px;
+  }
+  .tabbar__link[aria-current='page'] .tab__icon {
+    color: var(--ink);
+  }
+  .tabbar__link[aria-current='page'] .tab__label {
+    font-weight: 800;
+  }
+
+  /* The side column dissolves into the tray grid, so the dock below can stick for as long as
+     any of the tray section is on screen (a sticky box never leaves its parent). */
+  .pack__side {
+    display: contents;
+  }
+  /* The corner art's sway must never push past the screen edge (that scrolls the page sideways). */
+  .pack__plum {
+    right: var(--s2);
+  }
+
+  /* The progress line and the next step stay in reach: stuck just above the tab bar while the
+     food groups are on screen. A paper band, full bleed, so nothing shows through it. */
+  .pack__dock {
+    position: sticky;
+    z-index: 6;
+    bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom, 0px));
+    margin: 0 calc(var(--s4) * -1);
+    padding: var(--s2) var(--s4) var(--s2);
+    gap: var(--s2);
+    background: color-mix(in srgb, var(--washi, #ffe5ec) 97%, transparent);
+    border-top: 1px solid color-mix(in srgb, var(--hairline-color) 60%, transparent);
+  }
+  .pack__dock .pack__action {
+    min-height: 0;
+  }
+  /* In the dock the mascot stands at the left, the progress and the button stacked beside it.
+     Its speech bubble takes the progress line's place while it talks (same cell, so the dock
+     keeps its height and the bubble never floats over the food groups above). */
+  .pack__dock {
+    grid-template-columns: auto minmax(0, 1fr);
+    column-gap: var(--s3);
+    align-items: end;
+  }
+  /* Packed: the mascot stands at the right edge, its line to its left, closing the food groups
+     card instead of sitting alone on a row above "What everyone packed". */
+  .pack__side > .pack__ume {
+    flex-direction: row-reverse;
+    margin-top: calc(var(--s2) * -1);
+    margin-bottom: calc(var(--s3) * -1);
+  }
+  .pack__side > .pack__ume .ume-inline__say {
+    justify-content: flex-end;
+  }
+  .pack__dock > .pack__ume {
+    display: contents;
+  }
+  .pack__dock .ume-inline__ume {
+    grid-column: 1;
+    grid-row: 1 / span 2;
+    align-self: end;
+  }
+  .pack__dock .ume-inline__col {
+    grid-column: 2;
+    grid-template: 'line' minmax(36px, auto) / minmax(0, 1fr);
+    align-items: center;
+    min-height: 0;
+    gap: 0;
+  }
+  .pack__dock .ume-inline__say,
+  .pack__dock .pack__progress {
+    grid-area: line;
+  }
+  .pack__dock .ume-inline__say {
+    min-height: 0;
+    pointer-events: none;
+  }
+  .pack__dock .ume-inline__say:has(.ume-inline__bubble--ghost) + .pack__progress {
+    visibility: hidden;
+  }
+  .pack__dock .pack__action {
+    grid-column: 2;
+  }
+  .pack__dock .btn-press {
+    min-height: 50px;
+    font-size: var(--text-base);
+  }
+}
+
+/* ---------- Phones (and phones held sideways) ---------- */
+
+@media (max-width: 599px), (max-width: 959px) and (max-height: 500px) {
+  /* HUD: one slim row. Streak and XP on the left, this week as small dots on the right,
+     each dot carrying its weekday letter. */
+  .game__top {
+    margin-bottom: var(--s3);
+  }
+  .hud {
+    flex-wrap: nowrap;
+    gap: var(--s3);
+    min-height: 32px;
+  }
+  .hud__stat {
+    gap: 3px;
+  }
+  .hud__icon {
+    width: 22px;
+    height: 22px;
+  }
+  .hud__icon svg {
+    width: 19px;
+    height: 19px;
+  }
+  .hud__value {
+    font-size: 19px;
+  }
+  .hud__label {
+    font-size: 13px;
+  }
+  .week {
+    gap: 3px;
+    margin-left: auto;
+  }
+  .week__day {
+    position: relative;
+  }
+  .week__dot {
+    width: 22px;
+    height: 22px;
+  }
+  .week__dot--waiting {
+    animation: none;
+  }
+  .week__blossom {
+    width: 15px;
+    height: 15px;
+  }
+  .week__name {
+    position: absolute;
+    inset: 0 0 auto;
+    height: 22px;
+    display: grid;
+    place-items: center;
+    font-size: 10px;
+    font-weight: 700;
+    pointer-events: none;
+  }
+  .week__dot--on + .week__name {
+    display: none;
+  }
+
+  /* Headings sized for a phone; the corner art steps aside (the backdrop carries the world). */
+  .pack {
+    gap: var(--s3);
+  }
+  .pack__title {
+    font-size: 26px;
+    line-height: 1.1;
+  }
+  html[data-theme='asia'] .pack__title {
+    font-size: 21px;
+  }
+  .pack__day {
+    font-size: var(--text-sm);
+  }
+  .pack__head {
+    padding-right: 0;
+  }
+  .pack__plum {
+    display: none;
+  }
+  .pack__head {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
+    column-gap: var(--s3);
+  }
+  .pack__head .pack__needs {
+    grid-column: 2;
+    grid-row: 1;
+    justify-self: end;
+    margin-top: 0;
+  }
+
+  /* My needs: a round icon button on the heading row; the count rides its corner. */
+  .needs-btn {
+    position: relative;
+    justify-content: center;
+    width: var(--touch);
+    height: var(--touch);
+    padding: 0;
+  }
+  .needs-btn__label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+  .needs-btn svg {
+    width: 22px;
+    height: 22px;
+  }
+  .needs-btn__count {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    min-width: 18px;
+    height: 18px;
+    font-size: 11px;
+    box-shadow: 0 0 0 2px var(--surface);
+  }
+
+  /* The tray: sized so tray, food groups and the dock share one 390x844 screen. */
+  .pack__stage {
+    height: clamp(150px, calc(100svh - 520px), 270px);
+  }
+  .chip__body {
+    gap: 4px;
+    padding: var(--s2) 4px;
+  }
+  .chip__icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 11px;
+  }
+  .chip__icon svg {
+    width: 23px;
+    height: 23px;
+  }
+  .chip--skel {
+    min-height: 80px;
+  }
+
+  /* Tab screens: phone headings, needs on the title row. */
+  .tabscreen {
+    gap: var(--s4);
+  }
+  .tabscreen__title {
+    font-size: 26px;
+    line-height: 1.1;
+  }
+  .tabscreen__head {
+    flex-wrap: nowrap;
+    gap: var(--s3);
+  }
+  .tabscreen__head .ume-inline {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+  .tabscreen__needs {
+    margin-left: auto;
+  }
+
+  /* Sheets: a real phone bottom sheet. */
+  .sheet__panel {
+    max-height: 85dvh;
+    border-radius: 22px 22px 0 0;
+    box-shadow: 0 -10px 30px -12px color-mix(in srgb, var(--ink, #3a1626) 35%, transparent);
+  }
+  .sheet__head {
+    padding: var(--s3) var(--s2) var(--s2) var(--s4);
+  }
+  .sheet__title {
+    font-size: 20px;
+  }
+  .sheet__body {
+    padding: var(--s1) var(--s4) calc(var(--s5) + env(safe-area-inset-bottom, 0px));
+    overscroll-behavior: contain;
+  }
+  .pick__main {
+    min-height: 60px;
+    padding: 10px var(--s3);
+  }
+  .pick__name {
+    font-size: 17px;
+  }
+  /* The needs sheet's Clear and Done stay on screen while the toggles scroll. */
+  .needs__actions {
+    position: sticky;
+    bottom: calc((var(--s5) + env(safe-area-inset-bottom, 0px)) * -1);
+    z-index: 1;
+    margin: 0 calc(var(--s4) * -1);
+    padding: var(--s3) var(--s4) calc(var(--s3) + var(--s5) + env(safe-area-inset-bottom, 0px));
+    margin-bottom: calc((var(--s5) + env(safe-area-inset-bottom, 0px)) * -1);
+    background: var(--shoji);
+    border-top: var(--hairline);
+  }
+}
+
+/* Short phones (iPhone SE and landscape): the mascot steps out of the tray tab so the tray,
+   the groups and the dock keep the room. */
+@media (max-width: 380px) {
+  html[data-theme='asia'] .chip__group {
+    font-size: 11.5px;
+    letter-spacing: -0.02em;
+  }
+}
+
+/* Landscape phones: too short for a stacked page with a sticky dock (the dock covered most of the
+   tray). The tray takes the left half under the HUD; the heading, food groups and the next step
+   stack on the right, and the dock stays stuck just above the tab bar. */
+@media (max-width: 959px) and (max-height: 500px) {
+  /* Landscape phones have about 266px between the header and the tab bar. On the Tray tab the
+     streak row and the date line give way so the food groups and the stuck dock both fit. */
+  .game[data-tab='tray'] .hud,
+  .game[data-tab='tray'] .pack__day {
+    display: none;
+  }
+  .pack {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
+    column-gap: var(--s4);
+    row-gap: var(--s3);
+    align-items: start;
+  }
+  .pack > * {
+    grid-column: 2;
+  }
+  .pack > .pack__stage {
+    grid-column: 1;
+    grid-row: 1 / span 6;
+    align-self: start;
+    height: clamp(170px, calc(100svh - 64px - 60px - 64px), 240px);
+    margin: 0;
+  }
+  .pack > .pack__after {
+    grid-column: 1 / -1;
+  }
+  .pack__side > * {
+    grid-column: 2;
+  }
+  .pack__dock {
+    position: sticky;
+    z-index: 6;
+    bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom, 0px));
+    margin: 0;
+    padding: var(--s2) 0;
+    border-top: 0;
+    background: color-mix(in srgb, var(--washi, #ffe5ec) 97%, transparent);
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+  }
+  .pack__dock .ume-inline__ume {
+    grid-row: 1;
+  }
+  .pack__dock .ume-inline__col {
+    align-self: center;
+  }
+  .pack__dock .pack__action {
+    grid-column: 3;
+    grid-row: 1;
+  }
+  .pack__dock .btn-press {
+    min-height: 46px;
+    padding-inline: var(--s4);
+  }
 }

@@ -18,7 +18,9 @@ export function useSummary(token: string, onExpired: () => void) {
   const [value, setValue] = useState<SummaryState>({ state: 'loading' })
   const last = useRef('')
   const expiredRef = useRef(onExpired)
-  expiredRef.current = onExpired
+  useEffect(() => {
+    expiredRef.current = onExpired
+  }, [onExpired])
   const [tick, setTick] = useState(0)
 
   useEffect(() => {

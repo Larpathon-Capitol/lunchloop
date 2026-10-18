@@ -19,6 +19,7 @@ function short(url: string) {
 
 interface Page {
   key: keyof typeof t.pages
+  /** Where Open, Copy and the QR code lead. Student games open on their hero, never mid-game. */
   path: string
   password?: string
   passwordNote?: string
@@ -27,14 +28,14 @@ interface Page {
 }
 
 const SIMULATED: Page[] = [
-  { key: 'student', path: 'student', audience: 'student' },
+  { key: 'student', path: '', audience: 'student' },
   { key: 'school', path: 'school', password: t.pages.school.password, audience: 'staff' },
   { key: 'kitchen', path: 'school/kitchen', passwordNote: t.pages.kitchen.passwordNote, audience: 'staff' },
   { key: 'backstage', path: 'behind-the-scenes/simulated', audience: 'staff' },
 ]
 
 const LIVE: Page[] = [
-  { key: 'live', path: 'live', audience: 'student' },
+  { key: 'live', path: 'join', audience: 'student' },
   { key: 'liveAdmin', path: 'live/admin', passwordNote: t.pages.liveAdmin.passwordNote, audience: 'staff' },
   { key: 'backstageLive', path: 'behind-the-scenes/live', audience: 'staff' },
 ]
@@ -141,7 +142,7 @@ function PageRow({ p, onFullScreen }: { p: Page; onFullScreen: () => void }) {
         )}
       </div>
       <div className="hub-row__actions">
-        <Link to={`/${p.path}`} className="btn btn--quiet hub-row__btn">
+        <Link to={`/${p.path}`} className="btn btn--quiet hub-row__btn" aria-label={t.openLabel(page.name, LIVE.includes(p))}>
           {t.open}
         </Link>
         <CopyButton url={url} />
@@ -165,7 +166,7 @@ function PageRow({ p, onFullScreen }: { p: Page; onFullScreen: () => void }) {
 /** The dashboard: the simulated school (with presenter controls) and the live one, as two separate groups. */
 export function Hub() {
   const dialogRef = useRef<HTMLDialogElement>(null)
-  const liveUrl = absolute('live')
+  const liveUrl = absolute('join')
   const full = () => dialogRef.current?.showModal()
 
   return (
@@ -193,8 +194,8 @@ export function Hub() {
       <section className="hub-group hub-group--live" aria-labelledby="hub-live-h">
         <div className="hub-group__head">
           <h2 id="hub-live-h" className="hub-group__title">
-            <span className="hub-group__pulse" aria-hidden="true" />
             {t.groups.live.heading}
+            <span className="hub-group__pulse" aria-hidden="true" />
           </h2>
           <p className="hub-group__line">{t.groups.live.line}</p>
         </div>
