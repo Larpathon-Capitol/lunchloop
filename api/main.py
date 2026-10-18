@@ -57,6 +57,7 @@ class VoteBody(BaseModel):
     device: Any = None
     item_id: str
     school: str | None = None
+    date: Any = None
 
 
 class GuessBody(BaseModel):
@@ -65,6 +66,7 @@ class GuessBody(BaseModel):
     device: Any = None
     item_id: str
     school: str | None = None
+    date: Any = None
 
 
 class TrayBody(BaseModel):
@@ -73,6 +75,13 @@ class TrayBody(BaseModel):
     device: Any = None
     picks: Any = None
     school: str | None = None
+    target_date: Any = None
+
+
+class ClockBody(BaseModel):
+    model_config = ConfigDict(strict=True)
+
+    date: str | None = None
 
 
 class SimulateBody(BaseModel):
@@ -172,6 +181,11 @@ def create_app(max_requests=None, max_actions=None, body_limit=16 * 1024, reques
         application.state.schools = schools
         application.state.passwords = configured_passwords()
         application.state.settings = settings
+        with closing(connect(settings["db"])) as connection:
+            live_day = connection.execute(
+                "SELECT today FROM school_clock WHERE school_id='live'"
+            ).fetchone()
+        application.state.live_day = live_day[0] if live_day else settings["today"]
         application.state.signed_devices = settings["signed_devices"]
         # Warm the engine's caches so the first visitor doesn't wait for the backtest.
         try:
@@ -230,8 +244,13 @@ def create_app(max_requests=None, max_actions=None, body_limit=16 * 1024, reques
     def request_context(request, selected_school=None):
         request_settings = request.app.state.settings
         if selected_school == "live":
-            return request_settings, request_settings["today"]
+            return request_settings, request.app.state.live_day
         return request_settings, today(request, request_settings)
+
+    def same_day(supplied, current_date):
+        """A vote or guess made on a page loaded for an older day: refuse it, the day moved."""
+        if supplied is not None and parse_date(supplied).isoformat() != current_date:
+            raise HTTPException(409, "the lunch day changed")
 
     def parse_player(request, value, required=True):
         return device(value, required=required, signed_enforced=request.app.state.signed_devices)
@@ -381,6 +400,53 @@ def create_app(max_requests=None, max_actions=None, body_limit=16 * 1024, reques
         record(request, "staff_sign_in", selected, summary="A staff member signed in")
         expires_at = datetime.fromtimestamp(expires, timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
         return {"token": token, "school": {"school_id": school["school_id"], "name": school["name"]}, "expires_at": expires_at, "simulated": True}
+
+    @application.get("/api/admin/clock")
+    def admin_clock_get(request: Request):
+        selected_school = admin_school(request)
+        if selected_school != "live":
+            raise HTTPException(400, "the day control is for the live school")
+        settings = request.app.state.settings
+        with closing(connect(settings["db"])) as connection:
+            school_days = [row[0] for row in connection.execute("SELECT DISTINCT date FROM menu ORDER BY date")]
+        return {
+            "today": request.app.state.live_day,
+            "default_today": settings["today"],
+            "school_days": school_days,
+            "simulated": True,
+        }
+
+    @application.post("/api/admin/clock")
+    def admin_clock_post(request: Request, body: ClockBody):
+        selected_school = admin_school(request)
+        if selected_school != "live":
+            raise HTTPException(400, "the day control is for the live school")
+        # An empty body is a mistake, not a reset: going back to today takes an explicit null.
+        if "date" not in body.model_fields_set:
+            raise HTTPException(400, "bad input")
+        settings = request.app.state.settings
+        new_day = settings["today"] if body.date is None else parse_date(body.date).isoformat()
+        with closing(connect(settings["db"])) as connection:
+            school_days = [row[0] for row in connection.execute("SELECT DISTINCT date FROM menu ORDER BY date")]
+            if body.date is not None and new_day not in school_days:
+                raise HTTPException(400, "not a school day")
+            if body.date is None:
+                connection.execute("DELETE FROM school_clock WHERE school_id='live'")
+            else:
+                connection.execute(
+                    "INSERT INTO school_clock(school_id, today) VALUES('live', ?) "
+                    "ON CONFLICT(school_id) DO UPDATE SET today=excluded.today",
+                    (new_day,),
+                )
+            connection.commit()
+        request.app.state.live_day = new_day
+        record(request, "live_day_changed", "live", summary=f"Staff moved the live school to {new_day}", detail={"today": new_day})
+        return {
+            "today": new_day,
+            "default_today": settings["today"],
+            "school_days": school_days,
+            "simulated": True,
+        }
 
     @application.get("/api/admin/summary")
     def admin_summary(request: Request):
@@ -569,6 +635,10 @@ def create_app(max_requests=None, max_actions=None, body_limit=16 * 1024, reques
             if target_row is None:
                 raise HTTPException(404, "no next school day")
             target_date = target_row[0]
+            if body.target_date is not None:
+                supplied_target = parse_date(body.target_date).isoformat()
+                if supplied_target != target_date:
+                    raise HTTPException(409, "the lunch day changed")
             groups = tray_groups(connection, target_date)
             valid_groups = {group["component"] for group in groups}
             if any(key not in valid_groups for key in body.picks):
@@ -821,6 +891,7 @@ def create_app(max_requests=None, max_actions=None, body_limit=16 * 1024, reques
     def vote(request: Request, body: VoteBody):
         selected_school = school_id(request, body.school)
         request_settings, current_date = request_context(request, selected_school)
+        same_day(body.date, current_date)
         player_device = parse_player(request, body.device)
         started = time.perf_counter()
         with closing(connect(request_settings["db"])) as connection:
@@ -922,6 +993,7 @@ def create_app(max_requests=None, max_actions=None, body_limit=16 * 1024, reques
     def guess(request: Request, body: GuessBody):
         selected_school = school_id(request, body.school)
         request_settings, current_date = request_context(request, selected_school)
+        same_day(body.date, current_date)
         player_device = parse_player(request, body.device)
         started = time.perf_counter()
         with closing(connect(request_settings["db"])) as connection:

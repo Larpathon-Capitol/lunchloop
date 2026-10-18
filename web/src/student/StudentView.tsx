@@ -17,6 +17,8 @@ import { Hud } from './Hud'
 import { fade, screenSpring, tabSpring } from './springs'
 import { StampsScreen } from './StampsScreen'
 import { useDemoDate } from '../shared/demo'
+import { DayNotice, DayPill } from './DayNotice'
+import { useLiveDay } from './liveDay'
 import { StudentProvider, useStudent } from './state'
 import { FreeBanner } from './FreeBanner'
 import { LunchCheckIn } from './LunchCheckIn'
@@ -149,7 +151,7 @@ const FREE_POLL_MS = 20_000
  * check-in for students who packed a tray for today. Free food is rechecked every 20 seconds
  * while the page is visible, since staff free it near the end of service.
  */
-function TodayStrip() {
+function TodayStrip({ live }: { live: boolean }) {
   const { me, refreshMe } = useStudent()
   const [free, setFree] = useState<FreeItem[] | null>(null)
   useEffect(() => {
@@ -168,6 +170,7 @@ function TodayStrip() {
   }, [])
   return (
     <div className="game__today">
+      {live && <DayPill />}
       <FreeBanner free={free ?? me?.free_today ?? []} />
       <LunchCheckIn lunch={me?.today_lunch ?? null} onAnswered={() => void refreshMe()} />
     </div>
@@ -183,6 +186,7 @@ function Game() {
   const packed = tray.state === 'ready' && !!tray.data.picks
   const doneToday = !!(me?.packed_today || me?.voted_today || packed)
   const { pathname } = useLocation()
+  const live = activeStudentSchool() === LIVE_SCHOOL
   return (
     <div className="game" data-tab={TAB_NAMES[tabIndex(pathname)]}>
       <GameWatermark />
@@ -190,17 +194,19 @@ function Game() {
         <Hud today={today} streak={me?.streak ?? null} xp={me?.xp ?? null} doneToday={doneToday} bump={hudBump} />
         <Tabs variant="segment" />
         <span className="game__sim game__sim--top">
-          <SimulatedTag live={activeStudentSchool() === LIVE_SCHOOL} />
+          <SimulatedTag live={live} />
         </span>
       </div>
-      <TodayStrip />
+      <TodayStrip live={live} />
       <Screens />
       <p className="game__sim game__sim--foot">
-        <SimulatedTag live={activeStudentSchool() === LIVE_SCHOOL} />
+        <SimulatedTag live={live} />
       </p>
       <Tabs variant="bar" />
       <FoodSheet />
       <StageSync />
+      {/* Staff can move the live day; the simulated school has its own presenter clock. */}
+      {live && <DayNotice />}
     </div>
   )
 }
@@ -211,9 +217,11 @@ function Game() {
  */
 export function StudentView() {
   const school = activeStudentSchool()
-  // A presenter stepping the simulated calendar starts the game fresh on the new day.
+  // A presenter stepping the simulated calendar starts the game fresh on the new day. In the live
+  // game the day watcher does the same, but only when the student has nothing in progress.
   const demoDay = useDemoDate()
-  const day = school === 'live' ? '' : (demoDay ?? '')
+  const { epoch } = useLiveDay()
+  const day = school === LIVE_SCHOOL ? `live-${epoch}` : (demoDay ?? '')
   useEffect(() => {
     // The 3D tray is shared with the page shell: clear the old school's picks and menu too.
     trayStore.set({ picks: {}, available: COMPONENTS, focus: null })

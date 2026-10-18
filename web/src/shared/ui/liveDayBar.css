@@ -1,0 +1,45 @@
+/* The live day control wears the presenter bar's look (demoBar.css). The differences: its one
+   line about reaching everyone always shows (shorter on phones), "Back to today" stays a real
+   button on phones (there is no menu), and the dot is the world's accent, not leaf green, so it
+   reads as a different, real control. Doubled class names beat the presenter bar's phone rules. */
+.demo-bar.demo-bar--live .demo-bar__dot {
+  background: var(--pink-5);
+  box-shadow: 0 0 0 3px var(--pink-2);
+}
+.demo-bar.demo-bar--live .demo-bar__label {
+  color: var(--ink);
+}
+.live-bar__note-short {
+  display: none;
+}
+
+@media (max-width: 699px) {
+  .demo-bar.demo-bar--live .demo-bar__note {
+    display: block;
+  }
+  .live-bar__note-long {
+    display: none;
+  }
+  .live-bar__note-short {
+    display: inline;
+  }
+}
+
+@media (max-width: 560px) {
+  .demo-bar.demo-bar--live .demo-bar__note {
+    font-size: 13px;
+  }
+  .demo-bar.demo-bar--live .demo-bar__row > .demo-bar__today-btn {
+    display: inline-flex;
+    flex: none;
+    padding-inline: var(--s3);
+    font-size: 15px;
+  }
+  /* On today the button has nothing to do, so the day pill takes the whole row and says "today". */
+  .demo-bar.demo-bar--live .demo-bar__row > .demo-bar__today-btn:disabled {
+    display: none;
+  }
+  .demo-bar.demo-bar--live .demo-bar__today {
+    display: inline;
+  }
+}

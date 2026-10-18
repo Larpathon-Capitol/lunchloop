@@ -10,6 +10,7 @@ import { ServiceTab } from './parts/ServiceTab'
 import { DEMO_SCHOOL, LIVE_SCHOOL } from '../shared/studentSchool'
 import { useDemoDate } from '../shared/demo'
 import { DemoBar } from '../shared/ui/DemoBar'
+import { LiveDayBar } from '../shared/ui/LiveDayBar'
 import { clearSession, loadAnySession, loadSession, saveSession } from './session'
 import type { SchoolSession } from './session'
 import './school.css'
@@ -51,6 +52,8 @@ export function SchoolArea({ lockedSchool, base = '/school' }: { lockedSchool?: 
   )
   const [expired, setExpired] = useState(false)
   const demoDate = useDemoDate()
+  // The live day, once staff move it from the bar. Changing it reloads the sections below.
+  const [liveDay, setLiveDay] = useState<string | null>(null)
 
   const signedIn = useCallback((s: SchoolSession) => {
     saveSession(s)
@@ -72,6 +75,8 @@ export function SchoolArea({ lockedSchool, base = '/school' }: { lockedSchool?: 
 
   // Presenter controls only for the simulated demo school, never on the live panel.
   const demo = !lockedSchool && session.school.school_id === DEMO_SCHOOL
+  // The live panel gets the real day control instead: it moves the day for everyone.
+  const live = lockedSchool === LIVE_SCHOOL && session.school.school_id === LIVE_SCHOOL
 
   return (
     <div className="s-panel">
@@ -92,8 +97,9 @@ export function SchoolArea({ lockedSchool, base = '/school' }: { lockedSchool?: 
         </div>
       </nav>
       {demo && <DemoBar school={DEMO_SCHOOL} className="s-demobar" />}
-      {/* A new simulated day remounts the section, so it loads that day's numbers. */}
-      <Routes key={demo ? (demoDate ?? 'today') : 'fixed'}>
+      {live && <LiveDayBar token={session.token} onExpired={ranOut} onDay={setLiveDay} className="s-demobar" />}
+      {/* A new simulated or live day remounts the section, so it loads that day's numbers. */}
+      <Routes key={demo ? (demoDate ?? 'today') : live ? (liveDay ?? 'today') : 'fixed'}>
         <Route index element={<Wants session={session} onExpired={ranOut} />} />
         <Route path="service" element={<ServiceTab session={session} onExpired={ranOut} />} />
         {!lockedSchool && (

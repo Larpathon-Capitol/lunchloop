@@ -6,7 +6,7 @@ import { AnimatePresence, LayoutGroup, motion, useReducedMotion } from 'framer-m
 import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react'
 import { burstPetals } from '../celebrate/burst'
 import { UmeInline, mascotName, ume } from '../mascot'
-import { api, ApiError, type PrepItem } from '../shared/api'
+import { api, ApiError, isDayChanged, type PrepItem } from '../shared/api'
 import { copy } from '../shared/copy'
 import { callit, stableLine } from '../shared/copy/callit'
 import { fmtDay } from '../shared/format'
@@ -24,6 +24,7 @@ import { fade } from './springs'
 import { useStudent } from './state'
 import { PanelSkeleton } from './VoteScreen'
 import './callit.css'
+import { staleFromServer } from './liveDay'
 
 const t = callit
 
@@ -205,7 +206,7 @@ export function CallItScreen() {
     setBusy(true)
     setError(null)
     try {
-      const r = await api.guess(device, selected)
+      const r = await api.guess(device, selected, calendar?.today)
       void refreshMe()
       if (!alive.current) return
       // The seal plays the world's stamp sound as it lands. The mascot cheers without a bubble:
@@ -213,6 +214,11 @@ export function CallItScreen() {
       ume.react('excited', undefined, 2600)
       setLocked({ item_id: selected, target_date: r.target_date })
     } catch (e) {
+      // Staff moved the live day: the day note explains it, no error here.
+      if (isDayChanged(e)) {
+        staleFromServer()
+        return
+      }
       const status = e instanceof ApiError ? e.status : 0
       if (status === 409) void refreshMe()
       if (!alive.current) return

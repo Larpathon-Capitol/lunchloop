@@ -107,9 +107,9 @@ meter(date=None, data_dir=None) -> dict
 
 ## API (FastAPI, `api/`)
 
-Run with `uvicorn api.main:app`. All routes are under `/api`. CORS origin from env var `LUNCHLOOP_CORS_ORIGIN` (default `*` for local work). A request may send header `X-Demo-Date: YYYY-MM-DD` to move the demo clock for simulated schools; live always uses `LUNCHLOOP_TODAY`.
+Run with `uvicorn api.main:app`. All routes are under `/api`. CORS origin from env var `LUNCHLOOP_CORS_ORIGIN` (default `*` for local work). A request may send header `X-Demo-Date: YYYY-MM-DD` to move the demo clock for simulated schools. The live school ignores it: its day is set by staff (see Live demo school).
 
-Errors are `{"error": "<plain message>"}` with status 400 (bad input), 404 (unknown date or item), 409 (already voted or guessed today), or 501 (engine function not built yet).
+Errors are `{"error": "<plain message>"}` with status 400 (bad input), 404 (unknown date or item), 409 (already voted or guessed today, or `the lunch day changed`), or 501 (engine function not built yet).
 
 | method and path | request | response |
 | --- | --- | --- |
@@ -119,8 +119,8 @@ Errors are `{"error": "<plain message>"}` with status 400 (bad input), 404 (unkn
 | POST /api/simulate | `{"date"?, "attendance_multiplier", "price_multiplier", "ratio"}` | engine `simulate()` |
 | POST /api/device | `{"legacy"?: str}` | `{"device": "<id>.<sig>", "simulated": true}` (see the device notes below the tray section) |
 | GET /api/spin?device= | | `{"date", "target_date", "target_slot", "options": [{"item_id", "name", "allergens": [str], "diet": [str], "gluten_free": bool, "dairy_free": bool}], "pool": [{"item_id", "name", "diet", "gluten_free", "dairy_free"}], "already_voted": bool, "simulated": true}` |
-| POST /api/vote | `{"device", "item_id"}` (any of today's options, four on the full data) | `{"ok": true, "streak", "xp", "tally": {item_id: count}, "simulated": true}` |
-| POST /api/guess | `{"device", "item_id"}` (most popular item next school day) | `{"ok": true, "target_date", "simulated": true}` |
+| POST /api/vote | `{"device", "item_id", "date"?}` (any of today's options, four on the full data) | `{"ok": true, "streak", "xp", "tally": {item_id: count}, "simulated": true}` |
+| POST /api/guess | `{"device", "item_id", "date"?}` (most popular item next school day) | `{"ok": true, "target_date", "simulated": true}` |
 | GET /api/me?device= | | `{"device", "streak", "xp", "badges": [str], "last_guess": {"target_date", "item_id", "correct": bool or null} or null, "voted_today", "packed_today", "correct_calls": int (guesses scored correct so far), "simulated": true}` |
 | GET /api/meter | | engine `meter()` |
 
@@ -128,7 +128,7 @@ Errors are `{"error": "<plain message>"}` with status 400 (bad input), 404 (unkn
 
 Students can pack one tray for the next school day. `GET /api/tray?device=&school=` returns the target date and that day's menu grouped in fixed component order: `meat_alternate`, `grain`, `vegetable`, `fruit`, `milk`. Each item is `{"item_id", "name", "allergens", "diet", "gluten_free", "dairy_free"}`. `diet` is a list in the fixed order vegetarian, vegan, contains_pork, contains_beef, spicy; `gluten_free` means no wheat allergen and `dairy_free` means no milk allergen (derived, not stored). The spin options use the same item shape. A device's `picks` are item ids or null for a skipped group. The response includes a `tally` only after that device has packed today.
 
-`POST /api/tray` accepts `{"device", "school"?, "picks": {component: item_id or null}}`. Every target-day group must be picked or skipped, and at least one group must be picked. A device can pack once per school day. The response includes the target date, current streak and XP, and a tally. The tally counts packed trays, skips, and each menu item's picks and share.
+`POST /api/tray` accepts `{"device", "school"?, "picks": {component: item_id or null}, "target_date"?}`. Every target-day group must be picked or skipped, and at least one group must be picked. A device can pack once per school day. The response includes the target date, current streak and XP, and a tally. The tally counts packed trays, skips, and each menu item's picks and share.
 
 Packing a tray earns 10 XP. A school day is active for streaks and longest-run badges when the device voted or packed a tray. The `tray` key in `/api/admin/summary` is the current school's tally, or null when no trays were packed today. Tray submissions use the same per-IP limit as votes and guesses.
 
@@ -180,7 +180,9 @@ Student routes (`spin`, `vote`, `guess`, `me`) take an optional `school` (query 
 
 ## Live demo school
 
-`schools.csv` also has `live` (name "LunchLoop live demo", students empty). It is where real people vote during a presentation. It has no public password: it signs in only when `LUNCHLOOP_SCHOOL_PASSWORDS` sets a hash for it. For `live`, the `X-Demo-Date` header is ignored (its clock is always `LUNCHLOOP_TODAY`), so nobody can vote twice by changing the date.
+`schools.csv` also has `live` (name "LunchLoop live demo", students empty). It is where real people vote during a presentation. It has no public password: it signs in only when `LUNCHLOOP_SCHOOL_PASSWORDS` sets a hash for it. For `live`, the `X-Demo-Date` header is ignored, so nobody can vote twice by changing the date.
+
+The live day is `LUNCHLOOP_TODAY` until staff move it. `GET /api/admin/clock` and `POST /api/admin/clock` (bearer token for `live` only, otherwise 400) return `{"today", "default_today", "school_days", "simulated": true}`. `POST` takes `{"date": "YYYY-MM-DD"}` (a school day from the menu, otherwise 400 `not a school day`) or `{"date": null}` to go back to `LUNCHLOOP_TODAY`. The day is stored in the `school_clock` table, so it survives a restart, and every live read and action follows it at once. A page loaded for the old day can send the day it was built for: `date` on `/api/vote` and `/api/guess`, `target_date` on `/api/tray`. When that day has passed the server answers 409 `the lunch day changed` and saves nothing.
 
 ## Behind the scenes
 

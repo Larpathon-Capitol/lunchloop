@@ -1,0 +1,219 @@
+/* "New lunch day" note in the live game (dayn). World tokens only, so each world dresses it.
+   Phones: a card near the top, clear of the tray's buttons and the tab bar at the bottom.
+   Laptops: bottom left, away from the tray column and the mascot dock. */
+
+.dayn {
+  position: fixed;
+  z-index: 40; /* over the tab bar (20), under picker sheets (60) */
+  left: var(--s3);
+  right: var(--s3);
+  top: calc(env(safe-area-inset-top, 0px) + var(--s3));
+  display: grid;
+  justify-items: center;
+  pointer-events: none;
+}
+.dayn:empty {
+  display: none;
+}
+
+.dayn__card {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: start;
+  gap: var(--s3);
+  width: min(100%, 440px);
+  padding: var(--s3) var(--s2) var(--s4) var(--s3);
+  border-radius: var(--radius);
+  background: var(--surface);
+  border: 2px solid var(--pink-4);
+  color: var(--ink);
+  box-shadow: 0 14px 32px -16px color-mix(in srgb, var(--ink) 45%, transparent);
+  overflow: hidden;
+  isolation: isolate;
+  pointer-events: auto;
+}
+/* A ticket-stub row of dots along the bottom edge, like the free leftovers banner. */
+.dayn__card::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 6px;
+  background: radial-gradient(circle at 6px 6px, var(--accent-1) 2.5px, transparent 3px) 0 0 / 14px 6px repeat-x;
+  z-index: -1;
+}
+.dayn__card--flipped {
+  align-items: center;
+  padding-bottom: var(--s3);
+}
+
+.dayn__badge {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  margin-top: 2px;
+  border-radius: 50%;
+  background: var(--accent-1);
+  color: var(--on-accent-1);
+  box-shadow: 0 0 0 3px var(--pink-2);
+}
+
+.dayn__text {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  padding-top: 2px;
+}
+.dayn__title {
+  font-family: var(--font-display);
+  font-weight: var(--display-weight, 400);
+  font-synthesis: none;
+  font-size: var(--text-lg);
+  line-height: 1.1;
+  color: var(--ink);
+}
+.dayn__body {
+  font-weight: 600;
+  font-size: var(--text-base);
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+.dayn__keep {
+  color: var(--ink-soft);
+  font-size: var(--text-sm);
+}
+.dayn__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s2) var(--s3);
+  margin-top: var(--s2);
+}
+.dayn__refresh {
+  flex: none;
+  padding-inline: var(--s6);
+}
+.dayn__keep {
+  flex: 1 1 10em;
+  min-width: 0;
+}
+
+.dayn__close {
+  display: grid;
+  place-items: center;
+  width: var(--touch);
+  height: var(--touch);
+  margin: -4px 0 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--ink);
+  cursor: pointer;
+  transition: background-color var(--t-fast) var(--ease);
+}
+.dayn__close:hover {
+  background: var(--pink-2);
+}
+
+/* What's left after hiding the note: one slim strip at the top of the game that still refreshes.
+   It sits in the page (not over it), so it never covers anything. */
+.game__today:has(.dayn__pill) {
+  margin-bottom: var(--strip-gap);
+}
+.dayn__pill {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  width: 100%;
+  min-height: var(--touch);
+  padding: var(--s1) var(--s1) var(--s1) var(--s4);
+  border: 2px solid var(--pink-3);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color var(--t-fast) var(--ease), border-color var(--t-fast) var(--ease);
+}
+.dayn__pill:hover {
+  border-color: var(--pink-4);
+  background: var(--pink-1);
+}
+.dayn__pill-dot {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--accent-1);
+  box-shadow: 0 0 0 3px var(--pink-2);
+}
+.dayn__pill-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: var(--text-sm);
+  font-weight: 700;
+}
+.dayn__pill-cta {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  padding: 0 var(--s4);
+  border-radius: var(--radius-pill);
+  background: var(--pink-5);
+  color: var(--ink);
+  font-size: var(--text-sm);
+  font-weight: 800;
+}
+
+.dayn__close:focus-visible,
+.dayn__pill:focus-visible {
+  outline: 3px solid var(--ink);
+  outline-offset: 2px;
+}
+
+/* Phones: a shorter card, so most of the screen stays in view. */
+@media (max-width: 959px) {
+  .dayn__card {
+    gap: var(--s2) var(--s3);
+    padding: var(--s3) var(--s1) var(--s3) var(--s3);
+  }
+  .dayn__badge {
+    width: 38px;
+    height: 38px;
+  }
+  .dayn__badge svg {
+    width: 20px;
+    height: 20px;
+  }
+  .dayn__title {
+    font-size: 20px;
+  }
+  .dayn__body {
+    font-size: 15px;
+  }
+  .dayn__refresh {
+    min-height: 40px;
+    padding-inline: var(--s5);
+    font-size: 15px;
+  }
+  .dayn__keep {
+    font-size: 13px;
+  }
+}
+
+/* Laptops: bottom left, out of the way of the tray column. */
+@media (min-width: 960px) {
+  .dayn {
+    top: auto;
+    right: auto;
+    left: var(--s6);
+    bottom: var(--s6);
+    width: 400px;
+    justify-items: start;
+  }
+}
