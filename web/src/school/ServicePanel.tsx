@@ -1,24 +1,32 @@
-// Lunch service for staff: who checked in after eating today's packed tray, per food how many
-// got it, ran out or are still waiting, and a button per food to make its leftovers free.
-import { createElement, useEffect, useRef, useState } from 'react'
-import { AnimatePresence, motion } from 'framer-motion'
+// Lunch service for staff: who checked in after eating today's packed tray, which foods ran out,
+// and a compact button per food to make its leftovers free. Foods students packed come first,
+// most ran out first; the rest fold behind one "show more" toggle.
+import { useEffect, useId, useMemo, useRef, useState, useSyncExternalStore } from 'react'
+import { motion } from 'framer-motion'
 import { api, ApiError } from '../shared/api'
 import type { AdminSummary, ServiceView } from '../shared/api'
-import { BrushProgress } from '../celebrate'
-import { copy } from '../shared/copy'
 import { free as freeCopy } from '../shared/copy/free'
-import { foodGroupIcon } from '../shared/icons'
+import { service as sc } from '../shared/copy/service'
 import { useReducedMotion } from '../shared/motion'
 import { TRAY_ORDER } from './trayTypes'
+import { CheckInSummary } from './service/CheckInSummary'
+import { ServiceRow, type ServiceItem as Item } from './service/ServiceRow'
 import './service.css'
 
 const t = freeCopy.service
-const groupNames = copy.school.wants.tray.groups
 const pop = { type: 'spring', stiffness: 380, damping: 22, mass: 0.8 } as const
-const tap = { type: 'spring', stiffness: 600, damping: 18, mass: 0.6 } as const
 const timeFmt = { hour: 'numeric', minute: '2-digit' } as const
+/** Packed foods shown before the "show more" toggle (fewer on phones). Free foods always show. */
+const FIRST = 6
+const FIRST_PHONE = 4
+const PHONE = '(max-width: 599px)'
 
-type Item = ServiceView['items'][number]
+function subscribePhone(cb: () => void) {
+  const m = window.matchMedia(PHONE)
+  m.addEventListener('change', cb)
+  return () => m.removeEventListener('change', cb)
+}
+const isPhone = () => window.matchMedia(PHONE).matches
 
 /** Local free state for a food while a change is in flight or until the next summary confirms it. */
 interface Override {
@@ -36,35 +44,6 @@ export interface ServicePanelProps {
   onChanged: () => void
   /** The staff sign-in ran out. */
   onExpired: () => void
-}
-
-function Figures({ item }: { item: Item }) {
-  if (item.wanted === 0) return <p className="s-svc__figs s-svc__figs--none">{t.nobody}</p>
-  return (
-    <p className="s-svc__figs">
-      <span>{t.wanted(item.wanted)}</span>
-      <span className="s-svc__fig" data-k="got">{t.got(item.got)}</span>
-      {item.missed > 0 && (
-        <span className="s-svc__fig" data-k="missed">{t.ranOut(item.missed)}</span>
-      )}
-      {item.waiting > 0 && (
-        <span className="s-svc__fig" data-k="waiting">{t.waiting(item.waiting)}</span>
-      )}
-    </p>
-  )
-}
-
-/** got / ran out / waiting as parts of everyone who wanted this food. The figures line is its text. */
-function Bar({ item }: { item: Item }) {
-  const total = Math.max(1, item.wanted)
-  const part = (n: number) => `${(n / total) * 100}%`
-  return (
-    <span className="s-svc__bar" aria-hidden="true">
-      <span className="s-svc__seg" data-k="got" style={{ width: part(item.got) }} />
-      <span className="s-svc__seg" data-k="missed" style={{ width: part(item.missed) }} />
-      <span className="s-svc__seg" data-k="waiting" style={{ width: part(item.waiting) }} />
-    </span>
-  )
 }
 
 export function ServicePanel({ service, freeList, token, onChanged, onExpired }: ServicePanelProps) {
@@ -137,113 +116,31 @@ export function ServicePanel({ service, freeList, token, onChanged, onExpired }:
     return Number.isNaN(d.getTime()) ? null : d.toLocaleTimeString([], timeFmt)
   }
 
+  const isFreeNow = (item: Item) => overrides[item.item_id]?.free ?? item.free
+
   return (
     <section className="s-svc" aria-labelledby="s-svc-h">
       <div className="s-svc__head">
         <h2 id="s-svc-h" className="s-sec-title">
           {t.heading}
         </h2>
-        <p className="s-sec-sub">{t.sub}</p>
+        <p className="s-sec-sub">{sc.sub}</p>
       </div>
 
       {!service ? (
         <p className="s-hint s-hint--empty s-svc__none">{t.none}</p>
       ) : (
         <>
-          <div className="s-svc__status">
-            <p className="s-svc__line">
-              <strong>{t.status(service.checked_in, service.packed)}</strong> {t.outcome(service.got, service.missed)}
-            </p>
-            <BrushProgress
-              className="s-svc__brush"
-              value={service.packed > 0 ? service.checked_in / service.packed : 0}
-              height={18}
-              label={t.checkLabel}
-            />
-            <p className="s-svc__left">
-              {service.packed - service.checked_in > 0 ? t.waitingCount(service.packed - service.checked_in) : t.allIn}
-            </p>
-          </div>
-
-          <div className="s-svc__groups">
-            {TRAY_ORDER.map((c) => {
-              const items = service.items.filter((i) => i.component === c)
-              if (items.length === 0) return null
-              const headId = `s-svc-${c}`
-              return (
-                <section key={c} className="s-tg s-svc__group" data-group={c} aria-labelledby={headId}>
-                  <div className="s-tg__head">
-                    {createElement(foodGroupIcon(c), { className: 's-tg__icon', width: 22, height: 22 })}
-                    <h3 id={headId} className="s-tg__name">
-                      {groupNames[c]}
-                    </h3>
-                  </div>
-                  <ul className="s-svc__rows">
-                    {items.map((item) => {
-                      const o = overrides[item.item_id]
-                      const isFree = o ? o.free : item.free
-                      const sending = !!o?.sending
-                      const since = isFree && !sending ? sinceOf(item.item_id) : null
-                      return (
-                        <li key={item.item_id} className="s-svc__row" data-free={isFree || undefined}>
-                          <div className="s-svc__main">
-                            <div className="s-svc__title">
-                              <span className="s-svc__name">{item.name}</span>
-                              <AnimatePresence initial={false}>
-                                {isFree && (
-                                  <motion.span
-                                    key="free"
-                                    className="s-svc__pill"
-                                    initial={reduce ? { opacity: 0 } : { opacity: 0, scale: 0.6 }}
-                                    animate={{ opacity: 1, scale: 1 }}
-                                    exit={reduce ? { opacity: 0 } : { opacity: 0, scale: 0.6 }}
-                                    transition={reduce ? { duration: 0.15 } : pop}
-                                  >
-                                    {t.freeNow}
-                                  </motion.span>
-                                )}
-                              </AnimatePresence>
-                            </div>
-                            <Figures item={item} />
-                            {item.wanted > 0 && <Bar item={item} />}
-                            {since && <p className="s-svc__since">{t.freeSince(since)}</p>}
-                          </div>
-                          <div className="s-svc__act">
-                            {isFree ? (
-                              <motion.button
-                                type="button"
-                                className="s-svc__btn s-svc__btn--end"
-                                aria-label={t.endFreeLabel(item.name)}
-                                disabled={sending}
-                                aria-busy={sending || undefined}
-                                onClick={() => void setFree(item, false)}
-                                whileTap={reduce ? undefined : { scale: 0.94, transition: tap }}
-                              >
-                                {sending ? t.sending : t.endFree}
-                              </motion.button>
-                            ) : (
-                              <motion.button
-                                type="button"
-                                className="s-svc__btn"
-                                aria-label={t.makeFreeLabel(item.name)}
-                                aria-haspopup={item.waiting > 0 ? 'dialog' : undefined}
-                                disabled={sending}
-                                aria-busy={sending || undefined}
-                                onClick={(e) => ask(item, e.currentTarget)}
-                                whileTap={reduce ? undefined : { scale: 0.94, transition: tap }}
-                              >
-                                {sending ? t.sending : t.makeFree}
-                              </motion.button>
-                            )}
-                          </div>
-                        </li>
-                      )
-                    })}
-                  </ul>
-                </section>
-              )
-            })}
-          </div>
+          <CheckInSummary service={service} />
+          <FoodList
+            items={service.items}
+            isFree={isFreeNow}
+            overrides={overrides}
+            sinceOf={sinceOf}
+            reduce={reduce}
+            onMakeFree={ask}
+            onUndo={(item) => void setFree(item, false)}
+          />
         </>
       )}
 
@@ -290,5 +187,86 @@ export function ServicePanel({ service, freeList, token, onChanged, onExpired }:
         )}
       </dialog>
     </section>
+  )
+}
+
+const groupRank = (c: Item['component']) => TRAY_ORDER.indexOf(c)
+
+/** Most ran out first, then most still waiting, then most wanted; ties keep tray order. */
+function rank(a: Item, b: Item) {
+  return b.missed - a.missed || b.waiting - a.waiting || b.wanted - a.wanted || groupRank(a.component) - groupRank(b.component)
+}
+
+interface FoodListProps {
+  items: Item[]
+  isFree: (item: Item) => boolean
+  overrides: Record<string, Override>
+  sinceOf: (id: string) => string | null
+  reduce: boolean
+  onMakeFree: (item: Item, el: HTMLElement) => void
+  onUndo: (item: Item) => void
+}
+
+function FoodList({ items, isFree, overrides, sinceOf, reduce, onMakeFree, onUndo }: FoodListProps) {
+  const [open, setOpen] = useState(false)
+  const listId = useId()
+  const first = useSyncExternalStore(subscribePhone, isPhone, () => false) ? FIRST_PHONE : FIRST
+  const sorted = useMemo(() => {
+    const packed = items.filter((i) => i.wanted > 0).sort(rank)
+    const nobody = items.filter((i) => i.wanted === 0).sort((a, b) => groupRank(a.component) - groupRank(b.component))
+    return [...packed, ...nobody]
+  }, [items])
+  const scale = Math.max(1, ...items.map((i) => i.wanted))
+
+  // Folded: the first few packed foods, plus any food that is free or was just changed here,
+  // so a button never vanishes from under the person who pressed it.
+  const shown = new Set<string>()
+  sorted.filter((i) => i.wanted > 0).slice(0, first).forEach((i) => shown.add(i.item_id))
+  sorted.forEach((i) => {
+    if (isFree(i) || overrides[i.item_id]) shown.add(i.item_id)
+  })
+  const hidden = sorted.filter((i) => !shown.has(i.item_id))
+  const visible = open ? sorted : sorted.filter((i) => shown.has(i.item_id))
+
+  return (
+    <div className="s-svc__foods">
+      <p className="s-svc__caption" aria-hidden="true">
+        {sc.listCaption}
+      </p>
+      <ul id={listId} className="s-svc__rows" aria-label={sc.listLabel}>
+        {visible.map((item) => {
+          const o = overrides[item.item_id]
+          const free = isFree(item)
+          const sending = !!o?.sending
+          return (
+            <ServiceRow
+              key={item.item_id}
+              item={item}
+              scale={scale}
+              isFree={free}
+              sending={sending}
+              since={free && !sending ? sinceOf(item.item_id) : null}
+              reduce={reduce}
+              onMakeFree={(el) => onMakeFree(item, el)}
+              onUndo={() => onUndo(item)}
+            />
+          )
+        })}
+      </ul>
+      {hidden.length > 0 && (
+        <button
+          type="button"
+          className="s-svc__more"
+          aria-expanded={open}
+          aria-controls={listId}
+          onClick={() => setOpen((v) => !v)}
+        >
+          <svg className="s-svc__more-icon" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+            <path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+          {open ? sc.showFewer : sc.showAll(hidden.length, hidden.filter((i) => i.wanted === 0).length)}
+        </button>
+      )}
+    </div>
   )
 }
